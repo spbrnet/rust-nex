@@ -65,7 +65,7 @@ fn gen_serialize_data_struct(
             let ident = f.ident.as_ref().unwrap();
 
             serialize_content.append_all(quote! {
-                self.#ident.serialize(writer)?;
+                rnex_core::rmc::structures::RmcSerialize::serialize(&self.#ident, writer)?;
             })
         }
 
@@ -143,7 +143,7 @@ fn gen_serialize_data_struct(
 
         quote! {
             #pre_inner
-            rust_nex::rmc::structures::rmc_struct::write_struct(writer, #version, |mut writer|{
+            rnex_core::rmc::structures::rmc_struct::write_struct(writer, #version, |mut writer|{
                 #serialize_base_content
             })?;
 
@@ -176,7 +176,7 @@ fn gen_serialize_data_struct(
 
         quote! {
             #pre_inner
-            Ok(rust_nex::rmc::structures::rmc_struct::read_struct(reader, #version, move |mut reader|{
+            Ok(rnex_core::rmc::structures::rmc_struct::read_struct(reader, #version, move |mut reader|{
                 #deserialize_base_content
             })?)
         }
@@ -235,7 +235,7 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
                             let name = &field.ident;
 
                             base.append_all(quote!{
-                                #name: <#ty as rust_nex::rmc::structures::RmcSerialize>::deserialize(reader)?,
+                                #name: <#ty as rnex_core::rmc::structures::RmcSerialize>::deserialize(reader)?,
                             });
                         }
 
@@ -248,7 +248,7 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
                             let ty = &field.ty;
 
                             base.append_all(quote!{
-                                <#ty as rust_nex::rmc::structures::RmcSerialize>::deserialize(reader)?,
+                                <#ty as rnex_core::rmc::structures::RmcSerialize>::deserialize(reader)?,
                             });
                         }
 
@@ -260,7 +260,7 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
                 };
 
                 let mut se_with_fields = quote! {
-                    <#ty as rust_nex::rmc::structures::RmcSerialize>::serialize(&#val, writer)?;
+                    <#ty as rnex_core::rmc::structures::RmcSerialize>::serialize(&#val, writer)?;
                 };
 
                 match &variant.fields {
@@ -270,7 +270,7 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
                             let name = &field.ident;
 
                             se_with_fields.append_all(quote!{
-                                <#ty as rust_nex::rmc::structures::RmcSerialize>::serialize(#name ,writer)?;
+                                <#ty as rnex_core::rmc::structures::RmcSerialize>::serialize(#name ,writer)?;
                             });
                         }
                     }
@@ -281,7 +281,7 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
                             let ident = Ident::new(&format!("val_{}", i), Span::call_site());
 
                             se_with_fields.append_all(quote!{
-                                <#ty as rust_nex::rmc::structures::RmcSerialize>::serialize(#ident, writer)?;
+                                <#ty as rnex_core::rmc::structures::RmcSerialize>::serialize(#ident, writer)?;
                             });
                         }
                     }
@@ -344,9 +344,9 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
             };
 
             let deserialize_base_content = quote! {
-                let val: Self = match <#ty as rust_nex::rmc::structures::RmcSerialize>::deserialize(reader)?{
+                let val: Self = match <#ty as rnex_core::rmc::structures::RmcSerialize>::deserialize(reader)?{
                     #inner_match_de
-                    v => return Err(rust_nex::rmc::structures::Error::UnexpectedValue(v as _))
+                    v => return Err(rnex_core::rmc::structures::Error::UnexpectedValue(v as _))
                 };
 
                 Ok(val)
@@ -364,14 +364,14 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
     let ident = derive_input.ident;
 
     let tokens = quote! {
-        impl rust_nex::rmc::structures::RmcSerialize for #ident{
-            fn serialize(&self, writer: &mut dyn ::std::io::Write) -> rust_nex::rmc::structures::Result<()>{
+        impl rnex_core::rmc::structures::RmcSerialize for #ident{
+            fn serialize(&self, writer: &mut dyn ::std::io::Write) -> rnex_core::rmc::structures::Result<()>{
                 #serialize_base_content
 
 
             }
 
-            fn deserialize(reader: &mut dyn ::std::io::Read) -> rust_nex::rmc::structures::Result<Self>{
+            fn deserialize(reader: &mut dyn ::std::io::Read) -> rnex_core::rmc::structures::Result<Self>{
                 #deserialize_base_content
             }
         }
@@ -511,8 +511,8 @@ pub fn rmc_struct(attr: TokenStream, input: TokenStream) -> TokenStream {
 
         }
 
-        impl rust_nex::rmc::protocols::RmcCallable for #struct_name{
-            async fn rmc_call(&self, remote_response_connection: &rust_nex::util::SendingBufferConnection, protocol_id: u16, method_id: u32, call_id: u32, rest: Vec<u8>){
+        impl rnex_core::rmc::protocols::RmcCallable for #struct_name{
+            async fn rmc_call(&self, remote_response_connection: &rnex_core::util::SendingBufferConnection, protocol_id: u16, method_id: u32, call_id: u32, rest: Vec<u8>){
                 <Self as #ident>::rmc_call(self, remote_response_connection, protocol_id, method_id, call_id, rest).await;
             }
         }
