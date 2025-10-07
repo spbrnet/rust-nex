@@ -81,7 +81,9 @@ impl SplittableBufferConnection {
                         }
                     }
                 }
-                stream.shutdown().await;
+                if let Err(e) = stream.shutdown().await{
+                    error!("failed to shut down stream: {}", e);
+                }
             });
         }
 

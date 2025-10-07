@@ -2,17 +2,11 @@
 use rnex_core::reggie::UnitPacketRead;
 use rnex_core::reggie::UnitPacketWrite;
 use rnex_core::rmc::structures::RmcSerialize;
-use std::env;
-use std::ffi::CStr;
-use std::io::{Read, Write};
-use std::net::{Ipv4Addr, SocketAddrV4};
-use std::sync::{Arc, OnceLock};
+use std::net::SocketAddrV4;
+use std::sync::Arc;
 use std::time::Duration;
-use bytemuck::{Pod, Zeroable};
-use log::{error, warn};
-use once_cell::sync::Lazy;
-use tokio::net::{TcpSocket, TcpStream};
-use tokio::sync::RwLock;
+use log::error;
+use tokio::net::TcpStream;
 use tokio::task;
 use tokio::time::sleep;
 use prudpv1::executables::common::{FORWARD_DESTINATION, EDGE_NODE_HOLDER};
@@ -110,4 +104,5 @@ async fn main() {
             }
         });
     }
+    drop(conn);
 }

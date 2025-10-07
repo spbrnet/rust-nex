@@ -13,38 +13,24 @@ v-byte-helpers = { git = "https://github.com/DJMrTV/VByteMacros", version = "0.1
 simplelog = "0.12.2"
 chrono = "0.4.39"
 log = "0.4.25"
-anyhow = "1.0.95"
 rand = "0.8.5"
 
 hmac = "0.12.1"
 md-5 = "^0.10.6"
 tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread", "net", "sync", "fs"] }
-tokio-stream = { version =  "0.1.17", features = ["io-util"] }
 tonic = "0.12.3"
-prost = "0.13.4"
 hex = "0.4.3"
 
 macros = { path = "../macros" }
 rocket = { version =  "0.5.1", features = ["json", "serde_json"] }
-serde = { version = "1.0.217", features = ["derive"] }
 async-trait = "0.1.86"
 paste = "1.0.15"
 typenum = "1.18.0"
-futures = "0.3.31"
 reqwest = "0.12.18"
 json = "0.12.4"
 ctrlc = "3.4.7"
-rsa = "0.9.8"
-sha2 = "0.10.9"
-chacha20 = "0.9.1"
 
-rustls = "0.23.27"
 
-rustls-pki-types = "1.12.0"
-rustls-webpki = "0.103.3"
-tokio-rustls = "0.26.2"
-tokio-tungstenite = "0.27.0"
-tungstenite = "0.27.0"
 
 
 [[bin]]

@@ -39,6 +39,7 @@ impl RmcProtocolData{
         // boilerplate tokens which all raw traits need
         quote!{
             #[doc(hidden)]
+            #[allow(unused_must_use)]
             pub trait #raw_name: #name
         }.to_tokens(tokens);
 
@@ -209,6 +210,7 @@ impl RmcProtocolData{
         // boilerplate tokens which all raw traits need
         quote!{
             #[doc(hidden)]
+            #[allow(unused_must_use)]
             pub trait #remote_name: rnex_core::rmc::protocols::HasRmcConnection
         }.to_tokens(tokens);
 

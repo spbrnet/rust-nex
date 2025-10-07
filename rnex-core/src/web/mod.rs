@@ -13,7 +13,7 @@ struct RnexApiAuth;
 impl<'r> FromRequest<'r> for RnexApiAuth{
 
     type Error = ();
-    async fn from_request<'a>(request: &'r Request<'a>) -> Outcome<Self, Self::Error> {
+    async fn from_request<'a>(_request: &'r Request<'a>) -> Outcome<Self, Self::Error> {
         Outcome::Success(RnexApiAuth)
     }
 }

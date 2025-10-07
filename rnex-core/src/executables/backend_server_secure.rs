@@ -1,22 +1,20 @@
 use std::io::Cursor;
 use rnex_core::rmc::structures::RmcSerialize;
-use rnex_core::reggie::{RemoteEdgeNodeHolder, UnitPacketRead};
+use rnex_core::reggie::UnitPacketRead;
 use std::net::SocketAddrV4;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 use log::{error, info};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 use tokio::task;
 use rnex_core::common::setup;
 use rnex_core::executables::common::{OWN_IP_PRIVATE, SERVER_PORT};
 use rnex_core::nex::matchmake::MatchmakeManager;
 use rnex_core::nex::remote_console::RemoteConsole;
 use rnex_core::nex::user::User;
-use rnex_core::reggie::EdgeNodeHolderConnectOption::DontRegister;
-use rnex_core::rmc::protocols::{new_rmc_gateway_connection, OnlyRemote};
+use rnex_core::rmc::protocols::new_rmc_gateway_connection;
 use rnex_core::rnex_proxy_common::ConnectionInitData;
 use rnex_core::rmc::protocols::RemoteInstantiatable;
-use rnex_core::util::SplittableBufferConnection;
 
 #[tokio::main]
 async fn main() {
@@ -35,7 +33,7 @@ async fn main() {
 
     MatchmakeManager::initialize_garbage_collect_thread(weak_mmm).await;
 
-    while let Ok((mut stream, addr)) = listen.accept().await {
+    while let Ok((mut stream, _addr)) = listen.accept().await {
         let buffer = match stream.read_buffer().await{
             Ok(v) => v,
             Err(e) => {

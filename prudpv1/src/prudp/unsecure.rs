@@ -78,7 +78,7 @@ impl CryptoHandlerConnectionInstance for UnsecureInstance {
         packet.calculate_and_assign_signature(self.key, None, Some(self.self_signature));
     }
 
-    fn verify_packet(&self, packet: &PRUDPV1Packet) -> bool {
+    fn verify_packet(&self, _packet: &PRUDPV1Packet) -> bool {
         true
     }
 }

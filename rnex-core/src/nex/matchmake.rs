@@ -203,7 +203,7 @@ impl ExtendedMatchmakeSession{
             };
 
 
-            let other_pid = other_conn.pid;
+            // let other_pid = other_conn.pid;
             /*if other_pid == self.session.gathering.owner_pid &&
                 joining_pid == self.session.gathering.owner_pid{
                 continue;
@@ -341,7 +341,7 @@ impl ExtendedMatchmakeSession{
     }
 
     pub async fn migrate_host(&mut self, initiator_pid: u32) -> Result<(), ErrorCode>{
-        let players: Vec<_> = self.connected_players.iter().filter_map(|p| p.upgrade()).collect();
+        // let players: Vec<_> = self.connected_players.iter().filter_map(|p| p.upgrade()).collect();
 
         self.session.gathering.host_pid = self.session.gathering.owner_pid;
 

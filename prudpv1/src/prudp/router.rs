@@ -1,14 +1,12 @@
-use std::{env, io};
+use std::io;
 use std::io::Cursor;
 use std::marker::PhantomData;
 use tokio::net::UdpSocket;
 use std::net::{SocketAddr, SocketAddrV4};
 use std::net::SocketAddr::V4;
 use std::sync::{Arc, Weak};
-use std::sync::atomic::{AtomicBool};
 use std::time::Duration;
 use tokio::task::JoinHandle;
-use once_cell::sync::Lazy;
 use log::{error, info};
 use thiserror::Error;
 use tokio::select;
@@ -19,16 +17,11 @@ use crate::prudp::packet::{PRUDPV1Packet};
 use rnex_core::prudp::virtual_port::VirtualPort;
 use crate::prudp::router::Error::VirtualPortTaken;
 
-static SERVER_DATAGRAMS: Lazy<u8> = Lazy::new(||{
-    env::var("SERVER_DATAGRAM_COUNT").ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(1)
-});
 
 
 pub struct Router {
     endpoints: RwLock<[Option<Arc<dyn AnyInternalSocket>>; 16]>,
-    running: AtomicBool,
+    //running: AtomicBool,
     socket: Arc<UdpSocket>,
     _no_outside_construction: PhantomData<()>
 }
@@ -114,7 +107,7 @@ impl Router {
 
         let own_impl = Router {
             endpoints: Default::default(),
-            running: AtomicBool::new(true),
+            // running: AtomicBool::new(true),
             socket: socket.clone(),
             _no_outside_construction: Default::default()
         };

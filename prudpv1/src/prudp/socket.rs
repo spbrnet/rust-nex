@@ -679,7 +679,7 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
 
         self.send_packet_unbuffered(address, packet).await;
 
-        let Some(connect_ack_packet) = recv.recv().await else {
+        let Some(_connect_ack_packet) = recv.recv().await else {
             error!("what");
             return None;
         };

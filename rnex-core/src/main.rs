@@ -11,40 +11,15 @@
 extern crate self as rust_nex;
 
 use crate::nex::account::Account;
-use crate::nex::auth_handler::{AuthHandler, RemoteAuthClientProtocol};
-use crate::nex::remote_console::RemoteConsole;
-use crate::nex::user::{RemoteUserProtocol, User};
-use crate::rmc::protocols::auth::Auth;
-use crate::rmc::protocols::auth::RawAuth;
-use crate::rmc::protocols::auth::RawAuthInfo;
-use crate::rmc::protocols::auth::RemoteAuth;
-use crate::rmc::protocols::matchmake_extension::RemoteMatchmakeExtension;
-use crate::rmc::protocols::{new_rmc_gateway_connection, OnlyRemote, RemoteInstantiatable};
-use crate::rmc::response::ErrorCode;
-use crate::rmc::structures::any::Any;
-use crate::rmc::structures::connection_data::ConnectionData;
-use crate::rmc::structures::matchmake::{CreateMatchmakeSessionParam, Gathering, MatchmakeParam, MatchmakeSession};
-use crate::rmc::structures::qresult::QResult;
 use chrono::{Local, SecondsFormat};
-use log::{error, info};
-use macros::rmc_struct;
 use once_cell::sync::Lazy;
 use simplelog::{
     ColorChoice, CombinedLogger, Config, LevelFilter, TermLogger, TerminalMode, WriteLogger,
 };
 use std::fs::File;
-use std::marker::PhantomData;
-use std::net::{Ipv4Addr, SocketAddrV4};
-use std::ops::{BitAnd, BitOr};
-use std::str::FromStr;
-use std::sync::{Arc, Once, Weak};
-use std::time::Duration;
+use std::net::{Ipv4Addr};
+use std::sync::Once;
 use std::{env, fs};
-use std::sync::atomic::AtomicU32;
-use tokio::task::JoinHandle;
-use crate::kerberos::KerberosDateTime;
-use crate::nex::matchmake::MatchmakeManager;
-use crate::rmc::protocols::secure::RemoteSecure;
 
 mod prudp;
 pub mod rmc;

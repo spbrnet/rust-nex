@@ -49,10 +49,10 @@ pub trait RmcSerialize{
 }
 
 impl RmcSerialize for (){
-    fn serialize(&self, writer: &mut dyn Write) -> Result<()> {
+    fn serialize(&self, _writer: &mut dyn Write) -> Result<()> {
         Ok(())
     }
-    fn deserialize(reader: &mut dyn Read) -> Result<Self> {
+    fn deserialize(_reader: &mut dyn Read) -> Result<Self> {
         Ok(())
     }
 

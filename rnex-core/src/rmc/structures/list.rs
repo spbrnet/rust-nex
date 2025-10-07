@@ -1,8 +1,6 @@
-use std::array::from_fn;
 use std::io::{Read, Write};
 use std::mem::MaybeUninit;
 use bytemuck::bytes_of;
-use serde::Serialize;
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 use crate::rmc::structures::RmcSerialize;
 

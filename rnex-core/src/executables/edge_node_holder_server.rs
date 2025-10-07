@@ -1,7 +1,6 @@
 use std::io::Cursor;
 use std::net::SocketAddrV4;
 use std::sync::{Arc, Weak};
-use log::error;
 use macros::rmc_struct;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
@@ -56,7 +55,7 @@ async fn main() {
 
     let holder: Arc<DataHolder> = Default::default();
 
-    while let Ok((mut stream, addr)) = listen.accept().await {
+    while let Ok((stream, _addr)) = listen.accept().await {
         let mut conn: SplittableBufferConnection = stream.into();
 
         let Some(data) = conn.recv().await else {

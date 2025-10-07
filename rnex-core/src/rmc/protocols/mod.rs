@@ -153,6 +153,7 @@ macro_rules! define_rmc_proto {
         $($protocol:path),*
     }) => {
         paste::paste!{
+            #[allow(unused_variables)]
             pub trait [<Local $name>]: std::any::Any $( + [<Raw $protocol>] + $protocol)* {
                 async fn rmc_call(&self, remote_response_connection: &rnex_core::util::SendingBufferConnection, protocol_id: u16, method_id: u32, call_id: u32, rest: Vec<u8>){
                     match protocol_id{
