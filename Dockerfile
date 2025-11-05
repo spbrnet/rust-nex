@@ -9,12 +9,26 @@ RUN apk add --no-cache protobuf-dev git musl-dev lld openssl-dev openssl-libs-st
 RUN git submodule update --init --recursive
 
 RUN OPENSSL_LIB_DIR=/usr/lib OPENSSL_INCLUDE_DIR=/usr/include/openssl OPENSSL_STATIC=1 RUSTFLAGS="-C relocation-model=static -C linker=ld.lld" cargo test --target x86_64-unknown-linux-musl
-RUN OPENSSL_LIB_DIR=/usr/lib OPENSSL_INCLUDE_DIR=/usr/include/openssl OPENSSL_STATIC=1 RUSTFLAGS="-C relocation-model=static -C linker=ld.lld" cargo build --profile prod --target x86_64-unknown-linux-musl
+RUN OPENSSL_LIB_DIR=/usr/lib OPENSSL_INCLUDE_DIR=/usr/include/openssl OPENSSL_STATIC=1 RUSTFLAGS="-C relocation-model=static -C linker=ld.lld" cargo build --profile prod --target x86_64-unknown-linux-musl # 
 
-FROM scratch AS final
+FROM scratch AS node-holder
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/prod/edge_node_holder_server /edge_node_holder_server
+ENTRYPOINT ["/edge_node_holder_server"]
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/prod/splatoon-server-rust /splatoon-server-rust
 
-# Command to run the application
-ENTRYPOINT ["/splatoon-server-rust"]
+FROM scratch AS proxy-insecure-v1
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/prod/proxy_insecure /proxy_insecure
+ENTRYPOINT ["/proxy_insecure"]
+
+FROM scratch AS proxy-secure-v1
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/prod/proxy_secure /proxy_secure
+ENTRYPOINT ["/proxy_secure"]
+
+
+FROM scratch AS backend-auth
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/prod/backend_server_insecure /backend_server_insecure
+ENTRYPOINT ["/backend_server_secure"]
+
+FROM scratch AS backend-secure
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/prod/backend_server_secure /backend_server_secure
+ENTRYPOINT ["/backend_server_secure"]
