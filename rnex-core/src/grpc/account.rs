@@ -137,20 +137,3 @@ impl Client{
     }
 }
 */
-#[cfg(test)]
-mod test{
-    use crate::grpc::account::Client;
-
-    #[tokio::test]
-    async fn test(){
-        dotenv::dotenv().ok();
-
-        let mut client = Client::new().await.unwrap();
-
-        let cli = client.get_nex_password(1699562916).await.unwrap();
-
-        println!("{:?}", cli);
-    }
-
-
-}
