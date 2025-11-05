@@ -9,7 +9,7 @@ RUN apk add --no-cache protobuf-dev git musl-dev lld openssl-dev openssl-libs-st
 RUN git submodule update --init --recursive
 
 RUN OPENSSL_LIB_DIR=/usr/lib OPENSSL_INCLUDE_DIR=/usr/include/openssl OPENSSL_STATIC=1 RUSTFLAGS="-C relocation-model=static -C linker=ld.lld" cargo test --target x86_64-unknown-linux-musl
-RUN OPENSSL_LIB_DIR=/usr/lib OPENSSL_INCLUDE_DIR=/usr/include/openssl OPENSSL_STATIC=1 RUSTFLAGS="-C relocation-model=static -C linker=ld.lld" cargo build --target x86_64-unknown-linux-musl # 
+RUN OPENSSL_LIB_DIR=/usr/lib OPENSSL_INCLUDE_DIR=/usr/include/openssl OPENSSL_STATIC=1 RUSTFLAGS="-C relocation-model=static -C linker=ld.lld" cargo build --release --target x86_64-unknown-linux-musl # 
 
 FROM scratch AS node-holder
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/edge_node_holder_server /edge_node_holder_server
