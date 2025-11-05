@@ -6,8 +6,8 @@ use crate::nex::account::Account;
 pub static OWN_IP_PRIVATE: Lazy<Ipv4Addr> = Lazy::new(|| {
     env::var("SERVER_IP")
         .ok()
-        .and_then(|s| s.parse().ok())
-        .expect("SERVER_IP not specified")
+        .map(|s| s.parse().expect("invalid ip address"))
+        .unwrap_or(Ipv4Addr::UNSPECIFIED)
 });
 
 pub static OWN_IP_PUBLIC: Lazy<Ipv4Addr> = Lazy::new(|| {
