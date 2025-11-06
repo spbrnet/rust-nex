@@ -17,7 +17,6 @@ pub struct PRUDPSockAddr{
 
 
 impl PRUDPSockAddr{
-
     pub fn new(regular_socket_addr: SocketAddrV4, virtual_port: VirtualPort) -> Self{
         Self{
             regular_socket_addr,

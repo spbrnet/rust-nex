@@ -2,6 +2,16 @@ use std::env;
 use std::net::Ipv4Addr;
 use once_cell::sync::Lazy;
 use crate::nex::account::Account;
+use std::error::Error;
+
+const IP_REQ_SERVICE_URL: &str = "https://ipinfo.io/ip";
+
+
+
+fn try_get_ip() -> Result<Ipv4Addr, Box<dyn Error>> {
+    let req = reqwest::blocking::get(IP_REQ_SERVICE_URL)?;
+    Ok(req.text()?.parse()?)
+}
 
 pub static OWN_IP_PRIVATE: Lazy<Ipv4Addr> = Lazy::new(|| {
     env::var("SERVER_IP")
@@ -13,8 +23,10 @@ pub static OWN_IP_PRIVATE: Lazy<Ipv4Addr> = Lazy::new(|| {
 pub static OWN_IP_PUBLIC: Lazy<Ipv4Addr> = Lazy::new(|| {
     env::var("SERVER_IP_PUBLIC")
         .ok()
-        .and_then(|s| s.parse().ok())
-        .expect("SERVER_IP_PUBLIC not specified")
+        .map(|s| s.parse().expect("invalid ip address"))
+        .unwrap_or_else(||{
+            try_get_ip().unwrap()
+        })
 });
 
 pub static SERVER_PORT: Lazy<u16> = Lazy::new(|| {
