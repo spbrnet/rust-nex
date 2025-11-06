@@ -2,7 +2,7 @@ FROM rust:alpine AS dev-container
 
 RUN apk add --no-cache protobuf-dev git musl-dev lld openssl-dev openssl-libs-static
 
-FROM dev-container AS builder
+FROM build-container AS builder
 
 WORKDIR /app
 
@@ -36,4 +36,5 @@ COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/backend_server
 ENTRYPOINT ["/backend_server_secure"]
 
 # make sure the final output container is the dev container so that we can use it from the devcontainer.json
-FROM dev-container AS final
+FROM build-container AS dev-container
+RUN apk add openjdk21-jdk gcompat
