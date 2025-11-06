@@ -1,4 +1,4 @@
-FROM rust:alpine AS dev-container
+FROM rust:alpine AS build-container
 
 RUN apk add --no-cache protobuf-dev git musl-dev lld openssl-dev openssl-libs-static
 
