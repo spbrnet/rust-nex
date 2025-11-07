@@ -25,11 +25,11 @@ ENTRYPOINT ["/proxy_insecure"]
 FROM scratch AS proxy-secure-v1
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/proxy_secure /proxy_secure
 ENTRYPOINT ["/proxy_secure"]
-
-
+ 
+ 
 FROM scratch AS backend-auth
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/backend_server_insecure /backend_server_insecure
-ENTRYPOINT ["/backend_server_secure"]
+ENTRYPOINT ["/backend_server_insecure"]
 
 FROM scratch AS backend-secure
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/backend_server_secure /backend_server_secure
