@@ -1,6 +1,6 @@
 FROM rust:alpine AS build-container
 
-RUN apk add --no-cache protobuf-dev git musl-dev lld openssl-dev openssl-libs-static ca-certificates
+RUN apk add --no-cache protobuf-dev git musl-dev lld openssl-dev openssl-libs-static 
 
 FROM build-container AS builder
 
@@ -18,12 +18,16 @@ COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/edge_node_hold
 ENTRYPOINT ["/edge_node_holder_server"]
 
 
-FROM scratch AS proxy-insecure-v1
+FROM alpine:latest AS proxy-insecure-v1
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/proxy_insecure /proxy_insecure
+RUN apk add --no-cache ca-certificates
+RUN update-ca-certificates
 ENTRYPOINT ["/proxy_insecure"]
 
-FROM scratch AS proxy-secure-v1
+FROM alpine:latest AS proxy-secure-v1
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/proxy_secure /proxy_secure
+RUN apk add --no-cache ca-certificates
+RUN update-ca-certificates
 ENTRYPOINT ["/proxy_secure"]
  
  
