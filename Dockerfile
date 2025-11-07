@@ -1,6 +1,6 @@
 FROM rust:alpine AS build-container
 
-RUN apk add --no-cache protobuf-dev git musl-dev lld openssl-dev openssl-libs-static
+RUN apk add --no-cache protobuf-dev git musl-dev lld openssl-dev openssl-libs-static ca-certificates
 
 FROM build-container AS builder
 

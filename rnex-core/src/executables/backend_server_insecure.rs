@@ -21,7 +21,7 @@ pub static FORWARD_EDGE_NODE_HOLDER: Lazy<SocketAddrV4> = Lazy::new(||{
     env::var("FORWARD_EDGE_NODE_HOLDER")
         .ok()
         .and_then(|s| s.parse().ok())
-        .expect("SECURE_EDGE_NODE_HOLDER not set")
+        .expect("FORWARD_EDGE_NODE_HOLDER not set")
 });
 
 
