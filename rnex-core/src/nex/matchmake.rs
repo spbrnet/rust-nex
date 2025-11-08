@@ -253,8 +253,8 @@ impl ExtendedMatchmakeSession{
                 self.session.open_participation
             }
         } else {
-            !self.has_active_players()
-        }) & !self.has_active_players()
+            self.has_active_players()
+        }) & self.has_active_players()
     }
     #[inline]
     pub fn is_joinable(&self) -> bool{
