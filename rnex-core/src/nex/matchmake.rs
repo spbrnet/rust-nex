@@ -240,17 +240,21 @@ impl ExtendedMatchmakeSession{
             }).await;
         }
     }
+    pub fn has_active_players(&self) -> bool{
+        self.connected_players.iter().filter(|v| v.upgrade().is_some()).count() != 0
+    }
+
     #[inline]
     pub fn is_reachable(&self) -> bool{
         (if self.session.gathering.flags & PERSISTENT_GATHERING != 0{
-            if !self.connected_players.is_empty(){
+            if self.has_active_players(){
                 true
             } else {
                 self.session.open_participation
             }
         } else {
-            !self.connected_players.is_empty()
-        }) & !self.connected_players.is_empty()
+            !self.has_active_players()
+        }) & !self.has_active_players()
     }
     #[inline]
     pub fn is_joinable(&self) -> bool{
