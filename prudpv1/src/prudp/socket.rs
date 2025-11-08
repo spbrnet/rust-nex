@@ -7,7 +7,7 @@ use crate::prudp::packet::{PRUDPV1Header, PRUDPV1Packet, TypesFlags};
 use rnex_core::prudp::virtual_port::VirtualPort;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use async_trait::async_trait;
-use log::info;
+use log::{info, warn};
 use log::error;
 use rc4::StreamCipher;
 use v_byte_helpers::ReadExtensions;
@@ -347,6 +347,11 @@ impl<T: CryptoHandler> InternalSocket<T> {
             }
 
             for (send_time, packet) in &conn.unacknowleged_packets{
+                if *send_time < (Instant::now() - Duration::from_millis(3000)){
+                    warn!("failed to resend packet 5 times and never got response, destroying connection");
+                    conn.close_connection().await;
+                    break;
+                }
                 if *send_time < (Instant::now() - Duration::from_millis(500)){
                     info!("unacknowledged packet sat arround for more than 500 ms, resending");
                     conn.send_raw_packet(packet).await;
