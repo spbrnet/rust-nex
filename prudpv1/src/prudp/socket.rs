@@ -4,6 +4,7 @@ use crate::prudp::packet::PacketOption::{
     ConnectionSignature, FragmentId, MaximumSubstreamId, SupportedFunctions,
 };
 use crate::prudp::packet::{PRUDPV1Header, PRUDPV1Packet, TypesFlags};
+use md5::digest::generic_array::sequence;
 use rnex_core::prudp::virtual_port::VirtualPort;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use async_trait::async_trait;
@@ -626,6 +627,8 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                 return;
             }
 
+            info!("got ack");
+
             if let Some(conn) = self.get_connection(address).await {
                 let mut conn = conn.lock().await;
 
@@ -682,13 +685,18 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                             return;
                         };
                         collected_ids.push(additional_sequence_id);
-                        conn.unacknowleged_packets.retain_mut(|(_, up)| {
-                            !(
-                                collected_ids.iter().any(|id| up.header.sequence_id == *id) ||
-                                up.header.sequence_id < sequence_id
-                            )
-                        });
                     }
+
+                    println!("multiack new summary: \n\tup_till_id {}\n\tadditionals {:?}", sequence_id, collected_ids);
+                    println!("pre size: {}", conn.unacknowleged_packets.len());
+
+                    conn.unacknowleged_packets.retain_mut(|(_, up)| {
+                        !(
+                            collected_ids.iter().any(|id| up.header.sequence_id == *id) ||
+                            up.header.sequence_id < sequence_id
+                        )
+                    });
+                    println!("post size: {}", conn.unacknowleged_packets.len());
                 }
             } else {
                 error!("non connection acknowledgement packet on nonexistent connection...")
