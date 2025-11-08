@@ -91,6 +91,21 @@ impl<E: CryptoHandlerConnectionInstance> InternalConnection<E> {
     async fn send_raw_packet(&self, prudp_packet: &PRUDPV1Packet) {
         send_raw_prudp_to_sockaddr(&self.socket, self.socket_addr, prudp_packet).await;
     }
+
+    async fn delete_connection(&self){
+        let Some(conns) = self.connections.upgrade() else {
+            // this is fine as it implies the server has already quit, thus meaning that we dont
+            // have to remove ourselves from the server
+            return;
+        };
+
+        let mut conns = conns.lock().await;
+
+        conns.remove(&self.socket_addr);
+
+        // the connection will now drop as soon as we leave this due to no longer having a permanent
+        // reference
+    }
 }
 
 pub struct ExternalConnection {
@@ -172,6 +187,8 @@ pub(super) trait AnyInternalConnection:
     async fn close_connection(&mut self);
 }
 
+
+
 #[async_trait]
 impl<T: CryptoHandlerConnectionInstance> AnyInternalConnection for InternalConnection<T> {
     async fn send_data_packet(&mut self, data: Vec<u8>) {
@@ -202,6 +219,7 @@ impl<T: CryptoHandlerConnectionInstance> AnyInternalConnection for InternalConne
         self.unacknowleged_packets.push((Instant::now(), packet));
     }
 
+
     async fn close_connection(&mut self) {
         // jon confirmed that this should be a safe way to dc a client
 
@@ -228,18 +246,7 @@ impl<T: CryptoHandlerConnectionInstance> AnyInternalConnection for InternalConne
 
         self.send_raw_packet(&packet).await;
 
-        let Some(conns) = self.connections.upgrade() else {
-            // this is fine as it implies the server has already quit, thus meaning that we dont
-            // have to remove ourselves from the server
-            return;
-        };
-
-        let mut conns = conns.lock().await;
-
-        conns.remove(&self.socket_addr);
-
-        // the connection will now drop as soon as we leave this due to no longer having a permanent
-        // reference
+        self.delete_connection().await;
     }
 }
 
@@ -583,6 +590,7 @@ impl<T: CryptoHandler> InternalSocket<T> {
         self.send_packet_unbuffered(address, &response).await;
         self.send_packet_unbuffered(address, &response).await;
 
+        conn.delete_connection().await;
         //self.internal_connections.lock().await;
     }
 }

@@ -76,12 +76,12 @@ async fn main() {
                 tokio::select! {
                     data = conn.recv() => {
                         let Some(data) = data else {
-                            break;
+                            return;
                         };
 
                         if let Err(e) = stream.send_buffer(&data[..]).await{
                             error!("error sending data to backend: {}", e);
-                            break;
+                            return;
                         }
                     },
                     data = stream.read_buffer() => {
@@ -89,7 +89,7 @@ async fn main() {
                             Ok(d) => d,
                             Err(e) => {
                                 error!("error reveiving data from backend: {}", e);
-                                break;
+                                return;
                             }
                         };
                         
