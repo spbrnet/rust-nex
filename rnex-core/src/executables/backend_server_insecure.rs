@@ -1,19 +1,15 @@
-use rnex_core::reggie::{RemoteEdgeNodeHolder, UnitPacketRead};
-use log::{error, info};
+use rnex_core::reggie::RemoteEdgeNodeHolder;
 use once_cell::sync::Lazy;
 use rnex_core::common::setup;
-use std::{env};
-use std::io::Cursor;
+use rnex_core::rmc::structures::RmcSerialize;
+use std::env;
 use std::net::SocketAddrV4;
 use std::sync::Arc;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::task;
-use rnex_core::executables::common::{OWN_IP_PRIVATE, SECURE_SERVER_ACCOUNT, SERVER_PORT};
+use tokio::net::TcpStream;
+use rnex_core::executables::common::{SECURE_SERVER_ACCOUNT, new_simple_backend};
 use rnex_core::nex::auth_handler::AuthHandler;
 use rnex_core::reggie::EdgeNodeHolderConnectOption::DontRegister;
 use rnex_core::rmc::protocols::{new_rmc_gateway_connection, OnlyRemote};
-use rnex_core::rmc::structures::RmcSerialize;
-use rnex_core::rnex_proxy_common::ConnectionInitData;
 use rnex_core::util::SplittableBufferConnection;
 
 
@@ -38,39 +34,12 @@ async fn main() {
 
     let conn = new_rmc_gateway_connection(conn, |r| Arc::new(OnlyRemote::<RemoteEdgeNodeHolder>::new(r)));
 
-    let listen = TcpListener::bind(SocketAddrV4::new(*OWN_IP_PRIVATE, *SERVER_PORT)).await.unwrap();
-
-
-
-    while let Ok((mut stream, _addr)) = listen.accept().await {
-        let buffer = match stream.read_buffer().await{
-            Ok(v) => v,
-            Err(e) => {
-                error!("an error ocurred whilest reading connection data buffer: {:?}", e);
-                continue;
-            }
-        };
-
-        let user_connection_data = ConnectionInitData::deserialize(&mut Cursor::new(buffer));
-
-        let _user_connection_data = match user_connection_data{
-            Ok(v) => v,
-            Err(e) => {
-                error!("an error ocurred whilest reading connection data: {:?}", e);
-                continue;
-            }
-        };
+    new_simple_backend(move |_, _|{
         let controller = conn.clone();
-        task::spawn(async move {
-            info!("connection to secure backend established");
-            new_rmc_gateway_connection(stream.into(), |_| {
-                Arc::new(AuthHandler {
-                    destination_server_acct: &SECURE_SERVER_ACCOUNT,
-                    build_name: "branch:origin/project/wup-agmj build:3_8_15_2004_0",
-                    control_server: controller
-                })
-            });
-        });
-
-    }
+        Arc::new(AuthHandler {
+            destination_server_acct: &SECURE_SERVER_ACCOUNT,
+            build_name: "branch:origin/project/wup-agmj build:3_8_15_2004_0",
+            control_server: controller
+        })
+    }).await;
 }

@@ -1,8 +1,18 @@
 use std::env;
-use std::net::Ipv4Addr;
+use std::io::Cursor;
+use std::net::{Ipv4Addr, SocketAddrV4};
+use std::sync::Arc;
 use once_cell::sync::Lazy;
-use crate::nex::account::Account;
+use rnex_core::nex::account::Account;
+use rnex_core::rmc::protocols::{RmcCallable, RmcConnection, new_rmc_gateway_connection};
+use rnex_core::rnex_proxy_common::ConnectionInitData;
+use rnex_core::rmc::structures::RmcSerialize;
+use tokio::net::TcpListener;
+
 use std::error::Error;
+use log::error;
+
+use crate::reggie::UnitPacketRead;
 
 const IP_REQ_SERVICE_URL: &str = "https://ipinfo.io/ip";
 
@@ -48,4 +58,32 @@ pub static SECURE_SERVER_ACCOUNT: Lazy<Account> =
     Lazy::new(|| Account::new(2, "Quazal Rendez-Vous", &KERBEROS_SERVER_PASSWORD));
 
 
+pub async fn new_simple_backend<T: RmcCallable + Sync + Send + 'static,F>(mut creation_function: F)
+where
+    F: FnMut(ConnectionInitData, RmcConnection) -> Arc<T>,
+{
+    let listen = TcpListener::bind(SocketAddrV4::new(*OWN_IP_PRIVATE, *SERVER_PORT)).await.unwrap();
+    while let Ok((mut stream, _addr)) = listen.accept().await {
+        let buffer = match stream.read_buffer().await{
+            Ok(v) => v,
+            Err(e) => {
+                error!("an error ocurred whilest reading connection data buffer: {:?}", e);
+                continue;
+            }
+        };
 
+        let user_connection_data = ConnectionInitData::deserialize(&mut Cursor::new(buffer));
+
+        let user_connection_data = match user_connection_data{
+            Ok(v) => v,
+            Err(e) => {
+                error!("an error ocurred whilest reading connection data: {:?}", e);
+                continue;
+            }
+        };
+        let fun_ref = &mut creation_function;
+        new_rmc_gateway_connection(stream.into(), move |r|{
+            fun_ref(user_connection_data, r)
+        });
+    }
+}

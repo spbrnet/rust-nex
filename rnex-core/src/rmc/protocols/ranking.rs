@@ -1,6 +1,4 @@
-use macros::rmc_proto;
-use crate::rmc::response::ErrorCode;
-use macros::{method_id, rmc_struct, RmcSerialize};
+use macros::{rmc_struct, rmc_proto, RmcSerialize};
 
 #[derive(RmcSerialize, Debug, Default, Clone)]
 struct ResultsRange{
