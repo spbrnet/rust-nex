@@ -659,7 +659,7 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                     conn.unacknowleged_packets.retain_mut(|(_, up)| {
                         !(
                             collected_ids.iter().any(|id| up.header.sequence_id == *id) ||
-                            up.header.sequence_id < packet.header.sequence_id
+                            up.header.sequence_id <= packet.header.sequence_id
                         )
                     });
 
@@ -687,16 +687,12 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                         collected_ids.push(additional_sequence_id);
                     }
 
-                    println!("multiack new summary: \n\tup_till_id {}\n\tadditionals {:?}", sequence_id, collected_ids);
-                    println!("pre size: {}", conn.unacknowleged_packets.len());
-
                     conn.unacknowleged_packets.retain_mut(|(_, up)| {
                         !(
                             collected_ids.iter().any(|id| up.header.sequence_id == *id) ||
-                            up.header.sequence_id < sequence_id
+                            up.header.sequence_id <= sequence_id
                         )
                     });
-                    println!("post size: {}", conn.unacknowleged_packets.len());
                 }
             } else {
                 error!("non connection acknowledgement packet on nonexistent connection...")
