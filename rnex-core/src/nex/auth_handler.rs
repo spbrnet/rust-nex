@@ -162,6 +162,8 @@ mod test {
     use rnex_core::rmc::structures::RmcSerialize;
     use rnex_core::rmc::response::RMCResponse;
     use std::io::Cursor;
+
+
     
     #[test]
     fn test() {

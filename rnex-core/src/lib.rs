@@ -24,3 +24,7 @@ pub mod rnex_proxy_common;
 pub mod util;
 pub mod executables;
 pub use macros::*;
+
+pub mod config{
+    pub const FEATURE_HAS_STRUCT_HEADER: bool = cfg!(feature = "rmc_struct_header");
+}

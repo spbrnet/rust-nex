@@ -1,8 +1,8 @@
-use std::io;
+use std::{fmt, io};
 use std::io::{Read, Write};
 use std::string::FromUtf8Error;
 use thiserror::Error;
-
+use crate::rmc::structures::helpers::DummyWriter;
 //ideas for the future: make a proc macro library which allows generation of struct reads
 
 #[derive(Error, Debug)]
@@ -16,7 +16,9 @@ pub enum Error{
     #[error("version mismatch: {0}")]
     VersionMismatch(u8),
     #[error("an error occurred reading the station url")]
-    StationUrlInvalid
+    StationUrlInvalid,
+    #[error("error formatting text: {0}")]
+    FormatError(#[from] fmt::Error)
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -33,27 +35,42 @@ pub mod primitives;
 pub mod matchmake;
 pub mod variant;
 pub mod ranking;
-mod networking;
+pub mod networking;
+pub mod helpers;
 
 pub trait RmcSerialize{
-    fn serialize(&self, writer: &mut dyn Write) -> Result<()>;
-    fn deserialize(reader: &mut dyn Read) -> Result<Self> where Self: Sized;
+    fn serialize(&self, writer: &mut impl Write) -> Result<()>;
+    fn serialize_write_size(&self) -> Result<u32>{
+        let mut dummy = DummyWriter::new();
 
-    fn to_data(&self) -> Vec<u8>{
-        let mut data = Vec::new();
+        self.serialize(&mut dummy)?;
 
-        self.serialize(&mut data).expect("out of memory or something");
+        Ok(dummy.get_total_len())
+    }
+    fn deserialize(reader: &mut impl Read) -> Result<Self> where Self: Sized;
 
-        data
+    fn to_data(&self) -> Result<Vec<u8>>{
+        let mut data = Vec::with_capacity(
+            self.serialize_write_size()? as usize
+        );
+
+        self.serialize(&mut data)?;
+
+        debug_assert_eq!(self.serialize_write_size().unwrap(), data.len() as u32);
+
+        Ok(data)
     }
 }
 
 impl RmcSerialize for (){
-    fn serialize(&self, _writer: &mut dyn Write) -> Result<()> {
+    fn serialize(&self, _writer: &mut impl Write) -> Result<()> {
         Ok(())
     }
-    fn deserialize(_reader: &mut dyn Read) -> Result<Self> {
+    fn deserialize(_reader: &mut impl Read) -> Result<Self> {
         Ok(())
+    }
+    fn serialize_write_size(&self) -> Result<u32> {
+        Ok(0)
     }
 
     

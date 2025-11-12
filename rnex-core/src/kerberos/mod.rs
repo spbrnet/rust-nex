@@ -83,11 +83,11 @@ impl KerberosDateTime{
 }
 
 impl RmcSerialize for KerberosDateTime{
-    fn serialize(&self, writer: &mut dyn Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
         Ok(self.0.serialize(writer)?)
     }
 
-    fn deserialize(reader: &mut dyn Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         Ok(Self(u64::deserialize(reader)?))
     }
 }

@@ -48,7 +48,7 @@ impl Parse for ProtoInputParams {
 fn gen_serialize_data_struct(
     s: DataStruct,
     struct_attr: Option<&Attribute>,
-) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+) -> (proc_macro2::TokenStream, proc_macro2::TokenStream, proc_macro2::TokenStream) {
     let serialize_base_content = {
         let mut serialize_content = quote! {};
 
@@ -119,6 +119,29 @@ fn gen_serialize_data_struct(
         }
     };
 
+    let write_size = {
+        let mut size_content = quote! { 0 };
+
+        for f in &s.fields {
+
+
+            let ident = f.ident.as_ref().unwrap();
+            let ty = &f.ty;
+
+            size_content.append_all(quote! {
+                + rnex_core::rmc::structures::RmcSerialize::serialize_write_size(&self.#ident)?
+            })
+        }
+
+        size_content
+    };
+    let write_size = if let Some(_) = struct_attr {
+        quote!{ #write_size + if rnex_core::config::FEATURE_HAS_STRUCT_HEADER{ 5 } else { 0 } }
+    } else {
+        write_size
+    };
+
+
     // generate base with extends stuff
 
     let serialize_base_content = if let Some(attr) = struct_attr {
@@ -143,9 +166,18 @@ fn gen_serialize_data_struct(
 
         quote! {
             #pre_inner
-            rnex_core::rmc::structures::rmc_struct::write_struct(writer, #version, |mut writer|{
-                #serialize_base_content
-            })?;
+            rnex_core::rmc::structures::rmc_struct::write_struct(
+                writer,
+                #version,
+                rnex_core::rmc::structures::helpers::len_of_write(
+                    |writer|{
+                        #serialize_base_content
+                    }
+                ),
+                |writer|{
+                    #serialize_base_content
+                }
+            )?;
 
             Ok(())
         }
@@ -184,7 +216,13 @@ fn gen_serialize_data_struct(
         deserialize_base_content
     };
 
-    (serialize_base_content, deserialize_base_content)
+    let write_size = quote!{
+        fn serialize_write_size(&self) -> rnex_core::rmc::structures::Result<u32>{
+            Ok(#write_size)
+        }
+    };
+
+    (serialize_base_content, deserialize_base_content, write_size)
 }
 
 #[proc_macro_derive(RmcSerialize, attributes(extends, rmc_struct))]
@@ -210,7 +248,7 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
         panic!("rmc struct type MUST be a struct");
     };*/
 
-    let (serialize_base_content, deserialize_base_content) = match derive_input.data {
+    let (serialize_base_content, deserialize_base_content, write_size) = match derive_input.data {
         Data::Struct(s) => gen_serialize_data_struct(s, struct_attr),
         Data::Enum(e) => {
             let Some(repr_attr) = repr_attr else {
@@ -221,6 +259,7 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
 
             let mut inner_match_de = quote! {};
             let mut inner_match_se = quote! {};
+            let mut inner_match_len = quote!{};
 
             for variant in e.variants {
                 let Some((_, val)) = variant.discriminant else {
@@ -352,7 +391,7 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
                 Ok(val)
             };
 
-            (serialize_base_content, deserialize_base_content)
+            (serialize_base_content, deserialize_base_content, quote!{})
         }
         Data::Union(_) => {
             unimplemented!()
@@ -365,15 +404,16 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
 
     let tokens = quote! {
         impl rnex_core::rmc::structures::RmcSerialize for #ident{
-            fn serialize(&self, writer: &mut dyn ::std::io::Write) -> rnex_core::rmc::structures::Result<()>{
+            #[inline(always)]
+            fn serialize(&self, writer: &mut impl ::std::io::Write) -> rnex_core::rmc::structures::Result<()>{
                 #serialize_base_content
-
-
             }
-
-            fn deserialize(reader: &mut dyn ::std::io::Read) -> rnex_core::rmc::structures::Result<Self>{
+            #[inline(always)]
+            fn deserialize(reader: &mut impl ::std::io::Read) -> rnex_core::rmc::structures::Result<Self>{
                 #deserialize_base_content
             }
+
+            #write_size
         }
     };
 

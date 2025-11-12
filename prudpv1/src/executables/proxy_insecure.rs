@@ -31,7 +31,7 @@ async fn main() {
 
     let conn: SplittableBufferConnection = conn.into();
 
-    conn.send(Register(SocketAddrV4::new(*OWN_IP_PUBLIC, *SERVER_PORT)).to_data()).await;
+    conn.send(Register(SocketAddrV4::new(*OWN_IP_PUBLIC, *SERVER_PORT)).to_data().unwrap()).await;
 
     let conn = new_rmc_gateway_connection(conn, |r| Arc::new(OnlyRemote::<RemoteEdgeNodeHolder>::new(r)));
 
@@ -67,7 +67,7 @@ async fn main() {
             if let Err(e) = stream.send_buffer(&ConnectionInitData{
                 prudpsock_addr: conn.socket_addr,
                 pid: conn.user_id
-            }.to_data()).await{
+            }.to_data().unwrap()).await{
                 error!("error connecting to backend: {}", e);
                 return;
             };

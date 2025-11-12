@@ -1,48 +1,8 @@
-#![allow(dead_code)]
-#![allow(async_fn_in_trait)]
-//#![warn(missing_docs)]
-
-//! # Splatoon RNEX server
-//!
-//! This server still includes the code for rnex itself as this is the first rnex server and thus
-//! also the first and only current usage of rnex, expect this and rnex to be split into seperate
-//! repos soon.
-
-extern crate self as rust_nex;
-
-use crate::nex::account::Account;
-use chrono::{Local, SecondsFormat};
-use once_cell::sync::Lazy;
-use simplelog::{
-    ColorChoice, CombinedLogger, Config, LevelFilter, TermLogger, TerminalMode, WriteLogger,
-};
-use std::fs::File;
-use std::net::{Ipv4Addr};
-use std::sync::Once;
-use std::{env, fs};
 use std::hint::black_box;
-use criterion::{criterion_group, criterion_main, Criterion};
-
-mod prudp;
-pub mod rmc;
-//mod protocols;
-
-mod grpc;
-mod kerberos;
-mod nex;
-mod result;
-mod versions;
-mod web;
-pub mod reggie;
-pub mod util;
-pub mod common;
-
-pub mod config{
-    pub const FEATURE_HAS_STRUCT_HEADER: bool = cfg!(feature = "rmc_struct_header");
-}
-
 use std::io::Cursor;
 use std::ops::Deref;
+use criterion::{criterion_group, criterion_main, Criterion};
+use once_cell::sync::Lazy;
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::rmc::structures::matchmake::{AutoMatchmakeParam, Gathering, MatchmakeParam, MatchmakeSession, MatchmakeSessionSearchCriteria};
 use rnex_core::rmc::structures::RmcSerialize;
@@ -135,13 +95,5 @@ fn matchmake_with_param(c: &mut Criterion) {
 }
 
 criterion_group!(benches, matchmake_with_param);
-//criterion_main!(benches);
+criterion_main!(benches);
 
-fn main(){
-    for _ in 0..10000000 {
-        let v = serialize_to_vec(black_box(DUMMY.deref()));
-        let u = read_struct::<AutoMatchmakeParam>(black_box(DUMMY_SER.deref().as_slice()));
-        black_box(v);
-        black_box(u);
-    }
-}

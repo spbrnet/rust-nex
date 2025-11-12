@@ -30,7 +30,7 @@ async fn main() {
 
     let conn: SplittableBufferConnection = conn.into();
 
-    conn.send(DontRegister.to_data()).await;
+    conn.send(DontRegister.to_data().unwrap()).await;
 
     let conn = new_rmc_gateway_connection(conn, |r| Arc::new(OnlyRemote::<RemoteEdgeNodeHolder>::new(r)));
 

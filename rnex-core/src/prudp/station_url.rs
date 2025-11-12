@@ -5,6 +5,7 @@ use std::io::Read;
 use crate::prudp::station_url::Type::{PRUDP, PRUDPS, UDP};
 use crate::prudp::station_url::UrlOptions::{Address, ConnectionID, NatFiltering, NatMapping, NatType, Platform, PMP, Port, PrincipalID, RVConnectionID, StreamID, StreamType, UPNP, PID};
 use crate::rmc::structures::Error::StationUrlInvalid;
+use crate::rmc::structures::helpers::DummyFormatWriter;
 use crate::rmc::structures::RmcSerialize;
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Type{
@@ -135,58 +136,65 @@ impl TryFrom<&str> for StationUrl{
     }
 }
 
-impl<'a> Into<String> for &'a StationUrl{
-    fn into(self) -> String {
-        let mut url = match self.url_type{
+impl Display for StationUrl{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let url_type_str = match self.url_type{
             UDP => "udp:/",
             PRUDP => "prudp:/",
             PRUDPS => "prudps:/"
-        }.to_owned();
+        };
+        write!(f, "{}",url_type_str)?;
 
         for option in &self.options{
             match option{
-                Address(v) => write!(url, "address={}", v).expect("failed to write"),
-                Port(v) => write!(url, "port={}", v).expect("failed to write"),
-                StreamType(v) => write!(url, "stream={}", v).expect("failed to write"),
-                StreamID(v) => write!(url, "sid={}", v).expect("failed to write"),
-                ConnectionID(v) => write!(url, "CID={}", v).expect("failed to write"),
-                PrincipalID(v) => write!(url, "PID={}", v).expect("failed to write"),
-                NatType(v) => write!(url, "type={}", v).expect("failed to write"),
-                NatMapping(v) => write!(url, "natm={}", v).expect("failed to write"),
-                NatFiltering(v) => write!(url, "natf={}", v).expect("failed to write"),
-                UPNP(v) => write!(url, "upnp={}", v).expect("failed to write"),
-                RVConnectionID(v) => write!(url, "RVCID={}", v).expect("failed to write"),
-                Platform(v) => write!(url, "pl={}", v).expect("failed to write"),
-                PMP(v) => write!(url, "pmp={}", v).expect("failed to write"),
-                PID(v) => write!(url, "PID={}", v).expect("failed to write"),
+                Address(v) => write!(f, "address={}", v)?,
+                Port(v) => write!(f, "port={}", v)?,
+                StreamType(v) => write!(f, "stream={}", v)?,
+                StreamID(v) => write!(f, "sid={}", v)?,
+                ConnectionID(v) => write!(f, "CID={}", v)?,
+                PrincipalID(v) => write!(f, "PID={}", v)?,
+                NatType(v) => write!(f, "type={}", v)?,
+                NatMapping(v) => write!(f, "natm={}", v)?,
+                NatFiltering(v) => write!(f, "natf={}", v)?,
+                UPNP(v) => write!(f, "upnp={}", v)?,
+                RVConnectionID(v) => write!(f, "RVCID={}", v)?,
+                Platform(v) => write!(f, "pl={}", v)?,
+                PMP(v) => write!(f, "pmp={}", v)?,
+                PID(v) => write!(f, "PID={}", v)?,
             }
-            write!(url, ";").expect("failed to write");
+            write!(f, ";")?;
         }
+        Ok(())
+    }
+}
+
+impl<'a> Into<String> for &'a StationUrl{
+    fn into(self) -> String {
+        let mut url = self.to_string();
+
 
         url[0..url.len()-1].into()
     }
 }
 
-impl Display for StationUrl{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let str: String = self.into();
-
-        write!(f, "{}", str)
-    }
-
-
-}
-
 impl RmcSerialize for StationUrl{
-    fn deserialize(reader: &mut dyn Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         let str = String::deserialize(reader)?;
 
         Self::try_from(str.as_str()).map_err(|_| StationUrlInvalid)
     }
-    fn serialize(&self, writer: &mut dyn std::io::Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut impl std::io::Write) -> crate::rmc::structures::Result<()> {
         let str: String = self.into();
 
         str.serialize(writer)
+    }
+
+    fn serialize_write_size(&self) -> crate::rmc::structures::Result<u32> {
+        let mut dummy = DummyFormatWriter::new();
+
+        write!(&mut dummy, "{}", self)?;
+
+        Ok(dummy.serialize_str_len())
     }
 }
 

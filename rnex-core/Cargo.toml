@@ -29,9 +29,15 @@ typenum = "1.18.0"
 reqwest = { version= "0.12.18", features = ["blocking"]}
 json = "0.12.4"
 ctrlc = "3.4.7"
+criterion = "0.7.0"
+anyhow = "1.0.100"
 
+[features]
+rmc_struct_header = []
 
-
+[[bench]]
+name = "rmc_serialization"
+harness = false
 
 [[bin]]
 name = "backend_server_insecure"

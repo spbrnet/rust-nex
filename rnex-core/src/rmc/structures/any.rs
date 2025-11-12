@@ -9,7 +9,7 @@ pub struct Any{
 }
 
 impl RmcSerialize for Any{
-    fn serialize(&self, writer: &mut dyn Write) -> Result<()> {
+    fn serialize(&self, writer: &mut impl Write) -> Result<()> {
         self.name.serialize(writer)?;
 
         let u32_len = self.data.len() as u32;
@@ -21,7 +21,7 @@ impl RmcSerialize for Any{
 
         Ok(())
     }
-    fn deserialize(mut reader: &mut dyn Read) -> Result<Self> {
+    fn deserialize(mut reader: &mut impl Read) -> Result<Self> {
         let name = String::deserialize(reader)?;
 
         // also length ?

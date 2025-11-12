@@ -55,6 +55,7 @@ impl RmcProtocolData{
 
                 let raw_name = Ident::new(&format!("raw_{}", name), name.span());
                 quote!{
+                    #[inline(always)]
                     async fn #raw_name
                 }.to_tokens(tokens);
 
@@ -125,6 +126,7 @@ impl RmcProtocolData{
             }
 
             quote!{
+                #[inline(always)]
                 async fn rmc_call_proto(
                     &self,
                     remote_response_connection: &rnex_core::util::SendingBufferConnection,
