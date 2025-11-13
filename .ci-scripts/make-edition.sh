@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+export EDITION=$1
 export BA="--build-arg EDITION=$1"
 
 podman build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/dev-container:latest" --target=dev-container .
