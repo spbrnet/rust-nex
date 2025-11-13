@@ -1,7 +1,6 @@
 use std::io::{Read, Write};
 use bytemuck::bytes_of;
 use log::error;
-use rocket::form::validate::Len;
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 use super::{Result, RmcSerialize};
 

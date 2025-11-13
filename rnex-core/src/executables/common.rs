@@ -19,8 +19,11 @@ const IP_REQ_SERVICE_URL: &str = "https://ipinfo.io/ip";
 
 
 fn try_get_ip() -> Result<Ipv4Addr, Box<dyn Error>> {
-    let req = reqwest::blocking::get(IP_REQ_SERVICE_URL)?;
-    Ok(req.text()?.parse()?)
+    let mut req = ureq::get(IP_REQ_SERVICE_URL)
+        .call()?;
+
+
+    Ok(req.body_mut().read_to_string()?.parse()?)
 }
 
 pub static OWN_IP_PRIVATE: Lazy<Ipv4Addr> = Lazy::new(|| {

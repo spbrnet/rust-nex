@@ -32,7 +32,6 @@ mod kerberos;
 mod nex;
 mod result;
 mod versions;
-mod web;
 pub mod reggie;
 pub mod util;
 pub mod common;

@@ -1,11 +1,11 @@
 use std::{env, result};
 use std::array::TryFromSliceError;
+use std::ops::Deref;
 use std::str::FromStr;
 use json::{object, JsonValue};
 use once_cell::sync::Lazy;
-use reqwest::{Body, Method, Url};
-use reqwest::header::HeaderValue;
 use thiserror::Error;
+use tokio::task::{spawn_blocking, JoinError};
 use crate::grpc::account::Error::SomethingHappened;
 static API_KEY: Lazy<String> = Lazy::new(||{
     let key = env::var("ACCOUNT_GQL_API_KEY")
@@ -26,27 +26,38 @@ static CLIENT_URI: Lazy<String> = Lazy::new(||{
 #[derive(Error, Debug)]
 pub enum Error{
     #[error(transparent)]
-    Creation(#[from] reqwest::Error),
+    RequestError(#[from] ureq::Error),
     #[error(transparent)]
     Json(#[from] json::Error),
-    #[error(transparent)]
-    Status(#[from] tonic::Status),
+    //#[error(transparent)]
+    //Status(#[from] tonic::Status),
     #[error("invalid password size: {0}")]
     PasswordConversion(#[from] TryFromSliceError),
     #[error("something happened")]
-    SomethingHappened
+    SomethingHappened,
+    #[error("error joining blocking task: {0}")]
+    Join(#[from] JoinError)
 }
 
 pub type Result<T> = result::Result<T, Error>;
 
-pub struct Client(reqwest::Client);
+pub struct Client;//(reqwest::Client);
 
 impl Client{
     pub async fn new() -> Result<Self> {
-        Ok(Self(reqwest::ClientBuilder::new().build()?))
+        //Ok(Self(reqwest::ClientBuilder::new().build()?))
+        Ok(Self)
     }
 
     async fn do_request(&self, request_data: JsonValue) -> Result<JsonValue>{
+        let mut request = ureq::post(CLIENT_URI.as_str())
+            .header("X-API-Key", API_KEY.deref())
+            .content_type("application/json");
+        let mut response = spawn_blocking(move || request.send(request_data.to_string())).await??;
+
+        let str_body = response.body_mut().read_to_string()?;
+        Ok(json::parse(&str_body)?)
+        /*
         let mut request = reqwest::Request::new(Method::POST, Url::from_str(CLIENT_URI.as_str()).unwrap());
 
         *(request.body_mut()) = Some(Body::from(request_data.to_string()));
@@ -56,6 +67,8 @@ impl Client{
         let response = self.0.execute(request).await?;
 
         Ok(json::parse(&response.text().await?)?)
+
+         */
     }
 
     pub async fn get_nex_password(&mut self , pid: u32) -> Result<[u8; 16]>{
