@@ -28,7 +28,7 @@ anyhow = "1.0.100"
 ureq = "3.1.4"
 
 [dev-dependencies]
-criterion = "0.7.0"
+# criterion = "0.7.0"
 
 [features]
 rmc_struct_header = []

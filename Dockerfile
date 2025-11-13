@@ -1,6 +1,6 @@
 FROM rust:alpine AS build-container
 
-RUN apk add --no-cache protobuf-dev git musl-dev lld openssl-dev openssl-libs-static 
+RUN apk add --no-cache protobuf-dev git musl-dev lld openssl-dev openssl-libs-static yq bash
 
 FROM build-container AS builder
 
@@ -8,23 +8,25 @@ WORKDIR /app
 
 COPY . .
 
+ARG EDITION=splatoon
+
 RUN git submodule update --init --recursive
 
-RUN OPENSSL_LIB_DIR=/usr/lib OPENSSL_INCLUDE_DIR=/usr/include/openssl OPENSSL_STATIC=1 RUSTFLAGS="-C relocation-model=static -C linker=ld.lld" cargo test --features rmc_struct_header  --target x86_64-unknown-linux-musl
-RUN OPENSSL_LIB_DIR=/usr/lib OPENSSL_INCLUDE_DIR=/usr/include/openssl OPENSSL_STATIC=1 RUSTFLAGS="-C relocation-model=static -C linker=ld.lld" cargo build --features rmc_struct_header --release --target x86_64-unknown-linux-musl # 
+RUN ./test-edition.sh
+RUN ./build-edition.sh
 
 FROM scratch AS node-holder
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/edge_node_holder_server /edge_node_holder_server
 ENTRYPOINT ["/edge_node_holder_server"]
 
 
-FROM alpine:latest AS proxy-insecure-v1
+FROM alpine:latest AS proxy-insecure
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/proxy_insecure /proxy_insecure
 RUN apk add --no-cache ca-certificates
 RUN update-ca-certificates
 ENTRYPOINT ["/proxy_insecure"]
 
-FROM alpine:latest AS proxy-secure-v1
+FROM alpine:latest AS proxy-secure
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/proxy_secure /proxy_secure
 RUN apk add --no-cache ca-certificates
 RUN update-ca-certificates
