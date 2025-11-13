@@ -8,7 +8,7 @@ WORKDIR /app
 
 COPY . .
 
-ARG EDITION=splatoon
+ARG EDITION
 
 RUN git submodule update --init --recursive
 
