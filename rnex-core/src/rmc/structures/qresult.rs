@@ -31,7 +31,7 @@ impl RmcSerialize for QResult{
         Ok(())
     }
 
-    fn deserialize(mut reader: &mut impl Read) -> Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
 }

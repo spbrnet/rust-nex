@@ -126,7 +126,6 @@ fn gen_serialize_data_struct(
 
 
             let ident = f.ident.as_ref().unwrap();
-            let ty = &f.ty;
 
             size_content.append_all(quote! {
                 + rnex_core::rmc::structures::RmcSerialize::serialize_write_size(&self.#ident)?
@@ -259,7 +258,7 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
 
             let mut inner_match_de = quote! {};
             let mut inner_match_se = quote! {};
-            let mut inner_match_len = quote!{};
+            //let mut inner_match_len = quote!{};
 
             for variant in e.variants {
                 let Some((_, val)) = variant.discriminant else {

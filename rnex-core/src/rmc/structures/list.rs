@@ -20,7 +20,7 @@ impl<T: RmcSerialize> RmcSerialize for Vec<T>{
         Ok(())
     }
 
-    fn deserialize(mut reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         let len: u32 = reader.read_struct(IS_BIG_ENDIAN)?;
 
         //let mut vec = Vec::with_capacity(len as usize);

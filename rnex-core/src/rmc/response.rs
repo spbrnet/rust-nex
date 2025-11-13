@@ -471,7 +471,7 @@ mod test {
 
     #[test]
     fn test() {
-        let mut data_orig = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 69, 4, 20];
+        let data_orig = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 69, 4, 20];
         let mut data = data_orig;
 
         let mut rc4: Rc4<U5> =

@@ -21,7 +21,7 @@ impl RmcSerialize for Any{
 
         Ok(())
     }
-    fn deserialize(mut reader: &mut impl Read) -> Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> Result<Self> {
         let name = String::deserialize(reader)?;
 
         // also length ?

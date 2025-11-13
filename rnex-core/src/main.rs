@@ -10,18 +10,8 @@
 
 extern crate self as rust_nex;
 
-use crate::nex::account::Account;
-use chrono::{Local, SecondsFormat};
 use once_cell::sync::Lazy;
-use simplelog::{
-    ColorChoice, CombinedLogger, Config, LevelFilter, TermLogger, TerminalMode, WriteLogger,
-};
-use std::fs::File;
-use std::net::{Ipv4Addr};
-use std::sync::Once;
-use std::{env, fs};
 use std::hint::black_box;
-use criterion::{criterion_group, criterion_main, Criterion};
 
 mod prudp;
 pub mod rmc;
@@ -118,7 +108,7 @@ static DUMMY: Lazy<AutoMatchmakeParam> = Lazy::new(|| AutoMatchmakeParam{
 static DUMMY_SER: Lazy<Vec<u8>> = Lazy::new(|| serialize_to_vec(DUMMY.deref()));
 
 fn serialize_to_vec(r: &impl RmcSerialize) -> Vec<u8>{
-    let mut vec = r.to_data();
+    let vec = r.to_data();
 
     vec.unwrap()
 }
@@ -126,15 +116,6 @@ fn serialize_to_vec(r: &impl RmcSerialize) -> Vec<u8>{
 fn read_struct<T: RmcSerialize>(r: &[u8]) -> T{
     T::deserialize(&mut Cursor::new(r)).unwrap()
 }
-fn matchmake_with_param(c: &mut Criterion) {
-    let raw = DUMMY.deref();
-    let ser = DUMMY_SER.deref().as_slice();
-    c.bench_function("mmparam: ser", |b| b.iter(move || serialize_to_vec(black_box(raw))));
-    c.bench_function("mmparam: de", |b| b.iter(move || read_struct::<AutoMatchmakeParam>(black_box(ser))));
-}
-
-criterion_group!(benches, matchmake_with_param);
-//criterion_main!(benches);
 
 fn main(){
     for _ in 0..10000000 {

@@ -170,9 +170,8 @@ impl Display for StationUrl{
 
 impl<'a> Into<String> for &'a StationUrl{
     fn into(self) -> String {
-        let mut url = self.to_string();
-
-
+        let url = self.to_string();
+        
         url[0..url.len()-1].into()
     }
 }

@@ -1,14 +1,10 @@
-use std::any::Any;
+
 use std::cmp::max;
 use std::fmt::Arguments;
 use std::io;
-use std::io::{Cursor, ErrorKind, IoSlice, Read, Write};
-use std::ops::Sub;
-use bytemuck::bytes_of;
-use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
-use crate::rmc::structures;
-use crate::rmc::structures::Error::VersionMismatch;
+use std::io::{ErrorKind, IoSlice, Read, Write};
 use crate::rmc::structures::Result;
+
 
 #[repr(C, packed)]
 struct StructureHeader{
@@ -43,6 +39,8 @@ impl Write for OnlyWriteVec<'_> {
 
 #[cfg(feature = "rmc_struct_header")]
 pub fn write_struct<T: Write>(writer: &mut T, version: u8, inner_size: u32, pred: impl FnOnce(&mut T) -> Result<()> ) -> Result<()> {
+    use bytemuck::bytes_of;
+
     writer.write_all(&[version])?;
 
     writer.write_all(bytes_of(&inner_size))?;
@@ -55,7 +53,7 @@ pub fn write_struct<T: Write>(writer: &mut T, version: u8, inner_size: u32, pred
 
 
 #[cfg(not(feature = "rmc_struct_header"))]
-pub fn write_struct<T: Write>(writer: &mut T, version: u8, _inner_size: u32, pred: impl FnOnce(&mut T) -> Result<()> ) -> Result<()> {
+pub fn write_struct<T: Write>(writer: &mut T, _version: u8, _inner_size: u32, pred: impl FnOnce(&mut T) -> Result<()> ) -> Result<()> {
     pred(writer)
 }
 
@@ -94,7 +92,10 @@ impl<T: Read> Read for SubRead<'_, T>{
 }
 
 #[cfg(feature = "rmc_struct_header")]
-pub fn read_struct<T: Sized, R: Read>(mut reader: &mut R, version: u8, pred: impl FnOnce(&mut SubRead<R>) -> Result<T>) -> Result<T> {
+pub fn read_struct<T: Sized, R: Read>(reader: &mut R, version: u8, pred: impl FnOnce(&mut SubRead<R>) -> Result<T>) -> Result<T> {
+    use crate::rmc::structures::Error::VersionMismatch;
+    use v_byte_helpers::ReadExtensions;
+    use v_byte_helpers::IS_BIG_ENDIAN;
     let ver: u8 = reader.read_struct(IS_BIG_ENDIAN)?;
 
     if ver != version {
@@ -107,6 +108,6 @@ pub fn read_struct<T: Sized, R: Read>(mut reader: &mut R, version: u8, pred: imp
 }
 
 #[cfg(not(feature = "rmc_struct_header"))]
-pub fn read_struct<T: Sized, R: Read>(mut reader: &mut R, version: u8, pred: impl FnOnce(&mut R) -> Result<T>) -> Result<T> {
+pub fn read_struct<T: Sized, R: Read>(mut reader: &mut R, _version: u8, pred: impl FnOnce(&mut R) -> Result<T>) -> Result<T> {
     Ok(pred(&mut reader)?)
 }

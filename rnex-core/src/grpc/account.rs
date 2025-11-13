@@ -1,7 +1,6 @@
 use std::{env, result};
 use std::array::TryFromSliceError;
 use std::ops::Deref;
-use std::str::FromStr;
 use json::{object, JsonValue};
 use once_cell::sync::Lazy;
 use thiserror::Error;
@@ -50,7 +49,7 @@ impl Client{
     }
 
     async fn do_request(&self, request_data: JsonValue) -> Result<JsonValue>{
-        let mut request = ureq::post(CLIENT_URI.as_str())
+        let request = ureq::post(CLIENT_URI.as_str())
             .header("X-API-Key", API_KEY.deref())
             .content_type("application/json");
         let mut response = spawn_blocking(move || request.send(request_data.to_string())).await??;

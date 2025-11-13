@@ -158,7 +158,6 @@ impl Ticket{
 
 #[cfg(test)]
 mod test{
-    use chrono::{Datelike, Utc};
     use crate::kerberos::KerberosDateTime;
 
     #[test]

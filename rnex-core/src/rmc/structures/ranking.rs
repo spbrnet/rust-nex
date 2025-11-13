@@ -25,7 +25,6 @@ struct UserData{
 mod test{
     use std::io::Cursor;
     use bytemuck::from_bytes;
-    use tokio::io::AsyncReadExt;
     use crate::rmc::structures::ranking::{UploadCompetitionData, UserData};
     use rnex_core::rmc::structures::RmcSerialize;
 

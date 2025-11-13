@@ -10,7 +10,7 @@ impl RmcSerialize for u8{
     }
 
     #[inline(always)]
-    fn deserialize(mut reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -26,7 +26,7 @@ impl RmcSerialize for i8{
     }
 
     #[inline(always)]
-    fn deserialize(mut reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -41,7 +41,7 @@ impl RmcSerialize for u16{
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(mut reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -56,7 +56,7 @@ impl RmcSerialize for i16{
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(mut reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -71,7 +71,7 @@ impl RmcSerialize for u32{
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(mut reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -86,7 +86,7 @@ impl RmcSerialize for i32{
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(mut reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -101,7 +101,7 @@ impl RmcSerialize for u64{
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(mut reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -116,7 +116,7 @@ impl RmcSerialize for i64{
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(mut reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -132,7 +132,7 @@ impl RmcSerialize for f64{
     }
 
     #[inline(always)]
-    fn deserialize(mut reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
