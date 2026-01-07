@@ -3,5 +3,6 @@ resolver = "3"
 members = [
     "macros",
     "rnex-core",
-    "prudpv1"
+    "prudpv1",
+    "prudpv0"
 ]

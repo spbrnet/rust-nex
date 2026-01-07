@@ -1,0 +1,7 @@
+[package]
+name = "prudpv0"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rnex-core = { path = "../rnex-core", version = "0.1.1" }

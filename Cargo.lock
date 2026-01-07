@@ -396,6 +396,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "macros"
+version = "0.1.1"
+source = "git+https://github.com/RusticMaple/VByteMacros#e2f31bded8c5591e847ba03faf79ae0351e43e69"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "md-5"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -537,6 +547,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "prudpv0"
+version = "0.1.0"
+dependencies = [
+ "rnex-core",
+]
+
+[[package]]
 name = "prudpv1"
 version = "0.1.0"
 dependencies = [
@@ -551,7 +568,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "typenum",
- "v-byte-helpers",
+ "v-byte-helpers 0.1.1 (git+https://github.com/RusticMaple/VByteMacros)",
 ]
 
 [[package]]
@@ -648,7 +665,7 @@ dependencies = [
  "tokio",
  "typenum",
  "ureq",
- "v-byte-helpers",
+ "v-byte-helpers 0.1.1 (git+https://github.com/DJMrTV/VByteMacros)",
 ]
 
 [[package]]
@@ -958,7 +975,16 @@ version = "0.1.1"
 source = "git+https://github.com/DJMrTV/VByteMacros#e2f31bded8c5591e847ba03faf79ae0351e43e69"
 dependencies = [
  "bytemuck",
- "macros 0.1.1",
+ "macros 0.1.1 (git+https://github.com/DJMrTV/VByteMacros)",
+]
+
+[[package]]
+name = "v-byte-helpers"
+version = "0.1.1"
+source = "git+https://github.com/RusticMaple/VByteMacros#e2f31bded8c5591e847ba03faf79ae0351e43e69"
+dependencies = [
+ "bytemuck",
+ "macros 0.1.1 (git+https://github.com/RusticMaple/VByteMacros)",
 ]
 
 [[package]]

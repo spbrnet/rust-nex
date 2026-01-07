@@ -9,7 +9,7 @@ tokio = { version =  "1.47.0", features = ["full"] }
 hmac = "0.12.1"
 md-5 = "^0.10.6"
 rc4 = "0.1.0"
-v-byte-helpers = { git = "https://github.com/DJMrTV/VByteMacros", version = "0.1.1" }
+v-byte-helpers = { git = "https://github.com/RusticMaple/VByteMacros", version = "0.1.1" }
 thiserror = "2.0.12"
 log = "0.4.27"
 async-trait = "0.1.88"
