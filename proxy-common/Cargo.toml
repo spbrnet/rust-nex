@@ -1,0 +1,9 @@
+[package]
+name = "proxy-common"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+thiserror = "2.0.12"
+rnex-core = { path = "../rnex-core", version = "0.1.1" }
+tokio = { version =  "1.47.0", features = ["full"] }

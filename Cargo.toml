@@ -5,4 +5,4 @@ members = [
     "rnex-core",
     "prudpv1",
     "prudpv0"
-]
+, "proxy", "proxy-common"]

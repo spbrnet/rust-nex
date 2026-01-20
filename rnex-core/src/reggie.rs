@@ -1,13 +1,13 @@
+use crate::define_rmc_proto;
+use crate::rmc::structures::RmcSerialize;
+use macros::{RmcSerialize, method_id, rmc_proto};
+use rnex_core::rmc::response::ErrorCode;
 use std::io;
 use std::net::SocketAddrV4;
-use macros::{method_id, rmc_proto, RmcSerialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::define_rmc_proto;
-use rnex_core::rmc::response::ErrorCode;
-use crate::rmc::structures::RmcSerialize;
 
-pub trait UnitPacketRead: AsyncRead + Unpin{
-    async fn read_buffer(&mut self) -> Result<Vec<u8>, io::Error>{
+pub trait UnitPacketRead: AsyncRead + Unpin {
+    async fn read_buffer(&mut self) -> Result<Vec<u8>, io::Error> {
         let mut len_raw: [u8; 4] = [0; 4];
 
         self.read_exact(&mut len_raw).await?;
@@ -22,12 +22,13 @@ pub trait UnitPacketRead: AsyncRead + Unpin{
     }
 }
 
-impl<T: AsyncRead + Unpin> UnitPacketRead for T{}
-pub trait UnitPacketWrite: AsyncWrite + Unpin{
+impl<T: AsyncRead + Unpin> UnitPacketRead for T {}
+pub trait UnitPacketWrite: AsyncWrite + Unpin {
     async fn send_buffer(&mut self, data: &[u8]) -> Result<(), io::Error> {
         let mut dest_data = Vec::new();
 
-        data.serialize(&mut dest_data).expect("ran out of memory or something");
+        data.serialize(&mut dest_data)
+            .expect("ran out of memory or something");
 
         self.write_all(&dest_data[..]).await?;
 
@@ -37,9 +38,7 @@ pub trait UnitPacketWrite: AsyncWrite + Unpin{
     }
 }
 
-impl<T: AsyncWrite + Unpin> UnitPacketWrite for T{}
-
-
+impl<T: AsyncWrite + Unpin> UnitPacketWrite for T {}
 
 #[rmc_proto(1)]
 pub trait EdgeNodeManagement {
@@ -55,7 +54,7 @@ define_rmc_proto!(
 
 #[derive(RmcSerialize, Debug)]
 #[repr(u32)]
-pub enum EdgeNodeHolderConnectOption{
+pub enum EdgeNodeHolderConnectOption {
     DontRegister = 0,
-    Register(SocketAddrV4) = 1
+    Register(SocketAddrV4) = 1,
 }

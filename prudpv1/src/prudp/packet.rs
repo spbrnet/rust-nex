@@ -3,21 +3,24 @@
 // force the compiler to shut up here
 #![allow(unused_parens)]
 
+use crate::prudp::packet::PacketOption::{
+    ConnectionSignature, FragmentId, InitialSequenceId, MaximumSubstreamId, SupportedFunctions,
+};
+use bytemuck::{Pod, Zeroable};
+use hmac::{Hmac, Mac};
+use log::{error, warn};
+use md5::{Digest, Md5};
+use rnex_core::prudp::socket_addr::PRUDPSockAddr;
+use rnex_core::prudp::types_flags::TypesFlags;
+use rnex_core::prudp::types_flags::flags::ACK;
+use rnex_core::prudp::virtual_port::VirtualPort;
 use std::fmt::{Debug, Formatter};
 use std::io;
 use std::io::{Cursor, Read, Seek, Write};
 use std::net::SocketAddrV4;
-use bytemuck::{Pod, Zeroable};
-use hmac::{Hmac, Mac};
-use log::{error, warn};
-use md5::{Md5, Digest};
 use thiserror::Error;
-use v_byte_helpers::{SwapEndian};
+use v_byte_helpers::SwapEndian;
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
-use crate::prudp::packet::flags::ACK;
-use crate::prudp::packet::PacketOption::{ConnectionSignature, FragmentId, InitialSequenceId, MaximumSubstreamId, SupportedFunctions};
-use rnex_core::prudp::socket_addr::PRUDPSockAddr;
-use rnex_core::prudp::virtual_port::VirtualPort;
 
 type Md5Hmac = Hmac<Md5>;
 
@@ -32,72 +35,10 @@ pub enum Error {
     #[error("invalid option id {0}")]
     InvalidOptionId(u8),
     #[error("option size {size} doesnt match expected option for given option id {id}")]
-    InvalidOptionSize {
-        id: u8,
-        size: u8,
-    },
+    InvalidOptionSize { id: u8, size: u8 },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
-
-#[repr(transparent)]
-#[derive(Copy, Clone, Pod, Zeroable, SwapEndian, Default, Eq, PartialEq)]
-pub struct TypesFlags(u16);
-
-impl TypesFlags {
-    #[inline]
-    pub const fn get_types(self) -> u8 {
-        (self.0 & 0x000F) as u8
-    }
-    #[inline]
-    pub const fn get_flags(self) -> u16 {
-        (self.0 & 0xFFF0) >> 4
-    }
-    #[inline]
-    pub const fn types(self, val: u8) -> Self {
-        Self((self.0 & 0xFFF0) | (val as u16 & 0x000F))
-    }
-    #[inline]
-    pub const fn flags(self, val: u16) -> Self {
-        Self((self.0 & 0x000F) | ((val << 4) & 0xFFF0))
-    }
-    #[inline]
-    pub const fn set_flag(&mut self, val: u16){
-        self.0 |= (val & 0xFFF) << 4;
-    }
-    #[inline]
-    pub const fn set_types(&mut self, val: u8){
-        self.0 |= val as u16 & 0x0F;
-    }
-}
-
-pub mod flags {
-    pub const ACK: u16 = 0x001;
-    pub const RELIABLE: u16 = 0x002;
-    pub const NEED_ACK: u16 = 0x004;
-    pub const HAS_SIZE: u16 = 0x008;
-    pub const MULTI_ACK: u16 = 0x200;
-}
-
-pub mod types {
-    pub const SYN: u8 = 0x0;
-    pub const CONNECT: u8 = 0x1;
-    pub const DATA: u8 = 0x2;
-    pub const DISCONNECT: u8 = 0x3;
-    pub const PING: u8 = 0x4;
-    /// no idea what user is supposed to mean
-    pub const USER: u8 = 0x5;
-}
-
-impl Debug for TypesFlags {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let stream_type = self.get_types();
-        let port_number = self.get_flags();
-        write!(f, "TypesFlags{{ types: {}, flags: {} }}", stream_type, port_number)
-    }
-}
-
-
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable, SwapEndian, Eq, PartialEq)]
@@ -116,7 +57,7 @@ pub struct PRUDPV1Header {
 
 impl Default for PRUDPV1Header {
     fn default() -> Self {
-        Self{
+        Self {
             magic: [0xEA, 0xD0],
             version: 1,
             session_id: 0,
@@ -126,32 +67,30 @@ impl Default for PRUDPV1Header {
             destination_port: VirtualPort(0),
             types_and_flags: TypesFlags(0),
             packet_specific_size: 0,
-            substream_id: 0
+            substream_id: 0,
         }
     }
 }
 
-
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum PacketOption{
+pub enum PacketOption {
     SupportedFunctions(u32),
     ConnectionSignature([u8; 16]),
     FragmentId(u8),
     InitialSequenceId(u16),
-    MaximumSubstreamId(u8)
+    MaximumSubstreamId(u8),
 }
 
-impl PacketOption{
-    fn from(option_id: OptionId, option_data: &[u8]) -> io::Result<Self>{
-
+impl PacketOption {
+    fn from(option_id: OptionId, option_data: &[u8]) -> io::Result<Self> {
         let mut data_cursor = Cursor::new(option_data);
-        let val = match option_id.into(){
+        let val = match option_id.into() {
             0 => SupportedFunctions(data_cursor.read_struct(IS_BIG_ENDIAN)?),
             1 => ConnectionSignature(data_cursor.read_struct(IS_BIG_ENDIAN)?),
             2 => FragmentId(data_cursor.read_struct(IS_BIG_ENDIAN)?),
             3 => InitialSequenceId(data_cursor.read_struct(IS_BIG_ENDIAN)?),
             4 => MaximumSubstreamId(data_cursor.read_struct(IS_BIG_ENDIAN)?),
-            _ => unreachable!()
+            _ => unreachable!(),
         };
 
         Ok(val)
@@ -212,7 +151,7 @@ impl OptionId {
         // Invariant is upheld because we only create the object if it doesn't violate the invariant
         match val {
             0 | 1 | 2 | 3 | 4 => Ok(Self(val)),
-            _ => Err(Error::InvalidOptionId(val))
+            _ => Err(Error::InvalidOptionId(val)),
         }
     }
 
@@ -223,7 +162,7 @@ impl OptionId {
             2 => 1,
             3 => 2,
             4 => 1,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }
@@ -238,8 +177,7 @@ impl PRUDPV1Packet {
     pub fn new(reader: &mut (impl Read + Seek)) -> Result<Self> {
         let header: PRUDPV1Header = reader.read_struct(IS_BIG_ENDIAN)?;
 
-        if header.magic[0] != 0xEA ||
-            header.magic[1] != 0xD0 {
+        if header.magic[0] != 0xEA || header.magic[1] != 0xD0 {
             return Err(Error::InvalidMagic(u16::from_be_bytes(header.magic)));
         }
 
@@ -247,18 +185,14 @@ impl PRUDPV1Packet {
             return Err(Error::InvalidVersion(header.version));
         }
 
-
         let packet_signature: [u8; 16] = reader.read_struct(IS_BIG_ENDIAN)?;
         //let packet_signature: [u8; 16] = [0; 16];
 
         assert_eq!(reader.stream_position().ok(), Some(14 + 16));
 
-
-
         let mut packet_specific_buffer = vec![0u8; header.packet_specific_size as usize];
 
         reader.read_exact(&mut packet_specific_buffer)?;
-
 
         //no clue whats up with options but they are broken
         let mut packet_specific_data_cursor = Cursor::new(&packet_specific_buffer);
@@ -266,12 +200,16 @@ impl PRUDPV1Packet {
         let mut options = Vec::new();
 
         loop {
-            let Ok(option_id): io::Result<u8> = packet_specific_data_cursor.read_struct(IS_BIG_ENDIAN) else {
-                break
+            let Ok(option_id): io::Result<u8> =
+                packet_specific_data_cursor.read_struct(IS_BIG_ENDIAN)
+            else {
+                break;
             };
 
-            let Ok(value_size): io::Result<u8> = packet_specific_data_cursor.read_struct(IS_BIG_ENDIAN) else {
-                break
+            let Ok(value_size): io::Result<u8> =
+                packet_specific_data_cursor.read_struct(IS_BIG_ENDIAN)
+            else {
+                break;
             };
 
             if value_size == 0 {
@@ -291,19 +229,20 @@ impl PRUDPV1Packet {
             }
 
             let mut option_data = vec![0u8; value_size as usize];
-            if packet_specific_data_cursor.read_exact(&mut option_data[..]).is_err() {
+            if packet_specific_data_cursor
+                .read_exact(&mut option_data[..])
+                .is_err()
+            {
                 error!("unable to read options");
                 break;
             }
 
             options.push(PacketOption::from(option_id, &option_data)?);
         }
-        
+
         let mut payload = vec![0u8; header.payload_size as usize];
 
         reader.read_exact(&mut payload)?;
-
-
 
         Ok(Self {
             header,
@@ -313,22 +252,21 @@ impl PRUDPV1Packet {
         })
     }
 
-    pub fn base_acknowledgement_packet(&self) -> Self{
+    pub fn base_acknowledgement_packet(&self) -> Self {
         let base = self.base_response_packet();
 
         let mut flags = self.header.types_and_flags.flags(0);
 
         flags.set_flag(ACK);
 
-        let options = self.options
+        let options = self
+            .options
             .iter()
             .filter(|o| matches!(o, FragmentId(_)))
             .cloned()
             .collect();
 
-
-
-        Self{
+        Self {
             header: PRUDPV1Header {
                 types_and_flags: flags,
                 sequence_id: self.header.sequence_id,
@@ -348,17 +286,24 @@ impl PRUDPV1Packet {
         }
     }
 
-    fn generate_options_bytes(&self) -> Vec<u8>{
+    fn generate_options_bytes(&self) -> Vec<u8> {
         let mut vec = Vec::new();
 
-        for option in &self.options{
-            option.write_to_stream(&mut vec).expect("vec should always automatically be able to extend");
+        for option in &self.options {
+            option
+                .write_to_stream(&mut vec)
+                .expect("vec should always automatically be able to extend");
         }
 
         vec
     }
 
-    pub fn calculate_signature_value(&self, access_key: &str, session_key: Option<[u8; 32]>, connection_signature: Option<[u8; 16]>) -> [u8; 16]{
+    pub fn calculate_signature_value(
+        &self,
+        access_key: &str,
+        session_key: Option<[u8; 32]>,
+        connection_signature: Option<[u8; 16]>,
+    ) -> [u8; 16] {
         let access_key_bytes = access_key.as_bytes();
         let access_key_sum: u32 = access_key_bytes.iter().map(|v| *v as u32).sum();
         let access_key_sum_bytes: [u8; 4] = access_key_sum.to_le_bytes();
@@ -374,32 +319,46 @@ impl PRUDPV1Packet {
 
         let mut hmac = Md5Hmac::new_from_slice(&key).expect("fuck");
 
-        hmac.write(&header_data).expect("error during hmac calculation");
+        hmac.write(&header_data)
+            .expect("error during hmac calculation");
         if let Some(session_key) = session_key {
-            hmac.write(&session_key).expect("error during hmac calculation");
+            hmac.write(&session_key)
+                .expect("error during hmac calculation");
         }
-        hmac.write(&access_key_sum_bytes).expect("error during hmac calculation");
+        hmac.write(&access_key_sum_bytes)
+            .expect("error during hmac calculation");
         if let Some(connection_signature) = connection_signature {
-            hmac.write(&connection_signature).expect("error during hmac calculation");
+            hmac.write(&connection_signature)
+                .expect("error during hmac calculation");
         }
 
-        hmac.write(&option_bytes).expect("error during hmac calculation");
+        hmac.write(&option_bytes)
+            .expect("error during hmac calculation");
 
-        hmac.write_all(&self.payload).expect("error during hmac calculation");
+        hmac.write_all(&self.payload)
+            .expect("error during hmac calculation");
 
-        hmac.finalize().into_bytes()[0..16].try_into().expect("invalid hmac size")
+        hmac.finalize().into_bytes()[0..16]
+            .try_into()
+            .expect("invalid hmac size")
     }
 
-    pub fn calculate_and_assign_signature(&mut self, access_key: &str, session_key: Option<[u8; 32]>, connection_signature: Option<[u8; 16]>){
-        self.packet_signature = self.calculate_signature_value(access_key, session_key, connection_signature);
+    pub fn calculate_and_assign_signature(
+        &mut self,
+        access_key: &str,
+        session_key: Option<[u8; 32]>,
+        connection_signature: Option<[u8; 16]>,
+    ) {
+        self.packet_signature =
+            self.calculate_signature_value(access_key, session_key, connection_signature);
     }
 
-    pub fn set_sizes(&mut self){
+    pub fn set_sizes(&mut self) {
         self.header.packet_specific_size = self.options.iter().map(|o| o.write_size()).sum();
         self.header.payload_size = self.payload.len() as u16;
     }
 
-    pub fn  base_response_packet(&self) -> Self {
+    pub fn base_response_packet(&self) -> Self {
         Self {
             header: PRUDPV1Header {
                 magic: [0xEA, 0xD0],
@@ -412,19 +371,18 @@ impl PRUDPV1Packet {
                 sequence_id: 0,
                 session_id: 0,
                 substream_id: 0,
-
             },
             packet_signature: [0; 16],
             payload: Default::default(),
-            options: Default::default()
+            options: Default::default(),
         }
     }
 
-    pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()>{
+    pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
         writer.write_all(bytemuck::bytes_of(&self.header))?;
         writer.write_all(&self.packet_signature)?;
 
-        for option in &self.options{
+        for option in &self.options {
             option.write_to_stream(writer)?;
         }
 
@@ -436,20 +394,24 @@ impl PRUDPV1Packet {
 
 #[cfg(test)]
 mod test {
-    use crate::prudp::packet::flags::{NEED_ACK, RELIABLE};
-    use crate::prudp::packet::types::DATA;
-    use super::{OptionId, PacketOption, PRUDPV1Header, TypesFlags};
-    use rnex_core::prudp::virtual_port::VirtualPort;
+    use super::{OptionId, PRUDPV1Header, PacketOption, TypesFlags};
+    use rnex_core::prudp::{
+        types_flags::{
+            flags::{NEED_ACK, RELIABLE},
+            types::DATA,
+        },
+        virtual_port::VirtualPort,
+    };
     #[test]
     fn size_test() {
         assert_eq!(size_of::<PRUDPV1Header>(), 14);
     }
 
     #[test]
-    fn test_options(){
-        let packet_types = [0,1,2,3,4];
+    fn test_options() {
+        let packet_types = [0, 1, 2, 3, 4];
 
-        for p_type in packet_types{
+        for p_type in packet_types {
             let option_id = OptionId::new(p_type).unwrap();
 
             let buf = vec![0; option_id.option_type_size() as usize];
@@ -463,12 +425,10 @@ mod test {
                 assert_eq!(write_buf.len() as u8, opt.write_size())
             }
         }
-
-
     }
 
     #[test]
-    fn header_read(){
+    fn header_read() {
         let header = PRUDPV1Header {
             version: 0,
             destination_port: VirtualPort(0),
@@ -478,8 +438,8 @@ mod test {
             packet_specific_size: 0,
             payload_size: 0,
             sequence_id: 0,
-            magic: [0xEA,0xD0],
-            source_port: VirtualPort(0)
+            magic: [0xEA, 0xD0],
+            source_port: VirtualPort(0),
         };
 
         let bytes = bytemuck::bytes_of(&header);
@@ -490,7 +450,7 @@ mod test {
     }
 
     #[test]
-    fn test_types_flags(){
+    fn test_types_flags() {
         let types = TypesFlags::default().types(DATA).flags(NEED_ACK | RELIABLE);
 
         assert_ne!((types.0 >> 4) & NEED_ACK, 0);

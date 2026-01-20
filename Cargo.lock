@@ -134,9 +134,9 @@ dependencies = [
 
 [[package]]
 name = "cfg-if"
-version = "1.0.1"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9555578bc9e57714c812a1f84e4fc5b4d21fcb063490c624de019f7464c91268"
+checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "chrono"
@@ -388,16 +388,6 @@ dependencies = [
 [[package]]
 name = "macros"
 version = "0.1.1"
-source = "git+https://github.com/DJMrTV/VByteMacros#e2f31bded8c5591e847ba03faf79ae0351e43e69"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "macros"
-version = "0.1.1"
 source = "git+https://github.com/RusticMaple/VByteMacros#e2f31bded8c5591e847ba03faf79ae0351e43e69"
 dependencies = [
  "proc-macro2",
@@ -547,10 +537,39 @@ dependencies = [
 ]
 
 [[package]]
-name = "prudpv0"
+name = "proxy"
+version = "0.1.0"
+dependencies = [
+ "cfg-if",
+ "prudpv0",
+ "prudpv1",
+ "rnex-core",
+ "tokio",
+]
+
+[[package]]
+name = "proxy-common"
 version = "0.1.0"
 dependencies = [
  "rnex-core",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "prudpv0"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "cfg-if",
+ "hmac",
+ "log",
+ "md-5",
+ "proxy-common",
+ "rc4",
+ "rnex-core",
+ "tokio",
+ "typenum",
 ]
 
 [[package]]
@@ -568,7 +587,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "typenum",
- "v-byte-helpers 0.1.1 (git+https://github.com/RusticMaple/VByteMacros)",
+ "v-byte-helpers",
 ]
 
 [[package]]
@@ -665,7 +684,7 @@ dependencies = [
  "tokio",
  "typenum",
  "ureq",
- "v-byte-helpers 0.1.1 (git+https://github.com/DJMrTV/VByteMacros)",
+ "v-byte-helpers",
 ]
 
 [[package]]
@@ -972,19 +991,10 @@ checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 [[package]]
 name = "v-byte-helpers"
 version = "0.1.1"
-source = "git+https://github.com/DJMrTV/VByteMacros#e2f31bded8c5591e847ba03faf79ae0351e43e69"
-dependencies = [
- "bytemuck",
- "macros 0.1.1 (git+https://github.com/DJMrTV/VByteMacros)",
-]
-
-[[package]]
-name = "v-byte-helpers"
-version = "0.1.1"
 source = "git+https://github.com/RusticMaple/VByteMacros#e2f31bded8c5591e847ba03faf79ae0351e43e69"
 dependencies = [
  "bytemuck",
- "macros 0.1.1 (git+https://github.com/RusticMaple/VByteMacros)",
+ "macros 0.1.1",
 ]
 
 [[package]]

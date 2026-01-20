@@ -1,0 +1,25 @@
+[package]
+name = "proxy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version =  "1.47.0", features = ["full"] }
+prudpv0 = { path = "../prudpv0", optional = true }
+prudpv1 = { path = "../prudpv1", optional = true }
+cfg-if = "1.0.4"
+rnex-core = { path = "../rnex-core", version = "0.1.1" }
+
+[features]
+prudpv0 = ["dep:prudpv0"]
+prudpv1 = ["dep:prudpv1"]
+friends = ["prudpv0", "prudpv0/friends"]
+
+
+[[bin]]
+name = "proxy_insecure"
+path = "src/insecure.rs"
+
+[[bin]]
+name = "proxy_secure"
+path = "src/secure.rs"

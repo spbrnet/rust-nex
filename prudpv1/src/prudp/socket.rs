@@ -1,46 +1,33 @@
-use crate::prudp::packet::flags::{ACK, HAS_SIZE, MULTI_ACK, NEED_ACK, RELIABLE};
-use crate::prudp::packet::types::{CONNECT, DATA, DISCONNECT, PING, SYN};
 use crate::prudp::packet::PacketOption::{
     ConnectionSignature, FragmentId, MaximumSubstreamId, SupportedFunctions,
 };
-use crate::prudp::packet::{PRUDPV1Header, PRUDPV1Packet, TypesFlags};
-use rnex_core::prudp::virtual_port::VirtualPort;
-use rnex_core::prudp::socket_addr::PRUDPSockAddr;
+use crate::prudp::packet::{PRUDPV1Header, PRUDPV1Packet};
 use async_trait::async_trait;
-use log::{info, warn};
 use log::error;
+use log::{info, warn};
 use rc4::StreamCipher;
-use v_byte_helpers::ReadExtensions;
-use v_byte_helpers::little_endian::read_u16;
+use rnex_core::prudp::socket_addr::PRUDPSockAddr;
+use rnex_core::prudp::types_flags::TypesFlags;
+use rnex_core::prudp::types_flags::flags::{ACK, HAS_SIZE, MULTI_ACK, NEED_ACK, RELIABLE};
+use rnex_core::prudp::types_flags::types::{CONNECT, DATA, DISCONNECT, PING, SYN};
+use rnex_core::prudp::virtual_port::VirtualPort;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Cursor;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::sync::{Arc, Weak};
+use v_byte_helpers::ReadExtensions;
+use v_byte_helpers::little_endian::read_u16;
 
 use std::time::Duration;
 use tokio::net::UdpSocket;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::Mutex;
-use tokio::time::{sleep, Instant};
+use tokio::sync::mpsc::{Receiver, Sender, channel};
+use tokio::time::{Instant, sleep};
 // due to the way this is designed crashing the router thread causes deadlock, sorry ;-;
 // (maybe i will fix that some day)
 
 /// PRUDP Socket for accepting connections to then send and recieve data from those clients
-
-pub struct EncryptionPair<T: StreamCipher + Send> {
-    pub send: T,
-    pub recv: T,
-}
-
-impl<T: StreamCipher + Send> EncryptionPair<T> {
-    pub fn init_both<F: Fn() -> T>(func: F) -> Self {
-        Self {
-            recv: func(),
-            send: func(),
-        }
-    }
-}
 
 pub struct CommonConnection {
     pub user_id: u32,
@@ -61,7 +48,7 @@ struct InternalConnection<E: CryptoHandlerConnectionInstance> {
     socket: Arc<UdpSocket>,
     packet_queue: HashMap<u16, PRUDPV1Packet>,
     last_packet_time: Instant,
-    unacknowleged_packets: Vec<(Instant, PRUDPV1Packet)>
+    unacknowleged_packets: Vec<(Instant, PRUDPV1Packet)>,
 }
 
 impl<E: CryptoHandlerConnectionInstance> Deref for InternalConnection<E> {
@@ -82,17 +69,17 @@ impl<E: CryptoHandlerConnectionInstance> InternalConnection<E> {
     }
 
     /// Sends a raw packet to a given client on the connection
-    /// 
-    /// a raw packet is one which does not get processed any further(other than to send it 
+    ///
+    /// a raw packet is one which does not get processed any further(other than to send it
     /// off without buffering or anything),
-    /// as such you need to make sure that 
+    /// as such you need to make sure that
     /// the sizes are set correctly and so on
     #[inline]
     async fn send_raw_packet(&self, prudp_packet: &PRUDPV1Packet) {
         send_raw_prudp_to_sockaddr(&self.socket, self.socket_addr, prudp_packet).await;
     }
 
-    async fn delete_connection(&self){
+    async fn delete_connection(&self) {
         let Some(conns) = self.connections.upgrade() else {
             // this is fine as it implies the server has already quit, thus meaning that we dont
             // have to remove ourselves from the server
@@ -187,8 +174,6 @@ pub(super) trait AnyInternalConnection:
     async fn close_connection(&mut self);
 }
 
-
-
 #[async_trait]
 impl<T: CryptoHandlerConnectionInstance> AnyInternalConnection for InternalConnection<T> {
     async fn send_data_packet(&mut self, data: Vec<u8>) {
@@ -218,7 +203,6 @@ impl<T: CryptoHandlerConnectionInstance> AnyInternalConnection for InternalConne
 
         self.unacknowleged_packets.push((Instant::now(), packet));
     }
-
 
     async fn close_connection(&mut self) {
         // jon confirmed that this should be a safe way to dc a client
@@ -250,7 +234,11 @@ impl<T: CryptoHandlerConnectionInstance> AnyInternalConnection for InternalConne
     }
 }
 
-async fn send_raw_prudp_to_sockaddr(udp_socket: &UdpSocket, dest: PRUDPSockAddr, packet: &PRUDPV1Packet){
+async fn send_raw_prudp_to_sockaddr(
+    udp_socket: &UdpSocket,
+    dest: PRUDPSockAddr,
+    packet: &PRUDPV1Packet,
+) {
     let mut vec = Vec::new();
 
     packet
@@ -281,7 +269,7 @@ impl<T: CryptoHandler> InternalSocket<T> {
     }
 
     /// sends a raw packet to a specific prudp socket address
-    /// 
+    ///
     /// a raw packet is a packet is a packet which wont get processed any further,
     /// sizes signatures etc need to be set before using this function
     async fn send_packet_unbuffered(&self, dest: PRUDPSockAddr, packet: &PRUDPV1Packet) {
@@ -353,13 +341,15 @@ impl<T: CryptoHandler> InternalSocket<T> {
                 conn.close_connection().await;
             }
 
-            for (send_time, packet) in &conn.unacknowleged_packets{
-                if *send_time < (Instant::now() - Duration::from_millis(3000)){
-                    warn!("failed to resend packet 5 times and never got response, destroying connection");
+            for (send_time, packet) in &conn.unacknowleged_packets {
+                if *send_time < (Instant::now() - Duration::from_millis(3000)) {
+                    warn!(
+                        "failed to resend packet 5 times and never got response, destroying connection"
+                    );
                     conn.close_connection().await;
                     break;
                 }
-                if *send_time < (Instant::now() - Duration::from_millis(500)){
+                if *send_time < (Instant::now() - Duration::from_millis(500)) {
                     info!("unacknowledged packet sat arround for more than 500 ms, resending");
                     conn.send_raw_packet(packet).await;
                 }
@@ -399,7 +389,7 @@ impl<T: CryptoHandler> InternalSocket<T> {
             packet_queue: Default::default(),
             last_packet_time: Instant::now(),
             unacknowleged_packets: Vec::new(),
-            supported_function_version
+            supported_function_version,
         };
 
         let internal = Arc::new(Mutex::new(internal));
@@ -487,7 +477,7 @@ impl<T: CryptoHandler> InternalSocket<T> {
                 SupportedFunctions(funcs) => {
                     functions = *funcs & 0xFF;
                     response.options.push(SupportedFunctions(*funcs & 0xFF));
-                },
+                }
                 _ => { /* ? */ }
             }
         }
@@ -610,7 +600,6 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
         if (packet.header.types_and_flags.get_flags() & ACK) != 0 {
             info!("got ack");
 
-            
             if packet.header.types_and_flags.get_types() == SYN
                 || packet.header.types_and_flags.get_types() == CONNECT
             {
@@ -645,9 +634,8 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
 
                 // remove the packet whose sequence id matches the ack packet
                 // or in other words keep all of those which dont match the sequence id
-                conn.unacknowleged_packets.retain_mut(|v| {
-                    packet.header.sequence_id != v.1.header.sequence_id
-                });
+                conn.unacknowleged_packets
+                    .retain_mut(|v| packet.header.sequence_id != v.1.header.sequence_id);
             } else {
                 error!("non connection acknowledgement packet on nonexistent connection...")
             }
@@ -659,26 +647,23 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
             if let Some(conn) = self.get_connection(address).await {
                 let mut conn = conn.lock().await;
 
-                if conn.supported_function_version == 1{
+                if conn.supported_function_version == 1 {
                     let mut collected_ids: Vec<u16> = Vec::new();
                     let mut cursor = Cursor::new(&packet.payload);
 
-                    while let Ok(v) = read_u16(&mut cursor){
+                    while let Ok(v) = read_u16(&mut cursor) {
                         collected_ids.push(v);
                     }
 
                     conn.unacknowleged_packets.retain_mut(|(_, up)| {
-                        !(
-                            collected_ids.iter().any(|id| up.header.sequence_id == *id) ||
-                            up.header.sequence_id <= packet.header.sequence_id
-                        )
+                        !(collected_ids.iter().any(|id| up.header.sequence_id == *id)
+                            || up.header.sequence_id <= packet.header.sequence_id)
                     });
-
                 } else {
                     let mut collected_ids: Vec<u16> = Vec::new();
                     let mut cursor = Cursor::new(&packet.payload);
 
-                    let Ok(_substream_id): Result<u8, _> = cursor.read_le_struct() else{
+                    let Ok(_substream_id): Result<u8, _> = cursor.read_le_struct() else {
                         error!("invalid data whilest reading new version agregate acknowledgement");
                         return;
                     };
@@ -690,19 +675,20 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                         error!("invalid data whilest reading new version agregate acknowledgement");
                         return;
                     };
-                    for _ in 0..additional_sequence_ids{
-                        let Ok(additional_sequence_id): Result<u16, _> = cursor.read_le_struct() else {
-                            error!("invalid data whilest reading new version agregate acknowledgement");
+                    for _ in 0..additional_sequence_ids {
+                        let Ok(additional_sequence_id): Result<u16, _> = cursor.read_le_struct()
+                        else {
+                            error!(
+                                "invalid data whilest reading new version agregate acknowledgement"
+                            );
                             return;
                         };
                         collected_ids.push(additional_sequence_id);
                     }
 
                     conn.unacknowleged_packets.retain_mut(|(_, up)| {
-                        !(
-                            collected_ids.iter().any(|id| up.header.sequence_id == *id) ||
-                            up.header.sequence_id <= sequence_id
-                        )
+                        !(collected_ids.iter().any(|id| up.header.sequence_id == *id)
+                            || up.header.sequence_id <= sequence_id)
                     });
                 }
             } else {

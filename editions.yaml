@@ -6,4 +6,5 @@ splatoon:
 friends:
   features:
     - friends
-  settings: {}
+  settings:
+    RNEX_VIRTUAL_PORT: 1:10

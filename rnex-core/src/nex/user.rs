@@ -1,33 +1,41 @@
 use crate::define_rmc_proto;
 use crate::nex::matchmake::{ExtendedMatchmakeSession, MatchmakeManager};
 use crate::nex::remote_console::RemoteConsole;
-use rnex_core::prudp::station_url::StationUrl;
-use rnex_core::prudp::station_url::UrlOptions::{
-    Address, NatFiltering, NatMapping, NatType, Port, PrincipalID, RVConnectionID,
-
-};
 use crate::rmc::protocols::matchmake::{
     Matchmake, RawMatchmake, RawMatchmakeInfo, RemoteMatchmake,
 };
-use rnex_core::rmc::protocols::ranking::{Ranking, RawRanking, RawRankingInfo, RemoteRanking};
+use crate::rmc::protocols::nat_traversal::{
+    NatTraversal, RawNatTraversal, RawNatTraversalInfo, RemoteNatTraversal,
+    RemoteNatTraversalConsole,
+};
+use rnex_core::prudp::station_url::StationUrl;
+use rnex_core::prudp::station_url::UrlOptions::{
+    Address, NatFiltering, NatMapping, NatType, Port, PrincipalID, RVConnectionID,
+};
+use rnex_core::rmc::protocols::matchmake_ext::{
+    MatchmakeExt, RawMatchmakeExt, RawMatchmakeExtInfo, RemoteMatchmakeExt,
+};
 use rnex_core::rmc::protocols::matchmake_extension::{
     MatchmakeExtension, RawMatchmakeExtension, RawMatchmakeExtensionInfo, RemoteMatchmakeExtension,
 };
-use crate::rmc::protocols::nat_traversal::{NatTraversal, RawNatTraversal, RawNatTraversalInfo, RemoteNatTraversal, RemoteNatTraversalConsole};
+use rnex_core::rmc::protocols::ranking::{Ranking, RawRanking, RawRankingInfo, RemoteRanking};
 use rnex_core::rmc::protocols::secure::{RawSecure, RawSecureInfo, RemoteSecure, Secure};
-use rnex_core::rmc::protocols::matchmake_ext::{MatchmakeExt, RawMatchmakeExt, RawMatchmakeExtInfo, RemoteMatchmakeExt};
 use rnex_core::rmc::response::ErrorCode;
-use rnex_core::rmc::structures::matchmake::{AutoMatchmakeParam, CreateMatchmakeSessionParam, JoinMatchmakeSessionParam, MatchmakeSession};
+use rnex_core::rmc::structures::matchmake::{
+    AutoMatchmakeParam, CreateMatchmakeSessionParam, JoinMatchmakeSessionParam, MatchmakeSession,
+};
 
-use rnex_core::rmc::structures::qresult::QResult;
-use macros::rmc_struct;
-use std::sync::{Arc, Weak};
+use crate::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
 use log::info;
-use tokio::sync::{Mutex, RwLock};
+use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use rnex_core::prudp::station_url::nat_types::PUBLIC;
-use crate::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
-use rnex_core::rmc::response::ErrorCode::{Core_Exception, Core_InvalidArgument, RendezVous_AccountExpired};
+use rnex_core::rmc::response::ErrorCode::{
+    Core_Exception, Core_InvalidArgument, RendezVous_AccountExpired,
+};
+use rnex_core::rmc::structures::qresult::QResult;
+use std::sync::{Arc, Weak};
+use tokio::sync::{Mutex, RwLock};
 
 define_rmc_proto!(
     proto UserProtocol{
@@ -78,14 +86,14 @@ impl Secure for User {
 
             let Some(nat_filtering) = station.options.iter().find_map(|v| match v {
                 NatFiltering(v) => Some(v),
-                _ => None
+                _ => None,
             }) else {
                 return Err(Core_Exception);
             };
 
             let Some(nat_mapping) = station.options.iter().find_map(|v| match v {
                 NatMapping(v) => Some(v),
-                _ => None
+                _ => None,
             }) else {
                 return Err(Core_Exception);
             };
@@ -108,15 +116,17 @@ impl Secure for User {
         } else {
             let mut public_station = private_station.clone();
 
-            public_station.options.retain(|v| {
-                match v {
-                    Address(_) | Port(_) | NatFiltering(_) | NatMapping(_) | NatType(_) => false,
-                    _ => true
-                }
+            public_station.options.retain(|v| match v {
+                Address(_) | Port(_) | NatFiltering(_) | NatMapping(_) | NatType(_) => false,
+                _ => true,
             });
 
-            public_station.options.push(Address(*self.ip.regular_socket_addr.ip()));
-            public_station.options.push(Port(self.ip.regular_socket_addr.port()));
+            public_station
+                .options
+                .push(Address(*self.ip.regular_socket_addr.ip()));
+            public_station
+                .options
+                .push(Port(self.ip.regular_socket_addr.port()));
             public_station.options.push(NatFiltering(0));
             public_station.options.push(NatMapping(0));
             public_station.options.push(NatType(3));
@@ -127,17 +137,14 @@ impl Secure for User {
         let both = [&mut public_station, &mut private_station];
 
         for station in both {
-            station.options.retain(|v| {
-                match v {
-                    PrincipalID(_) | RVConnectionID(_) => false,
-                    _ => true
-                }
+            station.options.retain(|v| match v {
+                PrincipalID(_) | RVConnectionID(_) => false,
+                _ => true,
             });
 
             station.options.push(PrincipalID(self.pid));
             station.options.push(RVConnectionID(cid));
         }
-
 
         let mut lock = self.station_url.write().await;
 
@@ -169,8 +176,8 @@ impl Secure for User {
         };
 
         let Some(replacement_target) = lock.iter_mut().find(|url| {
-            url.options.iter().any(|o| o == target_addr) &&
-                url.options.iter().any(|o| o == target_port)
+            url.options.iter().any(|o| o == target_addr)
+                && url.options.iter().any(|o| o == target_port)
         }) else {
             return Err(ErrorCode::Core_InvalidArgument);
         };
@@ -230,21 +237,33 @@ impl MatchmakeExtension for User {
             create_session_param.matchmake_session,
             &self.this.clone(),
         )
-            .await;
+        .await;
 
         let mut joining_players = vec![self.this.clone()];
 
         let users = self.matchmake_manager.users.read().await;
 
-        if let Ok(old_gathering) = self.matchmake_manager.get_session(create_session_param.gid_for_participation_check).await {
+        if let Ok(old_gathering) = self
+            .matchmake_manager
+            .get_session(create_session_param.gid_for_participation_check)
+            .await
+        {
             let old_gathering = old_gathering.lock().await;
 
-            let players = old_gathering.connected_players.iter().filter_map(|v| v.upgrade()).filter(|u| create_session_param.additional_participants.iter().any(|p| *p == u.pid));
+            let players = old_gathering
+                .connected_players
+                .iter()
+                .filter_map(|v| v.upgrade())
+                .filter(|u| {
+                    create_session_param
+                        .additional_participants
+                        .iter()
+                        .any(|p| *p == u.pid)
+                });
             for player in players {
                 joining_players.push(Arc::downgrade(&player));
             }
         }
-
 
         drop(users);
 
@@ -266,26 +285,43 @@ impl MatchmakeExtension for User {
         &self,
         join_session_param: JoinMatchmakeSessionParam,
     ) -> Result<MatchmakeSession, ErrorCode> {
-        let session = self.matchmake_manager.get_session(join_session_param.gid).await?;
+        let session = self
+            .matchmake_manager
+            .get_session(join_session_param.gid)
+            .await?;
 
         let mut session = session.lock().await;
-        
-        if session.session.user_password_enabled{
-            if join_session_param.user_password != session.session.user_password{
-                return Err(ErrorCode::RendezVous_InvalidPassword)
-            } 
+        if session.session.user_password_enabled {
+            if join_session_param.user_password != session.session.user_password {
+                return Err(ErrorCode::RendezVous_InvalidPassword);
+            }
         }
 
-        session.connected_players.retain(|v| v.upgrade().is_some_and(|v| v.pid != self.pid));
+        session
+            .connected_players
+            .retain(|v| v.upgrade().is_some_and(|v| v.pid != self.pid));
 
         let mut joining_players = vec![self.this.clone()];
 
         let users = self.matchmake_manager.users.read().await;
 
-        if let Ok(old_gathering) = self.matchmake_manager.get_session(join_session_param.gid_for_participation_check).await {
+        if let Ok(old_gathering) = self
+            .matchmake_manager
+            .get_session(join_session_param.gid_for_participation_check)
+            .await
+        {
             let old_gathering = old_gathering.lock().await;
 
-            let players = old_gathering.connected_players.iter().filter_map(|v| v.upgrade()).filter(|u| join_session_param.additional_participants.iter().any(|p| *p == u.pid));
+            let players = old_gathering
+                .connected_players
+                .iter()
+                .filter_map(|v| v.upgrade())
+                .filter(|u| {
+                    join_session_param
+                        .additional_participants
+                        .iter()
+                        .any(|p| *p == u.pid)
+                });
             for player in players {
                 joining_players.push(Arc::downgrade(&player));
             }
@@ -302,17 +338,28 @@ impl MatchmakeExtension for User {
         Ok(mm_session)
     }
 
-    async fn auto_matchmake_with_param_postpone(&self, param: AutoMatchmakeParam) -> Result<MatchmakeSession, ErrorCode> {
+    async fn auto_matchmake_with_param_postpone(
+        &self,
+        param: AutoMatchmakeParam,
+    ) -> Result<MatchmakeSession, ErrorCode> {
         println!("{:?}", param);
 
         let mut joining_players = vec![self.this.clone()];
 
         let users = self.matchmake_manager.users.read().await;
 
-        if let Ok(old_gathering) = self.matchmake_manager.get_session(param.gid_for_participation_check).await {
+        if let Ok(old_gathering) = self
+            .matchmake_manager
+            .get_session(param.gid_for_participation_check)
+            .await
+        {
             let old_gathering = old_gathering.lock().await;
 
-            let players = old_gathering.connected_players.iter().filter_map(|v| v.upgrade()).filter(|u| param.additional_participants.iter().any(|p| *p == u.pid));
+            let players = old_gathering
+                .connected_players
+                .iter()
+                .filter_map(|v| v.upgrade())
+                .filter(|u| param.additional_participants.iter().any(|p| *p == u.pid));
             for player in players {
                 joining_players.push(Arc::downgrade(&player));
             }
@@ -339,7 +386,9 @@ impl MatchmakeExtension for User {
             }
 
             if bool_matched_criteria {
-                session.add_players(&joining_players, param.join_message).await;
+                session
+                    .add_players(&joining_players, param.join_message)
+                    .await;
 
                 return Ok(session.session.clone());
             }
@@ -365,17 +414,26 @@ impl MatchmakeExtension for User {
             create_matchmake_session_option: 0,
             matchmake_session,
             additional_participants,
-        }).await
+        })
+        .await
     }
 
-    async fn find_matchmake_session_by_gathering_id_detail(&self, gid: u32) -> Result<MatchmakeSession, ErrorCode> {
+    async fn find_matchmake_session_by_gathering_id_detail(
+        &self,
+        gid: u32,
+    ) -> Result<MatchmakeSession, ErrorCode> {
         let session = self.matchmake_manager.get_session(gid).await?;
         let session = session.lock().await;
 
         Ok(session.session.clone())
     }
 
-    async fn modify_current_game_attribute(&self, gid: u32, attrib_index: u32, attrib_val: u32) -> Result<(), ErrorCode> {
+    async fn modify_current_game_attribute(
+        &self,
+        gid: u32,
+        attrib_index: u32,
+        attrib_val: u32,
+    ) -> Result<(), ErrorCode> {
         let session = self.matchmake_manager.get_session(gid).await?;
         let mut session = session.lock().await;
 
@@ -394,30 +452,30 @@ impl Matchmake for User {
 
         let session = session.lock().await;
 
-        let urls: Vec<_> =
-            session
-                .connected_players
-                .iter()
-                .filter_map(|v| v.upgrade())
-                .filter(|u| u.pid == session.session.gathering.host_pid)
-                .map(|u| async move {
-                    u.station_url.read().await.clone()
-                })
-                .next()
-                .ok_or(ErrorCode::RendezVous_SessionClosed)?
-                .await;
-
+        let urls: Vec<_> = session
+            .connected_players
+            .iter()
+            .filter_map(|v| v.upgrade())
+            .filter(|u| u.pid == session.session.gathering.host_pid)
+            .map(|u| async move { u.station_url.read().await.clone() })
+            .next()
+            .ok_or(ErrorCode::RendezVous_SessionClosed)?
+            .await;
 
         println!("{:?}", urls);
-        
-        if urls.is_empty(){
-            return Err(ErrorCode::RendezVous_NotParticipatedGathering)
+
+        if urls.is_empty() {
+            return Err(ErrorCode::RendezVous_NotParticipatedGathering);
         }
 
         Ok(urls)
     }
 
-    async fn update_session_host(&self, gid: u32, change_session_owner: bool) -> Result<(), ErrorCode> {
+    async fn update_session_host(
+        &self,
+        gid: u32,
+        change_session_owner: bool,
+    ) -> Result<(), ErrorCode> {
         let session = self.matchmake_manager.get_session(gid).await?;
         let mut session = session.lock().await;
 
@@ -428,40 +486,50 @@ impl Matchmake for User {
                 continue;
             };
 
-            player.remote.process_notification_event(NotificationEvent {
-                notif_type: 110000,
-                pid_source: self.pid,
-                param_1: gid,
-                param_2: self.pid,
-                param_3: 0,
-                str_param: "".to_string(),
-            }).await;
+            player
+                .remote
+                .process_notification_event(NotificationEvent {
+                    notif_type: 110000,
+                    pid_source: self.pid,
+                    param_1: gid,
+                    param_2: self.pid,
+                    param_3: 0,
+                    str_param: "".to_string(),
+                })
+                .await;
         }
 
         if change_session_owner {
             session.session.gathering.owner_pid = self.pid;
-
 
             for player in &session.connected_players {
                 let Some(player) = player.upgrade() else {
                     continue;
                 };
 
-                player.remote.process_notification_event(NotificationEvent {
-                    notif_type: 4000,
-                    pid_source: self.pid,
-                    param_1: gid,
-                    param_2: self.pid,
-                    param_3: 0,
-                    str_param: "".to_string(),
-                }).await;
+                player
+                    .remote
+                    .process_notification_event(NotificationEvent {
+                        notif_type: 4000,
+                        pid_source: self.pid,
+                        param_1: gid,
+                        param_2: self.pid,
+                        param_3: 0,
+                        str_param: "".to_string(),
+                    })
+                    .await;
             }
         }
 
         Ok(())
     }
 
-    async fn migrate_gathering_ownership(&self, gid: u32, candidates: Vec<u32>, _participants_only: bool) -> Result<(), ErrorCode> {
+    async fn migrate_gathering_ownership(
+        &self,
+        gid: u32,
+        candidates: Vec<u32>,
+        _participants_only: bool,
+    ) -> Result<(), ErrorCode> {
         let session = self.matchmake_manager.get_session(gid).await?;
         let mut session = session.lock().await;
 
@@ -474,14 +542,17 @@ impl Matchmake for User {
                 continue;
             };
 
-            player.remote.process_notification_event(NotificationEvent {
-                notif_type: 4000,
-                pid_source: self.pid,
-                param_1: gid,
-                param_2: *candidate,
-                param_3: 0,
-                str_param: "".to_string(),
-            }).await;
+            player
+                .remote
+                .process_notification_event(NotificationEvent {
+                    notif_type: 4000,
+                    pid_source: self.pid,
+                    param_1: gid,
+                    param_2: *candidate,
+                    param_3: 0,
+                    str_param: "".to_string(),
+                })
+                .await;
         }
 
         Ok(())
@@ -493,12 +564,12 @@ impl MatchmakeExt for User {
         let session = self.matchmake_manager.get_session(gid).await?;
         let mut session = session.lock().await;
 
-        session.remove_player_from_session(self.pid, &message).await?;
+        session
+            .remove_player_from_session(self.pid, &message)
+            .await?;
 
         Ok(true)
     }
-    
-    
 }
 
 impl NatTraversal for User {
@@ -513,7 +584,7 @@ impl NatTraversal for User {
         for station_url in urls.iter_mut() {
             station_url.options.retain(|o| match o {
                 NatMapping(_) | NatFiltering(_) => false,
-                _ => true
+                _ => true,
             });
 
             station_url.options.push(NatMapping(nat_mapping as u8));
@@ -523,7 +594,12 @@ impl NatTraversal for User {
         Ok(())
     }
 
-    async fn report_nat_traversal_result(&self, _cid: u32, _result: bool, _rtt: u32) -> Result<(), ErrorCode> {
+    async fn report_nat_traversal_result(
+        &self,
+        _cid: u32,
+        _result: bool,
+        _rtt: u32,
+    ) -> Result<(), ErrorCode> {
         Ok(())
     }
 
@@ -532,17 +608,28 @@ impl NatTraversal for User {
         Err(RendezVous_AccountExpired)
     }
 
-    async fn request_probe_initialization_ext(&self, target_list: Vec<String>, station_to_probe: String) -> Result<(), ErrorCode> {
+    async fn request_probe_initialization_ext(
+        &self,
+        target_list: Vec<String>,
+        station_to_probe: String,
+    ) -> Result<(), ErrorCode> {
         let users = self.matchmake_manager.users.read().await;
 
-        println!("requesting station probe for {:?} to {:?}", target_list, station_to_probe);
+        println!(
+            "requesting station probe for {:?} to {:?}",
+            target_list, station_to_probe
+        );
 
         for target in target_list {
             let Ok(url) = StationUrl::try_from(target.as_ref()) else {
                 continue;
             };
 
-            let Some(RVConnectionID(v)) = url.options.into_iter().find(|o| { matches!(o, &RVConnectionID(_)) }) else {
+            let Some(RVConnectionID(v)) = url
+                .options
+                .into_iter()
+                .find(|o| matches!(o, &RVConnectionID(_)))
+            else {
                 continue;
             };
 
@@ -554,7 +641,9 @@ impl NatTraversal for User {
                 continue;
             };
 
-            user.remote.request_probe_initiation(station_to_probe.clone()).await;
+            user.remote
+                .request_probe_initiation(station_to_probe.clone())
+                .await;
         }
 
         info!("finished probing");
@@ -563,6 +652,4 @@ impl NatTraversal for User {
     }
 }
 
-impl Ranking for User{
-
-}
+impl Ranking for User {}

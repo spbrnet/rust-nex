@@ -6,4 +6,5 @@ IFS=$'\n'
 while IFS=$'\n' read -r KEY; do
   VAL=$(yq ea ".$EDITION.settings.$KEY" editions.yaml)
   declare "$KEY=$VAL"
+  export $KEY
 done <<< "$SETTINGS"
