@@ -7,3 +7,4 @@ edition = "2024"
 thiserror = "2.0.12"
 rnex-core = { path = "../rnex-core", version = "0.1.1" }
 tokio = { version =  "1.47.0", features = ["full"] }
+log = "0.4.25"

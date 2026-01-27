@@ -1,3 +1,4 @@
+use log::{error, info};
 use rnex_core::{
     executables::common::{OWN_IP_PUBLIC, try_get_ip},
     prudp::{socket_addr::PRUDPSockAddr, virtual_port::VirtualPort},
@@ -87,8 +88,8 @@ impl ProxyStartupParam {
         };
 
         Ok(Self {
-            forward_destination: try_get_env("EDGE_NODE_HOLDER")?,
-            edge_node_holder: try_get_env("FORWARD_DESTINATION")?,
+            forward_destination: try_get_env("FORWARD_DESTINATION")?,
+            edge_node_holder: try_get_env("EDGE_NODE_HOLDER")?,
             self_private,
             self_public,
             virtual_port: match prox_ty {
@@ -174,9 +175,11 @@ pub async fn new_backend_connection(
     addr: PRUDPSockAddr,
     pid: u32,
 ) -> Option<SplittableBufferConnection> {
+    info!("attempting to connect to: {}", param.forward_destination);
     let mut stream = match TcpStream::connect(param.forward_destination).await {
         Ok(v) => v,
         Err(e) => {
+            error!("unable to establish connection to backend: {}", e);
             return None;
         }
     };
@@ -192,6 +195,7 @@ pub async fn new_backend_connection(
         )
         .await
     {
+        error!("unable to send establishment data to backend: {}", e);
         return None;
     };
 

@@ -1,18 +1,20 @@
+use crate::rmc::structures::connection_data::ConnectionData;
+use macros::{method_id, rmc_proto};
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::any::Any;
-use crate::rmc::structures::connection_data::ConnectionData;
 use rnex_core::rmc::structures::qresult::QResult;
-use macros::{method_id, rmc_proto};
 
-
-/// This is the representation for `Ticket Granting`(for details see the 
+/// This is the representation for `Ticket Granting`(for details see the
 /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))
 #[rmc_proto(10)]
 pub trait Auth {
     /// representation of the `Login` method(for details see the
     /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))
     #[method_id(1)]
-    async fn login(&self, name: String) -> Result<(), ErrorCode>;
+    async fn login(
+        &self,
+        name: String,
+    ) -> Result<(QResult, u32, Vec<u8>, ConnectionData, String), ErrorCode>;
 
     /// representation of the `LoginEx` method(for details see the
     /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))

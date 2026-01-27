@@ -541,6 +541,7 @@ name = "proxy"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
+ "proxy-common",
  "prudpv0",
  "prudpv1",
  "rnex-core",
@@ -551,6 +552,7 @@ dependencies = [
 name = "proxy-common"
 version = "0.1.0"
 dependencies = [
+ "log",
  "rnex-core",
  "thiserror",
  "tokio",

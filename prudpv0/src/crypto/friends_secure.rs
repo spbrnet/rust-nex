@@ -1,6 +1,6 @@
 use hmac::Mac;
 use rc4::Rc4;
-use rnex_core::prudp::encryption::EncryptionPair;
+use rnex_core::prudp::{encryption::EncryptionPair, types_flags::TypesFlags};
 use typenum::U32;
 
 use crate::crypto::{
@@ -23,7 +23,7 @@ impl CryptoInstance for SecureInstance {
     fn get_user_id(&self) -> u32 {
         todo!()
     }
-    fn generate_signature(&self, data: &[u8]) -> [u8; 4] {
+    fn generate_signature(&self, types_flags: TypesFlags, data: &[u8]) -> [u8; 4] {
         let mut hmac = <HmacMd5 as Mac>::new_from_slice(ACCESS_KEY.as_bytes())
             .expect("unable to create hmac md5");
         hmac.update(data);
@@ -41,7 +41,12 @@ impl Crypto for Secure {
     fn calculate_checksum(&self, data: &[u8]) -> u8 {
         common_checksum(ACCESS_KEY, data)
     }
-    fn instantiate(&self, data: &[u8]) -> Self::Instance {
+    fn instantiate(
+        &self,
+        data: &[u8],
+        self_signat: [u8; 4],
+        remote_signat: [u8; 4],
+    ) -> Self::Instance {
         todo!()
     }
 }

@@ -47,7 +47,7 @@ async fn start_proxy<T: Crypto>(param: ProxyStartupParam) {
     let mut crypto = Arc::new(T::new());
     info!("binding to socket");
 
-    let server: Arc<Server<T>> = Arc::new(Server::new().await);
+    let server: Arc<Server<T>> = Arc::new(Server::new(param).await);
 
     info!("waiting on packets");
     server.run_task().await;

@@ -69,14 +69,9 @@ fn station_url_from_sock_addr(sock_addr: SocketAddrV4) -> String {
 }
 
 impl Auth for AuthHandler {
-    async fn login(&self, _name: String) -> Result<(), ErrorCode> {
-        todo!()
-    }
-
-    async fn login_ex(
+    async fn login(
         &self,
         name: String,
-        _extra_data: Any,
     ) -> Result<(QResult, u32, Vec<u8>, ConnectionData, String), ErrorCode> {
         let Ok(pid) = name.parse() else {
             return Err(ErrorCode::Core_InvalidArgument);
@@ -120,6 +115,14 @@ impl Auth for AuthHandler {
             connection_data,
             self.build_name.to_string(), //format!("{}; Rust NEX Version {} by DJMrTV", self.build_name, env!("CARGO_PKG_VERSION")),
         ))
+    }
+
+    async fn login_ex(
+        &self,
+        name: String,
+        _extra_data: Any,
+    ) -> Result<(QResult, u32, Vec<u8>, ConnectionData, String), ErrorCode> {
+        self.login(name).await
     }
 
     async fn request_ticket(

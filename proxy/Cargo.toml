@@ -7,6 +7,7 @@ edition = "2024"
 tokio = { version =  "1.47.0", features = ["full"] }
 prudpv0 = { path = "../prudpv0", optional = true }
 prudpv1 = { path = "../prudpv1", optional = true }
+proxy-common = { path = "../proxy-common" }
 cfg-if = "1.0.4"
 rnex-core = { path = "../rnex-core", version = "0.1.1" }
 

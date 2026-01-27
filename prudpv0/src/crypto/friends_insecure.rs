@@ -2,7 +2,10 @@ use std::rc::Rc;
 
 use hmac::Mac;
 use rc4::{KeyInit, Rc4, StreamCipher};
-use rnex_core::prudp::encryption::{DEFAULT_KEY, EncryptionPair};
+use rnex_core::prudp::{
+    encryption::{DEFAULT_KEY, EncryptionPair},
+    types_flags::{TypesFlags, types::DATA},
+};
 use typenum::U5;
 
 use crate::crypto::{
@@ -13,6 +16,8 @@ use crate::crypto::{
 
 pub struct InsecureInstance {
     pair: EncryptionPair<Rc4<U5>>,
+    self_signat: [u8; 4],
+    remote_signat: [u8; 4],
 }
 
 impl CryptoInstance for InsecureInstance {
@@ -25,11 +30,19 @@ impl CryptoInstance for InsecureInstance {
     fn get_user_id(&self) -> u32 {
         0
     }
-    fn generate_signature(&self, data: &[u8]) -> [u8; 4] {
-        let mut hmac = <HmacMd5 as Mac>::new_from_slice(ACCESS_KEY.as_bytes())
-            .expect("unable to create hmac md5");
-        hmac.update(data);
-        hmac.finalize().into_bytes()[0..4].try_into().unwrap()
+    fn generate_signature(&self, types_flags: TypesFlags, data: &[u8]) -> [u8; 4] {
+        if types_flags.get_types() == DATA {
+            if data.len() == 0 {
+                [0x12, 0x34, 0x56, 0x78]
+            } else {
+                let mut hmac = <HmacMd5 as Mac>::new_from_slice(ACCESS_KEY.as_bytes())
+                    .expect("unable to create hmac md5");
+                hmac.update(data);
+                hmac.finalize().into_bytes()[0..4].try_into().unwrap()
+            }
+        } else {
+            self.self_signat
+        }
     }
 }
 
@@ -44,9 +57,16 @@ impl Crypto for Insecure {
         common_checksum(ACCESS_KEY, data)
     }
 
-    fn instantiate(&self, packet_data: &[u8]) -> Self::Instance {
+    fn instantiate(
+        &self,
+        packet_data: &[u8],
+        self_signat: [u8; 4],
+        remote_signat: [u8; 4],
+    ) -> Self::Instance {
         InsecureInstance {
             pair: EncryptionPair::init_both(|| Rc4::new(&DEFAULT_KEY)),
+            self_signat,
+            remote_signat,
         }
     }
 }

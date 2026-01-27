@@ -6,6 +6,8 @@ use std::{
         Arc, LazyLock,
         atomic::{AtomicBool, AtomicU32},
     },
+    thread::sleep,
+    time::Duration,
 };
 
 use log::{error, info, warn};
@@ -16,7 +18,7 @@ use rnex_core::{
         socket_addr::PRUDPSockAddr,
         types_flags::{
             TypesFlags,
-            flags::{ACK, HAS_SIZE, NEED_ACK},
+            flags::{ACK, HAS_SIZE, NEED_ACK, RELIABLE},
             types::{CONNECT, DATA, SYN},
         },
         virtual_port::VirtualPort,
@@ -33,7 +35,10 @@ use tokio::{
 
 use crate::{
     crypto::{Crypto, CryptoInstance},
-    packet::{PRUDPV0Header, PRUDPV0Packet, new_syn_packet, precalc_size},
+    packet::{
+        PRUDPV0Header, PRUDPV0Packet, new_connect_packet, new_data_packet, new_syn_packet,
+        precalc_size,
+    },
 };
 
 pub struct InternalConnection<C: CryptoInstance> {
@@ -42,6 +47,7 @@ pub struct InternalConnection<C: CryptoInstance> {
     server_packet_counter: u16,
     client_packet_counter: u16,
     unacknowledged_packets: HashMap<u16, Arc<Vec<u8>>>,
+    packet_queue: HashMap<u16, (Instant, PRUDPV0Packet<Vec<u8>>)>,
 }
 pub struct Connection<C: CryptoInstance> {
     alive: AtomicBool,
@@ -71,8 +77,8 @@ pub struct Server<C: Crypto> {
 }
 
 impl<C: Crypto> Server<C> {
-    async fn send_data_packet(&self, conn: &Connection<C::Instance>, data: &[u8]) {
-        let type_flags = TypesFlags::default().types(DATA).flags(HAS_SIZE | NEED_ACK);
+    async fn send_data_packet(self: Arc<Self>, conn: Arc<Connection<C::Instance>>, data: &[u8]) {
+        /*let type_flags = TypesFlags::default().types(DATA).flags(HAS_SIZE | NEED_ACK);
         let vec = vec![0; precalc_size(type_flags, data.len())];
         let mut packet = PRUDPV0Packet::new(vec);
 
@@ -99,13 +105,26 @@ impl<C: Crypto> Server<C> {
                 packet
                     .checksummed_data()
                     .expect("packet malformed in creation"),
-            );
+            );*/
+        let mut inner = conn.inner.lock().await;
+        let seq = inner.server_packet_counter;
+        let packet = new_data_packet(
+            HAS_SIZE | NEED_ACK | RELIABLE,
+            self.param.virtual_port,
+            conn.addr.virtual_port,
+            data,
+            inner.server_packet_counter,
+            conn.session_id,
+            0,
+            &mut inner.crypto_instance,
+            &self.crypto,
+        );
+        inner.server_packet_counter += 1;
 
-        let packet_raw = packet.0;
-
-        let packet = Arc::new(packet_raw);
-
+        let packet = Arc::new(packet);
         let packet_ref = Arc::downgrade(&packet);
+        let conn = Arc::downgrade(&conn);
+        let this = Arc::downgrade(&self);
 
         inner.unacknowledged_packets.insert(seq, packet);
 
@@ -116,7 +135,19 @@ impl<C: Crypto> Server<C> {
                 let Some(data) = packet_ref.upgrade() else {
                     return;
                 };
+                let Some(conn) = conn.upgrade() else {
+                    return;
+                };
+                let Some(this) = this.upgrade() else {
+                    return;
+                };
                 info!("send attempt {}", n);
+
+                self.socket
+                    .send_to(&data, conn.addr.regular_socket_addr)
+                    .await;
+
+                break;
             }
         });
     }
@@ -125,14 +156,21 @@ impl<C: Crypto> Server<C> {
         conn: Arc<Connection<C::Instance>>,
         mut recv: SplittableBufferConnection,
     ) {
-        while let Some(data) = recv.recv().await {}
+        while let Some(data) = recv.recv().await {
+            if &data[..] == &[0, 0, 0, 0, 0] {
+                info!("got keepalive");
+                continue;
+            }
+            info!("got data from server: {:?}", data);
+            self.clone().send_data_packet(conn.clone(), &data).await;
+        }
     }
     async fn timeout_thread(self: Arc<Self>, conn: Arc<Connection<C::Instance>>) {
         loop {
-            conn
+            sleep(Duration::from_secs(5));
         }
     }
-    async fn handle_syn(self: Arc<Self>, packet: PRUDPV0Packet<&[u8]>, addr: PRUDPSockAddr) {
+    async fn handle_syn(self: Arc<Self>, packet: PRUDPV0Packet<Vec<u8>>, addr: PRUDPSockAddr) {
         info!("got syn");
         let header = packet.header().unwrap();
 
@@ -142,8 +180,7 @@ impl<C: Crypto> Server<C> {
         let packet = new_syn_packet(ACK, header.destination, header.source, signat, &self.crypto);
         self.socket.send_to(&packet, addr.regular_socket_addr).await;
     }
-    async fn handle_connect(self: Arc<Self>, packet: PRUDPV0Packet<&[u8]>, addr: PRUDPSockAddr) {
-        let conn = self.connections.write().await;
+    async fn handle_connect(self: Arc<Self>, packet: PRUDPV0Packet<Vec<u8>>, addr: PRUDPSockAddr) {
         let Some(data) = packet.payload() else {
             warn!("malformed packet from: {:?}", addr.regular_socket_addr);
             return;
@@ -155,16 +192,6 @@ impl<C: Crypto> Server<C> {
             );
             return;
         };
-
-        let ci = self.crypto.instantiate(data);
-
-        let pid = ci.get_user_id();
-        let conn = new_backend_connection(&self.param, addr, pid).await;
-        let Some(conn) = conn else {
-            error!("unable to connect to backend");
-            return;
-        };
-
         let remote_signat = addr.calculate_connection_signature();
         let remote_signat = [
             remote_signat[0],
@@ -173,10 +200,19 @@ impl<C: Crypto> Server<C> {
             remote_signat[3],
         ];
 
+        let ci = self.crypto.instantiate(data, self_signat, remote_signat);
+
+        let pid = ci.get_user_id();
+        let buf_conn = new_backend_connection(&self.param, addr, pid).await;
+        let Some(buf_conn) = buf_conn else {
+            error!("unable to connect to backend");
+            return;
+        };
+
         let header = packet.header().expect("header should be validated by now");
 
         let conn = Arc::new(Connection {
-            target: conn.duplicate_sender(),
+            target: buf_conn.duplicate_sender(),
             remote_signat,
             self_signat,
             addr,
@@ -188,10 +224,95 @@ impl<C: Crypto> Server<C> {
                 client_packet_counter: 2,
                 server_packet_counter: 1,
                 unacknowledged_packets: HashMap::new(),
+                packet_queue: HashMap::new(),
             }),
         });
+
+        let mut conns = self.connections.write().await;
+        conns.insert(addr, conn.clone());
+        drop(conns);
+
+        spawn({
+            let this = self.clone();
+            let conn = conn.clone();
+            this.connection_thread(conn, buf_conn)
+        });
+        spawn({
+            let this = self.clone();
+            let conn = conn.clone();
+            this.timeout_thread(conn)
+        });
+
+        let packet = new_connect_packet(
+            ACK,
+            header.destination,
+            header.source,
+            remote_signat,
+            &self.crypto,
+        );
+
+        info!("sending back connection accept");
+        self.socket.send_to(&packet, addr.regular_socket_addr).await;
     }
-    async fn process_packet<'a>(self: Arc<Self>, packet: PRUDPV0Packet<&[u8]>, addr: SocketAddrV4) {
+    async fn handle_data(self: Arc<Self>, mut packet: PRUDPV0Packet<Vec<u8>>, addr: PRUDPSockAddr) {
+        let Some(frag_id) = packet.fragment_id() else {
+            warn!("invalid packet from: {:?}", addr);
+            return;
+        };
+        let Some(header) = packet.header() else {
+            warn!("invalid packet from: {:?}", addr);
+            return;
+        };
+
+        let rd = self.connections.read().await;
+        let res = rd.get(&addr).cloned();
+        drop(rd);
+        let Some(res) = res else {
+            warn!("data packet on inactive connection from: {:?}", addr);
+            return;
+        };
+        info!("frag: {}", frag_id);
+        let mut conn = res.inner.lock().await;
+        let ack = new_data_packet(
+            ACK | HAS_SIZE,
+            self.param.virtual_port,
+            res.addr.virtual_port,
+            &[],
+            header.sequence_id,
+            header.session_id,
+            *frag_id,
+            &mut conn.crypto_instance,
+            &self.crypto,
+        );
+        self.socket.send_to(&ack, addr.regular_socket_addr).await;
+        conn.last_action = Instant::now();
+        conn.packet_queue.insert(
+            packet.header().unwrap().sequence_id,
+            (Instant::now(), packet),
+        );
+        while let Some((_, mut packet)) = {
+            let ctr = conn.client_packet_counter;
+            conn.packet_queue.remove(&ctr)
+        } {
+            info!("processing packet: {}", conn.client_packet_counter);
+            let Some(payload) = packet.payload_mut() else {
+                //todo: at this point the stream would have been broken, we should probably disconnect the client
+                warn!("invalid packet from: {:?}", addr);
+                return;
+            };
+
+            conn.crypto_instance.decrypt_incoming(payload);
+
+            res.target.send(payload.to_owned()).await;
+            conn.client_packet_counter += 1;
+        }
+        drop(conn);
+    }
+    async fn process_packet<'a>(
+        self: Arc<Self>,
+        packet: PRUDPV0Packet<Vec<u8>>,
+        addr: SocketAddrV4,
+    ) {
         if !packet.check_checksum(&self.crypto) {
             warn!("invalid checksum from: {}", addr);
             return;
@@ -210,6 +331,9 @@ impl<C: Crypto> Server<C> {
             }
             CONNECT => {
                 self.handle_connect(packet, addr).await;
+            }
+            DATA => {
+                self.handle_data(packet, addr).await;
             }
             v => {
                 println!("unimplemented packed type: {}", v);
@@ -231,8 +355,8 @@ impl<C: Crypto> Server<C> {
             };
             let this = self.clone();
             tokio::spawn(async move {
-                let data = vec;
-                let packet = PRUDPV0Packet::new(&data[..]);
+                let mut data = vec;
+                let packet = PRUDPV0Packet::new(data);
 
                 let SocketAddr::V4(addr) = addr else {
                     unreachable!()

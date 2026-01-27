@@ -1,10 +1,10 @@
 use std::mem::transmute;
 
 use bytemuck::{Pod, Zeroable, try_from_bytes, try_from_bytes_mut};
-use log::error;
+use log::{error, info};
 use rnex_core::prudp::{
     types_flags::{
-        TypesFlags,
+        self, TypesFlags,
         flags::{HAS_SIZE, NEED_ACK},
         types::{CONNECT, DATA, SYN},
     },
@@ -64,6 +64,40 @@ impl<T: AsRef<[u8]>> PRUDPV0Packet<T> {
                 .try_into()
                 .ok()?,
         )
+    }
+    #[inline(always)]
+    pub fn size_mut(&mut self) -> Option<&mut u16>
+    where
+        T: AsMut<[u8]>,
+    {
+        if self.header()?.type_flags.get_flags() & HAS_SIZE == 0 {
+            return None;
+        }
+        let offset = size_of::<PRUDPV0Header>() + get_type_specific_size(self.header()?.type_flags);
+        Some(bytemuck::from_bytes_mut(
+            self.0.as_mut().get_mut(offset..offset + 2)?,
+        ))
+    }
+
+    #[inline(always)]
+    pub fn fragment_id_mut(&mut self) -> Option<&mut u8>
+    where
+        T: AsMut<[u8]>,
+    {
+        if self.header()?.type_flags.get_types() != DATA {
+            return None;
+        }
+        let offset = size_of::<PRUDPV0Header>();
+        Some(self.0.as_mut().get_mut(offset)?)
+    }
+
+    #[inline(always)]
+    pub fn fragment_id(&self) -> Option<&u8> {
+        if self.header()?.type_flags.get_types() != DATA {
+            return None;
+        }
+        let offset = size_of::<PRUDPV0Header>();
+        Some(self.0.as_ref().get(offset)?)
     }
 
     #[inline(always)]
@@ -136,7 +170,7 @@ const fn get_size_offset(tf: TypesFlags) -> usize {
 }
 #[inline(always)]
 const fn get_type_specific_size(tf: TypesFlags) -> usize {
-    if tf.get_types() & (SYN | CONNECT) != 0 {
+    if tf.get_types() == SYN || tf.get_types() == CONNECT {
         4
     } else if tf.get_types() & DATA != 0 {
         1
@@ -182,6 +216,97 @@ pub fn new_syn_packet(
             .checksummed_data()
             .expect("packet malformed in creation"),
     );
+
+    packet.0
+}
+
+pub fn new_connect_packet(
+    flags: u16,
+    source: VirtualPort,
+    destination: VirtualPort,
+    signat: [u8; 4],
+    crypto: &impl Crypto,
+) -> Vec<u8> {
+    let type_flags = TypesFlags::default().types(CONNECT).flags(flags);
+
+    let vec = vec![0; precalc_size(type_flags, 0)];
+    let mut packet = PRUDPV0Packet::new(vec);
+    let header = packet.header_mut().expect("packet malformed in creation");
+
+    *header = PRUDPV0Header {
+        destination,
+        source,
+        packet_signature: DEFAULT_SIGNAT,
+        sequence_id: 0,
+        session_id: 0,
+        type_flags,
+    };
+    *packet
+        .connection_signature_mut()
+        .expect("packet malformed in creation") = signat;
+
+    *packet.checksum_mut().expect("packet malformed in creation") = crypto.calculate_checksum(
+        packet
+            .checksummed_data()
+            .expect("packet malformed in creation"),
+    );
+
+    packet.0
+}
+
+pub fn new_data_packet(
+    flags: u16,
+    source: VirtualPort,
+    destination: VirtualPort,
+    data: &[u8],
+    sequence_id: u16,
+    session_id: u8,
+    frag_id: u8,
+    crypto_instance: &mut impl CryptoInstance,
+    crypto: &impl Crypto,
+) -> Vec<u8> {
+    let type_flags = TypesFlags::default().types(DATA).flags(flags);
+
+    let vec = vec![0; precalc_size(type_flags, data.len())];
+    let mut packet = PRUDPV0Packet::new(vec);
+    packet
+        .header_mut()
+        .expect("packet malformed in creation")
+        .type_flags = type_flags;
+    packet
+        .payload_mut()
+        .expect("packet malformed in creation")
+        .copy_from_slice(data);
+
+    if let Some(size) = packet.size_mut() {
+        *size = data.len() as u16;
+    }
+    *packet
+        .fragment_id_mut()
+        .expect("packet malformed in creation") = frag_id;
+    let packet_signature = crypto_instance.generate_signature(
+        type_flags,
+        packet.payload().expect("packet malformed in creation"),
+    );
+
+    let header = packet.header_mut().expect("packet malformed in creation");
+
+    *header = PRUDPV0Header {
+        destination,
+        source,
+        packet_signature,
+        sequence_id,
+        session_id,
+        type_flags,
+    };
+
+    *packet.checksum_mut().expect("packet malformed in creation") = crypto.calculate_checksum(
+        packet
+            .checksummed_data()
+            .expect("packet malformed in creation"),
+    );
+
+    info!("header: {:?}", packet.header());
 
     packet.0
 }
