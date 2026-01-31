@@ -1,5 +1,11 @@
 default:
   image: quay.io/podman/stable
+  cache:
+    key: image-cache
+    paths:
+      - /var/lib/containers/storage
+      - /run/containers/storage
+      - .local/share/containers/storage
   before_script:
     - git submodule update --init
     - podman login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
