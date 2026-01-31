@@ -4,11 +4,11 @@ cfg_if::cfg_if! {
         pub mod executables;
         pub mod prudp;
         pub async fn start_secure(param: ProxyStartupParam) {
-            executables::proxy_secure::start();
+            executables::proxy_secure::start().await;
         }
 
         pub async fn start_insecure(param: ProxyStartupParam) {
-            executables::proxy_insecure::start();
+            executables::proxy_insecure::start().await;
         }
     }
 }
