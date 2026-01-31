@@ -109,7 +109,7 @@ impl<C: Crypto> Server<C> {
         let mut inner = conn.inner.lock().await;
         let seq = inner.server_packet_counter;
         let packet = new_data_packet(
-            HAS_SIZE | NEED_ACK | RELIABLE,
+            NEED_ACK | RELIABLE,
             self.param.virtual_port,
             conn.addr.virtual_port,
             data,
@@ -268,7 +268,7 @@ impl<C: Crypto> Server<C> {
         });
 
         let packet = new_connect_packet(
-            ACK | HAS_SIZE,
+            ACK,
             header.destination,
             header.source,
             self_signat,

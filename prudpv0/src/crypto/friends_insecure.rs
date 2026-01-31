@@ -1,6 +1,7 @@
-use std::rc::Rc;
+use std::{io::Write, rc::Rc};
 
 use hmac::Mac;
+use md5::{Digest, Md5};
 use rc4::{KeyInit, Rc4, StreamCipher};
 use rnex_core::prudp::{
     encryption::{DEFAULT_KEY, EncryptionPair},
@@ -35,7 +36,9 @@ impl CryptoInstance for InsecureInstance {
             if data.len() == 0 {
                 [0x78, 0x56, 0x34, 0x12]
             } else {
-                let mut hmac = <HmacMd5 as Mac>::new_from_slice(ACCESS_KEY.as_bytes())
+                let mut hash = Md5::new();
+                hash.write(ACCESS_KEY.as_bytes()).unwrap();
+                let mut hmac = <HmacMd5 as Mac>::new_from_slice(&hash.finalize().as_slice())
                     .expect("unable to create hmac md5");
                 hmac.update(data);
                 hmac.finalize().into_bytes()[0..4].try_into().unwrap()
