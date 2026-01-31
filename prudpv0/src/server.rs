@@ -19,7 +19,7 @@ use rnex_core::{
         types_flags::{
             TypesFlags,
             flags::{ACK, HAS_SIZE, NEED_ACK, RELIABLE},
-            types::{CONNECT, DATA, PING, SYN},
+            types::{CONNECT, DATA, DISCONNECT, PING, SYN},
         },
         virtual_port::VirtualPort,
     },
@@ -36,8 +36,8 @@ use tokio::{
 use crate::{
     crypto::{Crypto, CryptoInstance},
     packet::{
-        PRUDPV0Header, PRUDPV0Packet, new_connect_packet, new_data_packet, new_ping_packet,
-        new_syn_packet, precalc_size,
+        PRUDPV0Header, PRUDPV0Packet, new_connect_packet, new_data_packet, new_disconnect_packet,
+        new_ping_packet, new_syn_packet, precalc_size,
     },
 };
 
@@ -170,6 +170,7 @@ impl<C: Crypto> Server<C> {
             sleep(Duration::from_secs(3));
             let mut inner = conn.inner.lock().await;
             if (Instant::now() - inner.last_action).as_secs() > 5 {
+                warn!("connection exceeded silence limit, sending ping");
                 let packet = new_ping_packet(
                     NEED_ACK,
                     self.param.virtual_port,
@@ -186,6 +187,27 @@ impl<C: Crypto> Server<C> {
             }
 
             if (Instant::now() - conn.inner.lock().await.last_action).as_secs() > 15 {
+                warn!("client timed out...");
+
+                let packet = new_disconnect_packet(
+                    0,
+                    self.param.virtual_port,
+                    conn.addr.virtual_port,
+                    0,
+                    conn.session_id,
+                    &mut inner.crypto_instance,
+                    &self.crypto,
+                );
+
+                self.socket
+                    .send_to(&packet, conn.addr.regular_socket_addr)
+                    .await;
+                self.socket
+                    .send_to(&packet, conn.addr.regular_socket_addr)
+                    .await;
+                self.socket
+                    .send_to(&packet, conn.addr.regular_socket_addr)
+                    .await;
                 let mut conns = self.connections.write().await;
                 conns.remove(&conn.addr);
                 drop(conns);
@@ -358,7 +380,34 @@ impl<C: Crypto> Server<C> {
 
         self.socket.send_to(&packet, addr.regular_socket_addr).await;
     }
+    async fn handle_disconnect(
+        self: Arc<Self>,
+        mut packet: PRUDPV0Packet<Vec<u8>>,
+        addr: PRUDPSockAddr,
+    ) {
+        let header = packet.header().unwrap();
 
+        let Some(conn) = self.get_connection(addr).await else {
+            warn!("ping on inactive connection: {:?}", addr);
+            return;
+        };
+        let mut inner = conn.inner.lock().await;
+        let packet = new_disconnect_packet(
+            ACK,
+            self.param.virtual_port,
+            addr.virtual_port,
+            header.sequence_id,
+            header.session_id,
+            &mut inner.crypto_instance,
+            &self.crypto,
+        );
+        drop(inner);
+        drop(conn);
+
+        self.socket.send_to(&packet, addr.regular_socket_addr).await;
+        self.socket.send_to(&packet, addr.regular_socket_addr).await;
+        self.socket.send_to(&packet, addr.regular_socket_addr).await;
+    }
     async fn get_connection(&self, addr: PRUDPSockAddr) -> Option<Arc<Connection<C::Instance>>> {
         let rd = self.connections.read().await;
         let res = rd.get(&addr).cloned();
@@ -401,6 +450,9 @@ impl<C: Crypto> Server<C> {
             }
             PING => {
                 self.handle_ping(packet, addr).await;
+            }
+            DISCONNECT => {
+                self.handle_disconnect(packet, addr).await;
             }
             v => {
                 println!("unimplemented packed type: {}", v);

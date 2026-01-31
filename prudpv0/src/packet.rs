@@ -6,7 +6,7 @@ use rnex_core::prudp::{
     types_flags::{
         self, TypesFlags,
         flags::{HAS_SIZE, NEED_ACK},
-        types::{CONNECT, DATA, PING, SYN},
+        types::{CONNECT, DATA, DISCONNECT, PING, SYN},
     },
     virtual_port::VirtualPort,
 };
@@ -324,6 +324,41 @@ pub fn new_ping_packet(
     crypto: &impl Crypto,
 ) -> Vec<u8> {
     let type_flags = TypesFlags::default().types(PING).flags(flags);
+
+    let vec = vec![0; precalc_size(type_flags, 0)];
+    let mut packet = PRUDPV0Packet::new(vec);
+
+    let packet_signature = crypto_instance.generate_signature(type_flags, &[]);
+
+    let header = packet.header_mut().expect("packet malformed in creation");
+
+    *header = PRUDPV0Header {
+        destination,
+        source,
+        packet_signature,
+        sequence_id,
+        session_id,
+        type_flags,
+    };
+
+    *packet.checksum_mut().expect("packet malformed in creation") = crypto.calculate_checksum(
+        packet
+            .checksummed_data()
+            .expect("packet malformed in creation"),
+    );
+
+    packet.0
+}
+pub fn new_disconnect_packet(
+    flags: u16,
+    source: VirtualPort,
+    destination: VirtualPort,
+    sequence_id: u16,
+    session_id: u8,
+    crypto_instance: &mut impl CryptoInstance,
+    crypto: &impl Crypto,
+) -> Vec<u8> {
+    let type_flags = TypesFlags::default().types(DISCONNECT).flags(flags);
 
     let vec = vec![0; precalc_size(type_flags, 0)];
     let mut packet = PRUDPV0Packet::new(vec);
