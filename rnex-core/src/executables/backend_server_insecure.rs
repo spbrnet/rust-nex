@@ -15,7 +15,7 @@ use tokio::net::TcpStream;
 pub static FORWARD_EDGE_NODE_HOLDER: Lazy<SocketAddrV4> = Lazy::new(|| {
     env::var("FORWARD_EDGE_NODE_HOLDER")
         .ok()
-        .and_then(|s| s.parse().ok())
+        .and_then(|s| Some(s.parse().unwrap()))
         .expect("FORWARD_EDGE_NODE_HOLDER not set")
 });
 

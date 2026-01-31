@@ -23,8 +23,6 @@ use tokio::task;
 use tokio::time::sleep;
 
 pub async fn start() {
-    setup();
-
     let conn = tokio::net::TcpStream::connect(&*EDGE_NODE_HOLDER)
         .await
         .unwrap();
