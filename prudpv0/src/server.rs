@@ -359,6 +359,7 @@ impl<C: Crypto> Server<C> {
     }
 
     async fn handle_ping(self: Arc<Self>, mut packet: PRUDPV0Packet<Vec<u8>>, addr: PRUDPSockAddr) {
+        info!("got ping");
         let header = packet.header().unwrap();
 
         let Some(conn) = self.get_connection(addr).await else {
@@ -385,6 +386,7 @@ impl<C: Crypto> Server<C> {
         mut packet: PRUDPV0Packet<Vec<u8>>,
         addr: PRUDPSockAddr,
     ) {
+        info!("got disconnect");
         let header = packet.header().unwrap();
 
         let Some(conn) = self.get_connection(addr).await else {

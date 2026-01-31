@@ -11,7 +11,7 @@ friends:
   features:
     - friends
   settings:
-    AUTH_REPORT_VERSION: "branch:origin/project/wup-agmj build:3_8_15_2004_0"
+    AUTH_REPORT_VERSION: "branch:origin/feature/45925_FixAutoReconnect build:3_10_11_2006_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
     RNEX_VIRTUAL_PORT_SECURE: "1:10"
     RNEX_DEFAULT_PORT: 6000

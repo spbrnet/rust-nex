@@ -1,7 +1,7 @@
 use crate::grpc::account;
 use crate::reggie::{RemoteEdgeNodeHolder, RemoteEdgeNodeManagement};
 use crate::{define_rmc_proto, kerberos};
-use log::warn;
+use log::{info, warn};
 use macros::rmc_struct;
 use rnex_core::kerberos::{KerberosDateTime, Ticket, derive_key};
 use rnex_core::nex::account::Account;
@@ -140,13 +140,16 @@ impl Auth for AuthHandler {
             special_protocols: Vec::new(),
         };
 
-        Ok((
+        let ret = (
             result,
             pid,
             ticket.into(),
             connection_data,
-            self.build_name.to_string(), //format!("{}; Rust NEX Version {} by DJMrTV", self.build_name, env!("CARGO_PKG_VERSION")),
-        ))
+            self.build_name.to_string(),
+        );
+
+        info!("data: {:?}", ret);
+        Ok(ret)
     }
 
     async fn login_ex(

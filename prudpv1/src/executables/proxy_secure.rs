@@ -35,7 +35,7 @@ pub async fn start() {
         .await
         .expect("unable to add socket");
 
-    // let conn = socket_secure.connect(auth_sockaddr).await.unwrap();
+    let conn = socket_secure.connect(auth_sockaddr).await.unwrap();
 
     loop {
         let Some(mut conn) = socket_secure.accept().await else {
