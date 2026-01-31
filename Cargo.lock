@@ -541,6 +541,7 @@ name = "proxy"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
+ "log",
  "proxy-common",
  "prudpv0",
  "prudpv1",

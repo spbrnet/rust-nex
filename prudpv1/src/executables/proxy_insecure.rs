@@ -21,7 +21,7 @@ use tokio::task;
 use tokio::time::sleep;
 
 pub async fn start() {
-    let conn = tokio::net::TcpStream::connect(&*EDGE_NODE_HOLDER)
+    /*let conn = tokio::net::TcpStream::connect(&*EDGE_NODE_HOLDER)
         .await
         .unwrap();
 
@@ -36,7 +36,7 @@ pub async fn start() {
 
     let conn = new_rmc_gateway_connection(conn, |r| {
         Arc::new(OnlyRemote::<RemoteEdgeNodeHolder>::new(r))
-    });
+    });*/
 
     let (router_secure, _) = Router::new(SocketAddrV4::new(*OWN_IP_PRIVATE, *SERVER_PORT))
         .await

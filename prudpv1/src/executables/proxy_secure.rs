@@ -23,23 +23,6 @@ use tokio::task;
 use tokio::time::sleep;
 
 pub async fn start() {
-    let conn = tokio::net::TcpStream::connect(&*EDGE_NODE_HOLDER)
-        .await
-        .unwrap();
-
-    let conn: SplittableBufferConnection = conn.into();
-
-    conn.send(
-        Register(SocketAddrV4::new(*OWN_IP_PUBLIC, *SERVER_PORT))
-            .to_data()
-            .unwrap(),
-    )
-    .await;
-
-    let conn = new_rmc_gateway_connection(conn, |r| {
-        Arc::new(OnlyRemote::<RemoteEdgeNodeHolder>::new(r))
-    });
-
     let (router_secure, _) = Router::new(SocketAddrV4::new(*OWN_IP_PRIVATE, *SERVER_PORT))
         .await
         .expect("unable to start router");
