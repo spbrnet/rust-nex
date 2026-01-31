@@ -19,7 +19,7 @@ use rnex_core::{
         types_flags::{
             TypesFlags,
             flags::{ACK, HAS_SIZE, NEED_ACK, RELIABLE},
-            types::{CONNECT, DATA, SYN},
+            types::{CONNECT, DATA, PING, SYN},
         },
         virtual_port::VirtualPort,
     },
@@ -36,8 +36,8 @@ use tokio::{
 use crate::{
     crypto::{Crypto, CryptoInstance},
     packet::{
-        PRUDPV0Header, PRUDPV0Packet, new_connect_packet, new_data_packet, new_syn_packet,
-        precalc_size,
+        PRUDPV0Header, PRUDPV0Packet, new_connect_packet, new_data_packet, new_ping_packet,
+        new_syn_packet, precalc_size,
     },
 };
 
@@ -167,7 +167,31 @@ impl<C: Crypto> Server<C> {
     }
     async fn timeout_thread(self: Arc<Self>, conn: Arc<Connection<C::Instance>>) {
         loop {
-            sleep(Duration::from_secs(5));
+            sleep(Duration::from_secs(3));
+            let mut inner = conn.inner.lock().await;
+            if (Instant::now() - inner.last_action).as_secs() > 5 {
+                let packet = new_ping_packet(
+                    NEED_ACK,
+                    self.param.virtual_port,
+                    conn.addr.virtual_port,
+                    0,
+                    conn.session_id,
+                    &mut inner.crypto_instance,
+                    &self.crypto,
+                );
+
+                self.socket
+                    .send_to(&packet, conn.addr.regular_socket_addr)
+                    .await;
+            }
+
+            if (Instant::now() - conn.inner.lock().await.last_action).as_secs() > 15 {
+                let mut conns = self.connections.write().await;
+                conns.remove(&conn.addr);
+                drop(conns);
+            }
+
+            drop(inner);
         }
     }
     async fn handle_syn(self: Arc<Self>, packet: PRUDPV0Packet<Vec<u8>>, addr: PRUDPSockAddr) {
@@ -311,11 +335,38 @@ impl<C: Crypto> Server<C> {
         }
         drop(conn);
     }
-    async fn process_packet<'a>(
-        self: Arc<Self>,
-        packet: PRUDPV0Packet<Vec<u8>>,
-        addr: SocketAddrV4,
-    ) {
+
+    async fn handle_ping(self: Arc<Self>, mut packet: PRUDPV0Packet<Vec<u8>>, addr: PRUDPSockAddr) {
+        let header = packet.header().unwrap();
+
+        let Some(conn) = self.get_connection(addr).await else {
+            warn!("ping on inactive connection: {:?}", addr);
+            return;
+        };
+        let mut inner = conn.inner.lock().await;
+        let packet = new_ping_packet(
+            ACK,
+            self.param.virtual_port,
+            addr.virtual_port,
+            header.sequence_id,
+            header.session_id,
+            &mut inner.crypto_instance,
+            &self.crypto,
+        );
+        drop(inner);
+        drop(conn);
+
+        self.socket.send_to(&packet, addr.regular_socket_addr).await;
+    }
+
+    async fn get_connection(&self, addr: PRUDPSockAddr) -> Option<Arc<Connection<C::Instance>>> {
+        let rd = self.connections.read().await;
+        let res = rd.get(&addr).cloned();
+        drop(rd);
+        res
+    }
+
+    async fn process_packet(self: Arc<Self>, packet: PRUDPV0Packet<Vec<u8>>, addr: SocketAddrV4) {
         if !packet.check_checksum(&self.crypto) {
             warn!("invalid checksum from: {}", addr);
             return;
@@ -332,7 +383,11 @@ impl<C: Crypto> Server<C> {
             info!("got ack(acks are ignored for now)");
             return;
         }
-
+        if let Some(conn) = self.get_connection(addr).await {
+            let mut inner = conn.inner.lock().await;
+            inner.last_action = Instant::now();
+            drop(inner);
+        };
         println!("{:?}", header);
         match header.type_flags.get_types() {
             SYN => {
@@ -343,6 +398,9 @@ impl<C: Crypto> Server<C> {
             }
             DATA => {
                 self.handle_data(packet, addr).await;
+            }
+            PING => {
+                self.handle_ping(packet, addr).await;
             }
             v => {
                 println!("unimplemented packed type: {}", v);
@@ -376,7 +434,7 @@ impl<C: Crypto> Server<C> {
         }
     }
     pub async fn new(param: ProxyStartupParam) -> Self {
-        let socket = UdpSocket::bind(SocketAddrV4::new(*OWN_IP_PRIVATE, *SERVER_PORT))
+        let socket = UdpSocket::bind(param.self_private)
             .await
             .expect("unable to bind socket");
         Self {

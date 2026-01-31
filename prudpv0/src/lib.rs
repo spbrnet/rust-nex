@@ -44,8 +44,6 @@ cfg_if::cfg_if! {
         //implementations, e.g. secure and insecure(this also includes special cases like friends)
 
         async fn start_proxy<T: Crypto>(param: ProxyStartupParam) {
-            setup_edge_node_connection(&param, || abort());
-
             info!("creating cryptography instance");
             let mut crypto = Arc::new(T::new());
             info!("binding to socket");

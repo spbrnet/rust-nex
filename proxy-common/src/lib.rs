@@ -161,6 +161,8 @@ pub async fn setup_edge_node_connection(
             .unwrap(),
     )
     .await;
+
+    println!("{:?}", param.self_public);
     //leave the inner object floating so that it gets destroyed once we disconnect
     new_rmc_gateway_connection(conn, move |r| {
         Arc::new(OnRemoteDrop::<RemoteEdgeNodeHolder, _>::new(
