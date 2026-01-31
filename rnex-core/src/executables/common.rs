@@ -40,7 +40,7 @@ pub static SERVER_PORT: Lazy<u16> = Lazy::new(|| {
     env::var("SERVER_PORT")
         .ok()
         .and_then(|s| s.parse().ok())
-        .unwrap_or(6000)
+        .unwrap_or(10000)
 });
 
 pub static KERBEROS_SERVER_PASSWORD: Lazy<String> = Lazy::new(|| {
