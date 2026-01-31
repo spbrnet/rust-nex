@@ -33,7 +33,7 @@ impl CryptoInstance for InsecureInstance {
     fn generate_signature(&self, types_flags: TypesFlags, data: &[u8]) -> [u8; 4] {
         if types_flags.get_types() == DATA {
             if data.len() == 0 {
-                [0x12, 0x34, 0x56, 0x78]
+                [0x78, 0x56, 0x34, 0x12]
             } else {
                 let mut hmac = <HmacMd5 as Mac>::new_from_slice(ACCESS_KEY.as_bytes())
                     .expect("unable to create hmac md5");

@@ -66,7 +66,7 @@ impl<T: AsRef<[u8]>> PRUDPV0Packet<T> {
         )
     }
     #[inline(always)]
-    pub fn size_mut(&mut self) -> Option<&mut u16>
+    pub fn size_mut(&mut self) -> Option<&mut [u8]>
     where
         T: AsMut<[u8]>,
     {
@@ -74,9 +74,7 @@ impl<T: AsRef<[u8]>> PRUDPV0Packet<T> {
             return None;
         }
         let offset = size_of::<PRUDPV0Header>() + get_type_specific_size(self.header()?.type_flags);
-        Some(bytemuck::from_bytes_mut(
-            self.0.as_mut().get_mut(offset..offset + 2)?,
-        ))
+        Some(self.0.as_mut().get_mut(offset..offset + 2)?)
     }
 
     #[inline(always)]
@@ -224,7 +222,10 @@ pub fn new_connect_packet(
     flags: u16,
     source: VirtualPort,
     destination: VirtualPort,
-    signat: [u8; 4],
+    self_signat: [u8; 4],
+    remote_signat: [u8; 4],
+    session_id: u8,
+    data: &[u8],
     crypto: &impl Crypto,
 ) -> Vec<u8> {
     let type_flags = TypesFlags::default().types(CONNECT).flags(flags);
@@ -236,15 +237,17 @@ pub fn new_connect_packet(
     *header = PRUDPV0Header {
         destination,
         source,
-        packet_signature: DEFAULT_SIGNAT,
-        sequence_id: 0,
-        session_id: 0,
+        packet_signature: self_signat,
+        sequence_id: 1,
+        session_id,
         type_flags,
     };
     *packet
         .connection_signature_mut()
-        .expect("packet malformed in creation") = signat;
-
+        .expect("packet malformed in creation") = remote_signat;
+    if let Some(size) = packet.size_mut() {
+        size.copy_from_slice(&(data.len() as u16).to_le_bytes());
+    }
     *packet.checksum_mut().expect("packet malformed in creation") = crypto.calculate_checksum(
         packet
             .checksummed_data()
@@ -279,7 +282,7 @@ pub fn new_data_packet(
         .copy_from_slice(data);
 
     if let Some(size) = packet.size_mut() {
-        *size = data.len() as u16;
+        size.copy_from_slice(&(data.len() as u16).to_le_bytes());
     }
     *packet
         .fragment_id_mut()

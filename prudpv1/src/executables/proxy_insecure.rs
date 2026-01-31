@@ -1,7 +1,7 @@
+use crate::executables::common::{EDGE_NODE_HOLDER, FORWARD_DESTINATION};
+use crate::prudp::router::Router;
+use crate::prudp::unsecure::Unsecure;
 use log::error;
-use prudpv1::executables::common::{EDGE_NODE_HOLDER, FORWARD_DESTINATION};
-use prudpv1::prudp::router::Router;
-use prudpv1::prudp::unsecure::Unsecure;
 use rnex_core::common::setup;
 use rnex_core::executables::common::{OWN_IP_PRIVATE, OWN_IP_PUBLIC, SERVER_PORT};
 use rnex_core::prudp::virtual_port::VirtualPort;
@@ -20,8 +20,7 @@ use tokio::net::TcpStream;
 use tokio::task;
 use tokio::time::sleep;
 
-#[tokio::main]
-async fn main() {
+pub async fn start() {
     setup();
 
     let conn = tokio::net::TcpStream::connect(&*EDGE_NODE_HOLDER)

@@ -1,21 +1,26 @@
-use std::io::{Read, Write};
-use bytemuck::{bytes_of, Pod, Zeroable};
+use crate::rmc::structures::RmcSerialize;
+use bytemuck::{Pod, Zeroable, bytes_of};
 use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 use hmac::Hmac;
+use hmac::Mac;
 use md5::{Digest, Md5};
-use rc4::{Rc4, Rc4Core, StreamCipher};
+use rc4::KeyInit;
 use rc4::cipher::StreamCipherCoreWrapper;
 use rc4::consts::U16;
-use hmac::Mac;
-use rc4::KeyInit;
-use crate::rmc::structures::RmcSerialize;
+use rc4::{Rc4, Rc4Core, StreamCipher};
+use std::io::{Read, Write};
 
 type Md5Hmac = Hmac<md5::Md5>;
 
-pub fn derive_key(pid: u32, password: [u8; 16]) -> [u8; 16]{
-    let iteration_count = 65000 + pid%1024;
+pub fn derive_key(pid: u32, password: &[u8]) -> [u8; 16] {
+    let iteration_count = 65000 + pid % 1024 - 1;
+    // we do one iteration out here to ensure the key is always 16 bytes
 
-    let mut key = password;
+    let mut key: [u8; 16] = {
+        let mut md5 = Md5::new();
+        md5.update(password);
+        md5.finalize().try_into().unwrap()
+    };
 
     for _ in 0..iteration_count {
         let mut md5 = Md5::new();
@@ -29,12 +34,12 @@ pub fn derive_key(pid: u32, password: [u8; 16]) -> [u8; 16]{
 #[repr(transparent)]
 pub struct KerberosDateTime(pub u64);
 
-impl KerberosDateTime{
-    pub fn new(second: u64, minute: u64, hour: u64, day: u64, month: u64, year:u64 ) -> Self {
+impl KerberosDateTime {
+    pub fn new(second: u64, minute: u64, hour: u64, day: u64, month: u64, year: u64) -> Self {
         Self(second | (minute << 6) | (hour << 12) | (day << 17) | (month << 22) | (year << 26))
     }
 
-    pub fn now() -> Self{
+    pub fn now() -> Self {
         let now = chrono::Utc::now();
         Self::new(
             now.second() as u64,
@@ -47,42 +52,53 @@ impl KerberosDateTime{
     }
 
     #[inline]
-    pub fn get_seconds(&self) -> u8{
+    pub fn get_seconds(&self) -> u8 {
         (self.0 & 0b111111) as u8
     }
 
     #[inline]
-    pub fn get_minutes(&self) -> u8{
+    pub fn get_minutes(&self) -> u8 {
         ((self.0 >> 6) & 0b111111) as u8
     }
     #[inline]
-    pub fn get_hours(&self) -> u8{
+    pub fn get_hours(&self) -> u8 {
         ((self.0 >> 12) & 0b111111) as u8
     }
     #[inline]
-    pub fn get_days(&self) -> u8{
+    pub fn get_days(&self) -> u8 {
         ((self.0 >> 17) & 0b111111) as u8
     }
 
     #[inline]
-    pub fn get_month(&self) -> u8{
+    pub fn get_month(&self) -> u8 {
         ((self.0 >> 22) & 0b1111) as u8
     }
 
     #[inline]
-    pub fn get_year(&self) -> u64{
+    pub fn get_year(&self) -> u64 {
         (self.0 >> 26) & 0xFFFFFFFF
     }
 
-    pub fn to_regular_time(&self) -> chrono::DateTime<Utc>{
+    pub fn to_regular_time(&self) -> chrono::DateTime<Utc> {
         NaiveDateTime::new(
-            NaiveDate::from_ymd_opt(self.get_year() as i32, self.get_month() as u32, self.get_days() as u32).unwrap(),
-            NaiveTime::from_hms_opt(self.get_hours() as u32, self.get_minutes() as u32, self.get_seconds() as u32).unwrap()
-        ).and_utc()
+            NaiveDate::from_ymd_opt(
+                self.get_year() as i32,
+                self.get_month() as u32,
+                self.get_days() as u32,
+            )
+            .unwrap(),
+            NaiveTime::from_hms_opt(
+                self.get_hours() as u32,
+                self.get_minutes() as u32,
+                self.get_seconds() as u32,
+            )
+            .unwrap(),
+        )
+        .and_utc()
     }
 }
 
-impl RmcSerialize for KerberosDateTime{
+impl RmcSerialize for KerberosDateTime {
     fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
         Ok(self.0.serialize(writer)?)
     }
@@ -94,22 +110,22 @@ impl RmcSerialize for KerberosDateTime{
 
 #[derive(Pod, Zeroable, Copy, Clone)]
 #[repr(C, packed)]
-pub struct TicketInternalData{
+pub struct TicketInternalData {
     pub issued_time: KerberosDateTime,
     pub pid: u32,
     pub session_key: [u8; 32],
 }
 
-impl TicketInternalData{
-    pub(crate) fn new(pid: u32) -> Self{
-        Self{
+impl TicketInternalData {
+    pub(crate) fn new(pid: u32) -> Self {
+        Self {
             issued_time: KerberosDateTime::now(),
             pid,
-            session_key: rand::random()
+            session_key: rand::random(),
         }
     }
 
-    pub(crate) fn encrypt(&self, key: [u8; 16]) -> Box<[u8]>{
+    pub(crate) fn encrypt(&self, key: [u8; 16]) -> Box<[u8]> {
         let mut data = bytes_of(self).to_vec();
 
         let mut rc4: StreamCipherCoreWrapper<Rc4Core<U16>> = Rc4::new_from_slice(&key).unwrap();
@@ -117,11 +133,13 @@ impl TicketInternalData{
 
         let mut hmac = <Md5Hmac as KeyInit>::new_from_slice(&key).unwrap();
 
-        hmac.write_all(&data[..]).expect("failed to write data to hmac");
+        hmac.write_all(&data[..])
+            .expect("failed to write data to hmac");
 
         let hmac_result = &hmac.finalize().into_bytes()[..];
 
-        data.write_all(&hmac_result).expect("failed to write data to vec");
+        data.write_all(&hmac_result)
+            .expect("failed to write data to vec");
 
         data.into_boxed_slice()
     }
@@ -129,39 +147,42 @@ impl TicketInternalData{
 
 #[derive(Pod, Zeroable, Copy, Clone)]
 #[repr(C, packed)]
-pub struct Ticket{
+pub struct Ticket {
     pub session_key: [u8; 32],
     pub pid: u32,
 }
 
-impl Ticket{
-    pub fn encrypt(&self, key: [u8; 16], internal_data: &[u8]) -> Box<[u8]>{
+impl Ticket {
+    pub fn encrypt(&self, key: [u8; 16], internal_data: &[u8]) -> Box<[u8]> {
         let mut data = bytes_of(self).to_vec();
 
-        internal_data.serialize(&mut data).expect("unable to write to vec");
+        internal_data
+            .serialize(&mut data)
+            .expect("unable to write to vec");
 
         let mut rc4: StreamCipherCoreWrapper<Rc4Core<U16>> = Rc4::new_from_slice(&key).unwrap();
         rc4.apply_keystream(&mut data);
 
         let mut hmac = <Md5Hmac as KeyInit>::new_from_slice(&key).unwrap();
 
-        hmac.write_all(&data[..]).expect("failed to write data to hmac");
+        hmac.write_all(&data[..])
+            .expect("failed to write data to hmac");
 
         let hmac_result = &hmac.finalize().into_bytes()[..];
 
-        data.write_all(&hmac_result).expect("failed to write data to vec");
+        data.write_all(&hmac_result)
+            .expect("failed to write data to vec");
 
         data.into_boxed_slice()
     }
 }
 
-
 #[cfg(test)]
-mod test{
+mod test {
     use crate::kerberos::KerberosDateTime;
 
     #[test]
-    fn kerberos_time_convert_test(){
+    fn kerberos_time_convert_test() {
         let time = KerberosDateTime(135904948834);
 
         println!("{}", time.to_regular_time().to_rfc2822());

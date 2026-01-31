@@ -1,6 +1,7 @@
 use crate::grpc::account;
 use crate::reggie::{RemoteEdgeNodeHolder, RemoteEdgeNodeManagement};
 use crate::{define_rmc_proto, kerberos};
+use log::warn;
 use macros::rmc_struct;
 use rnex_core::kerberos::{KerberosDateTime, Ticket, derive_key};
 use rnex_core::nex::account::Account;
@@ -13,7 +14,7 @@ use rnex_core::rmc::structures::connection_data::ConnectionData;
 use rnex_core::rmc::structures::qresult::QResult;
 use std::hash::{DefaultHasher, Hasher};
 use std::net::SocketAddrV4;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, OnceLock};
 
 define_rmc_proto!(
     proto AuthClientProtocol{
@@ -30,8 +31,8 @@ pub struct AuthHandler {
 }
 
 pub fn generate_ticket(
-    source_act_login_data: (u32, [u8; 16]),
-    dest_act_login_data: (u32, [u8; 16]),
+    source_act_login_data: (u32, &[u8]),
+    dest_act_login_data: (u32, &[u8]),
 ) -> Box<[u8]> {
     let source_key = derive_key(source_act_login_data.0, source_act_login_data.1);
     let dest_key = derive_key(dest_act_login_data.0, dest_act_login_data.1);
@@ -68,27 +69,57 @@ fn station_url_from_sock_addr(sock_addr: SocketAddrV4) -> String {
     )
 }
 
+static GUEST_ACCOUNT: LazyLock<Account> =
+    LazyLock::new(|| Account::new(100, "guest", "MMQea3n!fsik"));
+
+impl AuthHandler {
+    pub async fn generate_ticket_from_name(
+        &self,
+        name: &str,
+    ) -> Result<(u32, Box<[u8]>), ErrorCode> {
+        #[cfg(feature = "guest_login")]
+        {
+            if name == GUEST_ACCOUNT.username {
+                let source_login_data = GUEST_ACCOUNT.get_login_data();
+                let destination_login_data = self.destination_server_acct.get_login_data();
+
+                return Ok((
+                    source_login_data.0,
+                    generate_ticket(source_login_data, destination_login_data),
+                ));
+            }
+        }
+        let Ok(pid) = name.parse() else {
+            warn!("unable to connect to parse pid: {}", name);
+            return Err(ErrorCode::Core_InvalidArgument);
+        };
+
+        let Ok(mut client) = account::Client::new().await else {
+            warn!("unable to connect to grpc");
+            return Err(ErrorCode::Core_Exception);
+        };
+
+        let Ok(passwd) = client.get_nex_password(pid).await else {
+            warn!("unable to get nex password");
+            return Err(ErrorCode::Core_Exception);
+        };
+
+        let source_login_data = (pid, &passwd[..]);
+        let destination_login_data = self.destination_server_acct.get_login_data();
+
+        Ok((
+            pid,
+            generate_ticket(source_login_data, destination_login_data),
+        ))
+    }
+}
+
 impl Auth for AuthHandler {
     async fn login(
         &self,
         name: String,
     ) -> Result<(QResult, u32, Vec<u8>, ConnectionData, String), ErrorCode> {
-        let Ok(pid) = name.parse() else {
-            return Err(ErrorCode::Core_InvalidArgument);
-        };
-
-        let Ok(mut client) = account::Client::new().await else {
-            return Err(ErrorCode::Core_Exception);
-        };
-
-        let Ok(passwd) = client.get_nex_password(pid).await else {
-            return Err(ErrorCode::Core_Exception);
-        };
-
-        let source_login_data = (pid, passwd);
-        let destination_login_data = self.destination_server_acct.get_login_data();
-
-        let ticket = generate_ticket(source_login_data, destination_login_data);
+        let (pid, ticket) = self.generate_ticket_from_name(&name).await?;
 
         let result = QResult::success(Core_Unknown);
 
@@ -97,6 +128,7 @@ impl Auth for AuthHandler {
         hasher.write(name.as_bytes());
 
         let Ok(addr) = self.control_server.get_url(hasher.finish()).await else {
+            warn!("no secure proxies");
             return Err(ErrorCode::Core_Exception);
         };
 
@@ -110,7 +142,7 @@ impl Auth for AuthHandler {
 
         Ok((
             result,
-            source_login_data.0,
+            pid,
             ticket.into(),
             connection_data,
             self.build_name.to_string(), //format!("{}; Rust NEX Version {} by DJMrTV", self.build_name, env!("CARGO_PKG_VERSION")),
@@ -130,22 +162,19 @@ impl Auth for AuthHandler {
         source_pid: u32,
         destination_pid: u32,
     ) -> Result<(QResult, Vec<u8>), ErrorCode> {
-        let Some(source_login_data) = get_login_data_by_pid(source_pid).await else {
+        let Some((pid, passwd)) = get_login_data_by_pid(source_pid).await else {
             return Err(ErrorCode::Core_Exception);
         };
 
         let desgination_login_data = if destination_pid == self.destination_server_acct.pid {
             self.destination_server_acct.get_login_data()
         } else {
-            let Some(login) = get_login_data_by_pid(destination_pid).await else {
-                return Err(ErrorCode::Core_Exception);
-            };
-            login
+            return Err(ErrorCode::RendezVous_InvalidOperation);
         };
 
         let result = QResult::success(Core_Unknown);
 
-        let ticket = generate_ticket(source_login_data, desgination_login_data);
+        let ticket = generate_ticket((pid, &passwd[..]), desgination_login_data);
 
         Ok((result, ticket.into()))
     }

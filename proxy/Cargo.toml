@@ -15,6 +15,7 @@ rnex-core = { path = "../rnex-core", version = "0.1.1" }
 prudpv0 = ["dep:prudpv0"]
 prudpv1 = ["dep:prudpv1"]
 friends = ["prudpv0", "prudpv0/friends"]
+splatoon = ["prudpv1"]
 
 
 [[bin]]

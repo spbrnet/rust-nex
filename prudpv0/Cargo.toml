@@ -16,4 +16,5 @@ hmac = "0.12.1"
 md-5 = "^0.10.6"
 
 [features]
-friends = []
+prudpv0 = []
+friends = ["prudpv0"]

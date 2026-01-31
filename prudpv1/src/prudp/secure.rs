@@ -23,7 +23,7 @@ pub fn read_secure_connection_data(data: &[u8], act: &Account) -> Option<([u8; 3
 
     let ticket_data = &mut ticket_data[0..ticket_data_size - 0x10];
 
-    let server_key = derive_key(act.pid, act.kerbros_password);
+    let server_key = derive_key(act.pid, &act.kerbros_password[..]);
 
     let mut rc4: StreamCipherCoreWrapper<Rc4Core<U16>> =
         Rc4::new_from_slice(&server_key).expect("unable to init rc4 keystream");

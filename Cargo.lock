@@ -580,10 +580,12 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "bytemuck",
+ "cfg-if",
  "hmac",
  "log",
  "md-5",
  "once_cell",
+ "proxy-common",
  "rc4",
  "rnex-core",
  "thiserror",

@@ -244,10 +244,13 @@ impl<C: Crypto> Server<C> {
         });
 
         let packet = new_connect_packet(
-            ACK,
+            ACK | HAS_SIZE,
             header.destination,
             header.source,
+            self_signat,
             remote_signat,
+            packet.header().unwrap().session_id,
+            &[],
             &self.crypto,
         );
 
@@ -274,7 +277,7 @@ impl<C: Crypto> Server<C> {
         info!("frag: {}", frag_id);
         let mut conn = res.inner.lock().await;
         let ack = new_data_packet(
-            ACK | HAS_SIZE,
+            ACK,
             self.param.virtual_port,
             res.addr.virtual_port,
             &[],
@@ -324,6 +327,12 @@ impl<C: Crypto> Server<C> {
         };
 
         let addr = PRUDPSockAddr::new(addr, header.source);
+
+        if header.type_flags.get_flags() & ACK != 0 {
+            info!("got ack(acks are ignored for now)");
+            return;
+        }
+
         println!("{:?}", header);
         match header.type_flags.get_types() {
             SYN => {
