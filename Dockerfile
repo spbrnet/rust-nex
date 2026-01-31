@@ -20,19 +20,15 @@ COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/edge_node_hold
 ENTRYPOINT ["/edge_node_holder_server"]
 
 
-FROM alpine:latest AS proxy-insecure
+FROM scratch AS proxy-insecure
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/proxy_insecure /proxy_insecure
-RUN apk add --no-cache ca-certificates
-RUN update-ca-certificates
 ENTRYPOINT ["/proxy_insecure"]
 
-FROM alpine:latest AS proxy-secure
+FROM scratch AS proxy-secure
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/proxy_secure /proxy_secure
-RUN apk add --no-cache ca-certificates
-RUN update-ca-certificates
 ENTRYPOINT ["/proxy_secure"]
- 
- 
+
+
 FROM scratch AS backend-auth
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/backend_server_insecure /backend_server_insecure
 ENTRYPOINT ["/backend_server_insecure"]

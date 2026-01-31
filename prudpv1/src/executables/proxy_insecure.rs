@@ -111,5 +111,4 @@ pub async fn start() {
             }
         });
     }
-    drop(conn);
 }
