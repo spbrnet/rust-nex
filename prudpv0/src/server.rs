@@ -168,6 +168,7 @@ impl<C: Crypto> Server<C> {
     async fn timeout_thread(self: Arc<Self>, conn: Arc<Connection<C::Instance>>) {
         loop {
             sleep(Duration::from_secs(3));
+            info!("running another loop");
             let mut inner = conn.inner.lock().await;
             if (Instant::now() - inner.last_action).as_secs() > 5 {
                 warn!("connection exceeded silence limit, sending ping");
