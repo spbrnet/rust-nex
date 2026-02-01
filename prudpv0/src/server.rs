@@ -3,7 +3,7 @@ use std::{
     hash::Hash,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
     sync::{
-        Arc, LazyLock,
+        Arc, LazyLock, Weak,
         atomic::{AtomicBool, AtomicU32},
     },
     thread::sleep,
@@ -123,12 +123,13 @@ impl<C: Crypto> Server<C> {
 
         let packet = Arc::new(packet);
         let packet_ref = Arc::downgrade(&packet);
-        let conn = Arc::downgrade(&conn);
-        let this = Arc::downgrade(&self);
 
         inner.unacknowledged_packets.insert(seq, packet);
 
         drop(inner);
+
+        let conn = Arc::downgrade(&conn);
+        let this = Arc::downgrade(&self);
 
         spawn(async move {
             for n in 0..5 {
@@ -153,10 +154,11 @@ impl<C: Crypto> Server<C> {
     }
     async fn connection_thread(
         self: Arc<Self>,
-        conn: Arc<Connection<C::Instance>>,
+        conn: Weak<Connection<C::Instance>>,
         mut recv: SplittableBufferConnection,
     ) {
         while let Some(data) = recv.recv().await {
+            let Some(conn) = conn.upgrade() else { break };
             if &data[..] == &[0, 0, 0, 0, 0] {
                 info!("got keepalive");
                 continue;
@@ -168,8 +170,8 @@ impl<C: Crypto> Server<C> {
     async fn timeout_thread(self: Arc<Self>, conn: Arc<Connection<C::Instance>>) {
         loop {
             sleep(Duration::from_secs(3));
-            info!("running another loop");
             let mut inner = conn.inner.lock().await;
+
             if (Instant::now() - inner.last_action).as_secs() > 5 {
                 warn!("connection exceeded silence limit, sending ping");
                 let packet = new_ping_packet(
@@ -187,11 +189,11 @@ impl<C: Crypto> Server<C> {
                     .await;
             }
 
-            if (Instant::now() - conn.inner.lock().await.last_action).as_secs() > 15 {
+            if (Instant::now() - inner.last_action).as_secs() > 15 {
                 warn!("client timed out...");
 
                 let packet = new_disconnect_packet(
-                    0,
+                    NEED_ACK,
                     self.param.virtual_port,
                     conn.addr.virtual_port,
                     0,
@@ -209,9 +211,12 @@ impl<C: Crypto> Server<C> {
                 self.socket
                     .send_to(&packet, conn.addr.regular_socket_addr)
                     .await;
+                drop(inner);
+
                 let mut conns = self.connections.write().await;
                 conns.remove(&conn.addr);
                 drop(conns);
+                break;
             }
 
             drop(inner);
@@ -247,7 +252,10 @@ impl<C: Crypto> Server<C> {
             remote_signat[3],
         ];
 
-        let ci = self.crypto.instantiate(data, self_signat, remote_signat);
+        let Some((ci, data)) = self.crypto.instantiate(&data, self_signat, remote_signat) else {
+            warn!("unable to instantiate crypto instance");
+            return;
+        };
 
         let pid = ci.get_user_id();
         let buf_conn = new_backend_connection(&self.param, addr, pid).await;
@@ -281,7 +289,7 @@ impl<C: Crypto> Server<C> {
 
         spawn({
             let this = self.clone();
-            let conn = conn.clone();
+            let conn = Arc::downgrade(&conn);
             this.connection_thread(conn, buf_conn)
         });
         spawn({
@@ -297,7 +305,7 @@ impl<C: Crypto> Server<C> {
             self_signat,
             remote_signat,
             packet.header().unwrap().session_id,
-            &[],
+            &data,
             &self.crypto,
         );
 
@@ -314,10 +322,7 @@ impl<C: Crypto> Server<C> {
             return;
         };
 
-        let rd = self.connections.read().await;
-        let res = rd.get(&addr).cloned();
-        drop(rd);
-        let Some(res) = res else {
+        let Some(res) = self.get_connection(addr).await else {
             warn!("data packet on inactive connection from: {:?}", addr);
             return;
         };
@@ -335,7 +340,6 @@ impl<C: Crypto> Server<C> {
             &self.crypto,
         );
         self.socket.send_to(&ack, addr.regular_socket_addr).await;
-        conn.last_action = Instant::now();
         conn.packet_queue.insert(
             packet.header().unwrap().sequence_id,
             (Instant::now(), packet),
@@ -356,6 +360,7 @@ impl<C: Crypto> Server<C> {
             res.target.send(payload.to_owned()).await;
             conn.client_packet_counter += 1;
         }
+        info!("finished handeling packets, dropping inner connection");
         drop(conn);
     }
 
@@ -378,7 +383,6 @@ impl<C: Crypto> Server<C> {
             &self.crypto,
         );
         drop(inner);
-        drop(conn);
 
         self.socket.send_to(&packet, addr.regular_socket_addr).await;
     }
@@ -405,7 +409,6 @@ impl<C: Crypto> Server<C> {
             &self.crypto,
         );
         drop(inner);
-        drop(conn);
 
         self.socket.send_to(&packet, addr.regular_socket_addr).await;
         self.socket.send_to(&packet, addr.regular_socket_addr).await;
@@ -429,17 +432,19 @@ impl<C: Crypto> Server<C> {
             return;
         };
 
+        info!("len: {}", packet.0.len());
+
         let addr = PRUDPSockAddr::new(addr, header.source);
 
-        if header.type_flags.get_flags() & ACK != 0 {
-            info!("got ack(acks are ignored for now)");
-            return;
-        }
         if let Some(conn) = self.get_connection(addr).await {
             let mut inner = conn.inner.lock().await;
             inner.last_action = Instant::now();
             drop(inner);
         };
+        if header.type_flags.get_flags() & ACK != 0 {
+            info!("got ack(acks are ignored for now)");
+            return;
+        }
         println!("{:?}", header);
         match header.type_flags.get_types() {
             SYN => {
@@ -464,20 +469,18 @@ impl<C: Crypto> Server<C> {
     }
     pub async fn run_task(self: Arc<Self>) {
         loop {
-            let mut vec: Vec<u8> = vec![];
-            let addr = match self.socket.recv_buf_from(&mut vec).await {
+            let mut vec: Vec<u8> = vec![0u8; 65507];
+            let (len, addr) = match self.socket.recv_from(&mut vec).await {
                 Err(e) => {
                     error!("unable to recv: {}", e);
                     break;
                 }
-                Ok(v) => {
-                    assert_eq!(vec.len(), v.0);
-                    v.1
-                }
+                Ok(v) => v,
             };
             let this = self.clone();
             tokio::spawn(async move {
                 let mut data = vec;
+                data.resize(len, 0);
                 let packet = PRUDPV0Packet::new(data);
 
                 let SocketAddr::V4(addr) = addr else {

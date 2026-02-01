@@ -1,7 +1,7 @@
 use std::mem::transmute;
 
 use bytemuck::{Pod, Zeroable, try_from_bytes, try_from_bytes_mut};
-use log::{error, info};
+use log::{error, info, warn};
 use rnex_core::prudp::{
     types_flags::{
         self, TypesFlags,
@@ -146,6 +146,15 @@ impl<T: AsRef<[u8]>> PRUDPV0Packet<T> {
         let Some(checksum) = self.checksum() else {
             return false;
         };
+
+        if checksum != crypto.calculate_checksum(data) {
+            warn!(
+                "checksum doesnt match expected checksum: {} != {}",
+                checksum,
+                crypto.calculate_checksum(data)
+            )
+        }
+
         checksum == crypto.calculate_checksum(data)
     }
 
@@ -230,7 +239,7 @@ pub fn new_connect_packet(
 ) -> Vec<u8> {
     let type_flags = TypesFlags::default().types(CONNECT).flags(flags);
 
-    let vec = vec![0; precalc_size(type_flags, 0)];
+    let vec = vec![0; precalc_size(type_flags, data.len())];
     let mut packet = PRUDPV0Packet::new(vec);
     let header = packet.header_mut().expect("packet malformed in creation");
 
@@ -245,6 +254,12 @@ pub fn new_connect_packet(
     *packet
         .connection_signature_mut()
         .expect("packet malformed in creation") = remote_signat;
+
+    packet
+        .payload_mut()
+        .expect("packet malformed in creation")
+        .copy_from_slice(data);
+
     if let Some(size) = packet.size_mut() {
         size.copy_from_slice(&(data.len() as u16).to_le_bytes());
     }
@@ -280,6 +295,8 @@ pub fn new_data_packet(
         .payload_mut()
         .expect("packet malformed in creation")
         .copy_from_slice(data);
+
+    crypto_instance.encrypt_outgoing(packet.payload_mut().expect("packet malformed in creation"));
 
     if let Some(size) = packet.size_mut() {
         size.copy_from_slice(&(data.len() as u16).to_le_bytes());

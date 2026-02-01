@@ -65,11 +65,14 @@ impl Crypto for Insecure {
         packet_data: &[u8],
         self_signat: [u8; 4],
         remote_signat: [u8; 4],
-    ) -> Self::Instance {
-        InsecureInstance {
-            pair: EncryptionPair::init_both(|| Rc4::new(&DEFAULT_KEY)),
-            self_signat,
-            remote_signat,
-        }
+    ) -> Option<(Self::Instance, Vec<u8>)> {
+        Some((
+            InsecureInstance {
+                pair: EncryptionPair::init_both(|| Rc4::new(&DEFAULT_KEY)),
+                self_signat,
+                remote_signat,
+            },
+            vec![],
+        ))
     }
 }

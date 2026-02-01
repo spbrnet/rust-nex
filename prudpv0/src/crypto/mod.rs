@@ -19,7 +19,7 @@ pub trait Crypto: Send + Sync + 'static {
         data: &[u8],
         self_signat: [u8; 4],
         remote_signat: [u8; 4],
-    ) -> Self::Instance;
+    ) -> Option<(Self::Instance, Vec<u8>)>;
 }
 
 cfg_if! {

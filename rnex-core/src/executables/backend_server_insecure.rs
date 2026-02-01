@@ -1,8 +1,6 @@
-use cfg_if::cfg_if;
 use once_cell::sync::Lazy;
 use rnex_core::common::setup;
 use rnex_core::executables::common::{SECURE_SERVER_ACCOUNT, new_simple_backend};
-use rnex_core::executables::regular_backend;
 use rnex_core::nex::auth_handler::AuthHandler;
 use rnex_core::reggie::EdgeNodeHolderConnectOption::DontRegister;
 use rnex_core::reggie::RemoteEdgeNodeHolder;
@@ -25,11 +23,25 @@ pub static FORWARD_EDGE_NODE_HOLDER: Lazy<SocketAddrV4> = Lazy::new(|| {
 async fn main() {
     setup();
 
-    cfg_if! {
-        if #[cfg(features = "friends")]{
+    let conn = TcpStream::connect(&*FORWARD_EDGE_NODE_HOLDER)
+        .await
+        .unwrap();
 
-        } else {
-            regular_backend::start_regular_backend().await
-        }
-    }
+    let conn: SplittableBufferConnection = conn.into();
+
+    conn.send(DontRegister.to_data().unwrap()).await;
+
+    let conn = new_rmc_gateway_connection(conn, |r| {
+        Arc::new(OnlyRemote::<RemoteEdgeNodeHolder>::new(r))
+    });
+
+    new_simple_backend(move |_, _| {
+        let controller = conn.clone();
+        Arc::new(AuthHandler {
+            destination_server_acct: &SECURE_SERVER_ACCOUNT,
+            build_name: env!("AUTH_REPORT_VERSION"),
+            control_server: controller,
+        })
+    })
+    .await;
 }

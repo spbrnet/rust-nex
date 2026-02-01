@@ -1,5 +1,3 @@
-use std::process::abort;
-
 use proxy::edge_node_dc_callback;
 use proxy_common::{ProxyStartupParam, setup_edge_node_connection};
 use rnex_core::common::setup;

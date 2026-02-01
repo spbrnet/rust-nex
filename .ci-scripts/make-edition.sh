@@ -3,8 +3,8 @@
 export EDITION=$1
 export BA="--build-arg EDITION=$1"
 
-podman build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/dev-container:latest" --target=dev-container .
-podman push "$CI_REGISTRY_IMAGE/$EDITION/dev-container:latest"
+# podman build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/dev-container:latest" --target=dev-container .
+# podman push "$CI_REGISTRY_IMAGE/$EDITION/dev-container:latest"
 podman build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/node-holder:$CI_COMMIT_SHORT_SHA" --target=node-holder .
 podman build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/proxy-secure:$CI_COMMIT_SHORT_SHA" --target=proxy-secure .
 podman build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/proxy-insecure:$CI_COMMIT_SHORT_SHA" --target=proxy-insecure .
