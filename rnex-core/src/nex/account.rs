@@ -4,29 +4,23 @@ use macros::RmcSerialize;
 pub struct Account {
     pub pid: u32,
     pub username: String,
-    pub kerbros_password: [u8; 16],
+    pub kerbros_password: Box<[u8]>,
 }
 
 impl Account {
     pub fn new(pid: u32, username: &str, passwd: &str) -> Self {
         let passwd_data = passwd.as_bytes();
 
-        let mut passwd = [0u8; 16];
-
-        for (idx, byte) in passwd_data.iter().enumerate() {
-            passwd[idx] = *byte;
-        }
-
         Self {
-            kerbros_password: passwd,
+            kerbros_password: passwd.as_bytes().into(),
             username: username.into(),
             pid,
         }
     }
 
-    pub fn new_raw_password(pid: u32, username: &str, passwd: [u8; 16]) -> Self {
+    pub fn new_raw_password(pid: u32, username: &str, passwd: &[u8]) -> Self {
         Self {
-            kerbros_password: passwd,
+            kerbros_password: passwd.into(),
             username: username.into(),
             pid,
         }

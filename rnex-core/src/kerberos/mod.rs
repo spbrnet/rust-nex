@@ -26,7 +26,7 @@ pub const SESSION_KEY_LENGTH: usize = SESSION_KEY_LENGTH_TY::USIZE;
 type Md5Hmac = Hmac<md5::Md5>;
 
 pub fn derive_key(pid: u32, password: &[u8]) -> [u8; 16] {
-    let iteration_count = 65000 + pid % 1024 - 1;
+    let iteration_count = 65000 + pid % 1024;
     // we do one iteration out here to ensure the key is always 16 bytes
 
     let mut key: [u8; 16] = {
@@ -35,7 +35,7 @@ pub fn derive_key(pid: u32, password: &[u8]) -> [u8; 16] {
         md5.finalize().try_into().unwrap()
     };
 
-    for _ in 0..iteration_count {
+    for _ in 1..iteration_count {
         let mut md5 = Md5::new();
         md5.update(key);
         key = md5.finalize().try_into().unwrap();
