@@ -1,6 +1,7 @@
 use crate::grpc::account;
 use crate::reggie::{RemoteEdgeNodeHolder, RemoteEdgeNodeManagement};
 use crate::{define_rmc_proto, kerberos};
+use cfg_if::cfg_if;
 use log::{info, warn};
 use macros::rmc_struct;
 use rnex_core::kerberos::{KerberosDateTime, Ticket, derive_key};
@@ -11,6 +12,7 @@ use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::response::ErrorCode::Core_Unknown;
 use rnex_core::rmc::structures::any::Any;
 use rnex_core::rmc::structures::connection_data::ConnectionData;
+use rnex_core::rmc::structures::connection_data::ConnectionDataOld;
 use rnex_core::rmc::structures::qresult::QResult;
 use std::hash::{DefaultHasher, Hasher};
 use std::net::SocketAddrV4;
@@ -49,7 +51,13 @@ pub fn generate_ticket(
     encrypted_session_ticket
 }
 
-async fn get_login_data_by_pid(pid: u32) -> Option<(u32, [u8; 16])> {
+async fn get_login_data_by_pid(pid: u32) -> Option<(u32, Box<[u8]>)> {
+    if pid == GUEST_ACCOUNT.pid {
+        let source_login_data = GUEST_ACCOUNT.get_login_data();
+
+        return Some((source_login_data.0, source_login_data.1.into()));
+    }
+
     let Ok(mut client) = account::Client::new().await else {
         return None;
     };
@@ -58,7 +66,7 @@ async fn get_login_data_by_pid(pid: u32) -> Option<(u32, [u8; 16])> {
         return None;
     };
 
-    Some((pid, passwd))
+    Some((pid, passwd.into()))
 }
 
 fn station_url_from_sock_addr(sock_addr: SocketAddrV4) -> String {
@@ -118,6 +126,42 @@ impl Auth for AuthHandler {
     async fn login(
         &self,
         name: String,
+    ) -> Result<(QResult, u32, Vec<u8>, ConnectionDataOld, String), ErrorCode> {
+        let (pid, ticket) = self.generate_ticket_from_name(&name).await?;
+
+        let result = QResult::success(Core_Unknown);
+
+        let mut hasher = DefaultHasher::new();
+
+        hasher.write(name.as_bytes());
+
+        let Ok(addr) = self.control_server.get_url(hasher.finish()).await else {
+            warn!("no secure proxies");
+            return Err(ErrorCode::Core_Exception);
+        };
+
+        let connection_data = ConnectionDataOld {
+            station_url: station_url_from_sock_addr(addr),
+            special_station_url: "".to_string(),
+            special_protocols: Vec::new(),
+        };
+
+        let ret = (
+            result,
+            pid,
+            ticket.into(),
+            connection_data,
+            self.build_name.to_string(),
+        );
+
+        info!("data: {:?}", ret);
+        Ok(ret)
+    }
+
+    async fn login_ex(
+        &self,
+        name: String,
+        _extra_data: Any,
     ) -> Result<(QResult, u32, Vec<u8>, ConnectionData, String), ErrorCode> {
         let (pid, ticket) = self.generate_ticket_from_name(&name).await?;
 
@@ -150,14 +194,6 @@ impl Auth for AuthHandler {
 
         info!("data: {:?}", ret);
         Ok(ret)
-    }
-
-    async fn login_ex(
-        &self,
-        name: String,
-        _extra_data: Any,
-    ) -> Result<(QResult, u32, Vec<u8>, ConnectionData, String), ErrorCode> {
-        self.login(name).await
     }
 
     async fn request_ticket(

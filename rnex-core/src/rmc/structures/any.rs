@@ -1,14 +1,14 @@
+use rnex_core::rmc::structures::{Result, RmcSerialize};
 use std::io::{Read, Write};
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
-use super::{Result, RmcSerialize};
 
 #[derive(Debug, Default)]
-pub struct Any{
+pub struct Any {
     pub name: String,
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
-impl RmcSerialize for Any{
+impl RmcSerialize for Any {
     fn serialize(&self, writer: &mut impl Write) -> Result<()> {
         self.name.serialize(writer)?;
 
@@ -32,11 +32,6 @@ impl RmcSerialize for Any{
 
         reader.read_exact(&mut data)?;
 
-        Ok(
-            Any{
-                name,
-                data
-            }
-        )
+        Ok(Any { name, data })
     }
 }

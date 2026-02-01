@@ -1,0 +1,160 @@
+use std::sync::{Arc, atomic::AtomicU32};
+use std::time::Duration;
+
+use log::info;
+use macros::rmc_struct;
+use rnex_core::rmc::protocols::friends::{Friends, RawFriends, RawFriendsInfo, RemoteFriends};
+use rnex_core::rmc::protocols::secure::{RawSecure, RawSecureInfo, RemoteSecure, Secure};
+use rnex_core::{
+    define_rmc_proto,
+    kerberos::KerberosDateTime,
+    nex::common::get_station_urls,
+    prudp::{socket_addr::PRUDPSockAddr, station_url::StationUrl},
+    rmc::{
+        protocols::friends::{
+            BlacklistedPrincipal, Comment, FriendInfo, FriendRequest, NNAInfo, NintendoPresenceV2,
+            PersistentNotification, PrincipalPreference,
+        },
+        response::ErrorCode,
+        structures::{any::Any, qresult::QResult},
+    },
+};
+use std::sync::atomic::Ordering::Relaxed;
+use tokio::time::sleep;
+
+use rnex_core::rmc::protocols::friends::{GameKey, MiiV2, PrincipalBasicInfo};
+
+define_rmc_proto!(
+    proto FriendsUser{
+        Secure,
+        Friends
+    }
+);
+#[rmc_struct(FriendsUser)]
+pub struct FriendsUser {
+    pub fm: Arc<FriendsManager>,
+    pub addr: PRUDPSockAddr,
+    pub pid: u32,
+}
+
+pub struct FriendsManager {
+    pub cid_counter: AtomicU32,
+}
+
+impl FriendsManager {
+    pub fn next_cid(&self) -> u32 {
+        self.cid_counter.fetch_add(1, Relaxed)
+    }
+}
+
+impl Friends for FriendsUser {
+    async fn update_and_get_all_information(
+        &self,
+        info: NNAInfo,
+        presence: NintendoPresenceV2,
+        date_time: KerberosDateTime,
+    ) -> Result<
+        (
+            PrincipalPreference,
+            Comment,
+            Vec<FriendInfo>,
+            Vec<FriendRequest>,
+            Vec<FriendRequest>,
+            Vec<BlacklistedPrincipal>,
+            bool,
+            Vec<PersistentNotification>,
+            bool,
+        ),
+        ErrorCode,
+    > {
+        Ok((
+            PrincipalPreference {
+                block_friend_request: false,
+                show_online: false,
+                show_playing_title: false,
+            },
+            Comment {
+                last_changed: KerberosDateTime::now(),
+                message: "".to_string(),
+                unk: 0,
+            },
+            vec![FriendInfo {
+                became_friends: KerberosDateTime::now(),
+                comment: Comment {
+                    last_changed: KerberosDateTime::now(),
+                    message: "I'm just a dummy account :3".to_string(),
+                    unk: 0,
+                },
+                last_online: KerberosDateTime::now(),
+                nna_info: NNAInfo {
+                    principal_basic_info: PrincipalBasicInfo {
+                        pid: 101,
+                        nnid: "dummyaccount".to_string(),
+                        mii: MiiV2{
+                            date_time: KerberosDateTime::now(),
+                            name: "Dummy Account".to_string(),
+                            mii_data: hex::decode("030000402bd7c32986a771f2dc6b35e31da15e37ff7c0000391e6f006f006d0069000000000000000000000000004040001065033568641e2013661a611821640f0000290052485000000000000000000000000000000000000000000000e838").unwrap(),
+                            unk: 0,
+                            unk2: 0,
+                        },
+                        unk: 0
+                    },
+                    unk: 0,
+                    unk2: 0
+                },
+                presence: NintendoPresenceV2{
+                    changed_flags: 0,
+                    message: "".to_string(),
+                    app_data: vec![],
+                    game_key: GameKey{
+                        tid: 0x00050002101ce400,
+                        version: 0x0
+                    },
+                    game_server_id: 0,
+                    is_online: true,
+                    gid: 0,
+                    pid: 101,
+                    unk: 0,
+                    unk2: 0,
+                    unk3: 0,
+                    unk4: 0,
+                    unk5: 0,
+                    unk6: 0,
+                    unk7: 0
+                },
+                unk: 0
+            }],
+            vec![],
+            vec![],
+            vec![],
+            false,
+            vec![],
+            false,
+        ))
+    }
+}
+
+impl Secure for FriendsUser {
+    async fn register(
+        &self,
+        station_urls: Vec<StationUrl>,
+    ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
+        let cid = self.fm.next_cid();
+        Ok((
+            QResult::success(ErrorCode::Core_Unknown),
+            cid,
+            get_station_urls(&station_urls, self.addr, self.pid, cid).await?[0].clone(),
+        ))
+    }
+    async fn register_ex(
+        &self,
+        station_urls: Vec<StationUrl>,
+        data: Any,
+    ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
+        info!("register");
+        self.register(station_urls).await
+    }
+    async fn replace_url(&self, target: StationUrl, dest: StationUrl) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+}

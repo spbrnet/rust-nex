@@ -1,5 +1,5 @@
-use crate::rmc::structures::RmcSerialize;
 use bytemuck::{Pod, Zeroable, bytes_of};
+use cfg_if::cfg_if;
 use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 use hmac::Hmac;
 use hmac::Mac;
@@ -8,7 +8,20 @@ use rc4::KeyInit;
 use rc4::cipher::StreamCipherCoreWrapper;
 use rc4::consts::U16;
 use rc4::{Rc4, Rc4Core, StreamCipher};
+use rnex_core::rmc::structures::RmcSerialize;
 use std::io::{Read, Write};
+use typenum::Unsigned;
+
+use rnex_core::rmc::structures::Result;
+
+cfg_if! {
+    if #[cfg(feature = "friends")]{
+        pub type SESSION_KEY_LENGTH_TY = U16;
+    } else {
+        pub type SESSION_KEY_LENGTH_TY = U32;
+    }
+}
+pub const SESSION_KEY_LENGTH: usize = SESSION_KEY_LENGTH_TY::USIZE;
 
 type Md5Hmac = Hmac<md5::Md5>;
 
@@ -99,11 +112,11 @@ impl KerberosDateTime {
 }
 
 impl RmcSerialize for KerberosDateTime {
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut impl Write) -> Result<()> {
         Ok(self.0.serialize(writer)?)
     }
 
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut impl Read) -> Result<Self> {
         Ok(Self(u64::deserialize(reader)?))
     }
 }
@@ -113,7 +126,7 @@ impl RmcSerialize for KerberosDateTime {
 pub struct TicketInternalData {
     pub issued_time: KerberosDateTime,
     pub pid: u32,
-    pub session_key: [u8; 32],
+    pub session_key: [u8; SESSION_KEY_LENGTH],
 }
 
 impl TicketInternalData {
@@ -148,7 +161,7 @@ impl TicketInternalData {
 #[derive(Pod, Zeroable, Copy, Clone)]
 #[repr(C, packed)]
 pub struct Ticket {
-    pub session_key: [u8; 32],
+    pub session_key: [u8; SESSION_KEY_LENGTH],
     pub pid: u32,
 }
 

@@ -1,10 +1,10 @@
+use rnex_core::kerberos::KerberosDateTime;
+use rnex_core::rmc::structures;
+use rnex_core::rmc::structures::{Result, RmcSerialize};
 use std::io::{Read, Write};
-use crate::kerberos::KerberosDateTime;
-use crate::rmc::structures;
-use crate::rmc::structures::RmcSerialize;
 
 #[derive(Debug, Clone, Default)]
-pub enum Variant{
+pub enum Variant {
     #[default]
     None,
     SInt64(i64),
@@ -15,9 +15,9 @@ pub enum Variant{
     UInt64(u64),
 }
 
-impl RmcSerialize for Variant{
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
-        match self{
+impl RmcSerialize for Variant {
+    fn serialize(&self, writer: &mut impl Write) -> Result<()> {
+        match self {
             Variant::None => {
                 writer.write_all(&[0])?;
             }
@@ -50,8 +50,8 @@ impl RmcSerialize for Variant{
         Ok(())
     }
 
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
-        match u8::deserialize(reader)?{
+    fn deserialize(reader: &mut impl Read) -> Result<Self> {
+        match u8::deserialize(reader)? {
             0 => Ok(Variant::None),
             1 => Ok(Variant::SInt64(i64::deserialize(reader)?)),
             2 => Ok(Variant::Double(f64::deserialize(reader)?)),
@@ -59,7 +59,7 @@ impl RmcSerialize for Variant{
             4 => Ok(Variant::String(String::deserialize(reader)?)),
             5 => Ok(Variant::DateTime(KerberosDateTime::deserialize(reader)?)),
             6 => Ok(Variant::UInt64(u64::deserialize(reader)?)),
-            v => Err(structures::Error::UnexpectedValue(v as u64))
+            v => Err(structures::Error::UnexpectedValue(v as u64)),
         }
     }
 }

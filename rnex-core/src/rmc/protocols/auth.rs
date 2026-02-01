@@ -1,4 +1,4 @@
-use crate::rmc::structures::connection_data::ConnectionData;
+use crate::rmc::structures::connection_data::{ConnectionData, ConnectionDataOld};
 use macros::{method_id, rmc_proto};
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::any::Any;
@@ -14,7 +14,7 @@ pub trait Auth {
     async fn login(
         &self,
         name: String,
-    ) -> Result<(QResult, u32, Vec<u8>, ConnectionData, String), ErrorCode>;
+    ) -> Result<(QResult, u32, Vec<u8>, ConnectionDataOld, String), ErrorCode>;
 
     /// representation of the `LoginEx` method(for details see the
     /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))

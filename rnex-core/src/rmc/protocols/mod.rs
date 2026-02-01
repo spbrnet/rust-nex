@@ -1,6 +1,7 @@
 #![allow(async_fn_in_trait)]
 
 pub mod auth;
+pub mod friends;
 pub mod matchmake;
 pub mod matchmake_ext;
 pub mod matchmake_extension;
@@ -294,8 +295,8 @@ async fn handle_incoming<T: RmcCallable + Send + Sync + 'static>(
             } = message;
 
             info!(
-                "RMC REQUEST: Proto: {}; Method: {};",
-                protocol_id, method_id
+                "RMC REQUEST: Proto: {}; Method: {}; cid: {}",
+                protocol_id, method_id, call_id
             );
 
             remote

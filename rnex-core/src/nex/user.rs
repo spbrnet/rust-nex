@@ -1,4 +1,5 @@
 use crate::define_rmc_proto;
+use crate::nex::common::get_station_urls;
 use crate::nex::matchmake::{ExtendedMatchmakeSession, MatchmakeManager};
 use crate::nex::remote_console::RemoteConsole;
 use crate::rmc::protocols::matchmake::{
@@ -21,6 +22,7 @@ use rnex_core::rmc::protocols::matchmake_extension::{
 use rnex_core::rmc::protocols::ranking::{Ranking, RawRanking, RawRankingInfo, RemoteRanking};
 use rnex_core::rmc::protocols::secure::{RawSecure, RawSecureInfo, RemoteSecure, Secure};
 use rnex_core::rmc::response::ErrorCode;
+use rnex_core::rmc::structures::any::Any;
 use rnex_core::rmc::structures::matchmake::{
     AutoMatchmakeParam, CreateMatchmakeSessionParam, JoinMatchmakeSessionParam, MatchmakeSession,
 };
@@ -71,97 +73,27 @@ impl Secure for User {
         users.insert(cid, self.this.clone());
         drop(users);
 
-        let mut public_station: Option<StationUrl> = None;
-        let mut private_station: Option<StationUrl> = None;
+        let stations = get_station_urls(&station_urls, self.ip, self.pid, cid).await?;
 
-        for station in station_urls {
-            let is_public = station.options.iter().any(|v| {
-                if let NatType(v) = v {
-                    if *v & PUBLIC != 0 {
-                        return true;
-                    }
-                }
-                false
-            });
-
-            let Some(nat_filtering) = station.options.iter().find_map(|v| match v {
-                NatFiltering(v) => Some(v),
-                _ => None,
-            }) else {
-                return Err(Core_Exception);
-            };
-
-            let Some(nat_mapping) = station.options.iter().find_map(|v| match v {
-                NatMapping(v) => Some(v),
-                _ => None,
-            }) else {
-                return Err(Core_Exception);
-            };
-
-            if !is_public || (*nat_filtering == 0 && *nat_mapping == 0) {
-                private_station = Some(station.clone());
-            }
-
-            if is_public {
-                public_station = Some(station);
-            }
-        }
-
-        let Some(mut private_station) = private_station else {
-            return Err(Core_Exception);
-        };
-
-        let mut public_station = if let Some(public_station) = public_station {
-            public_station
-        } else {
-            let mut public_station = private_station.clone();
-
-            public_station.options.retain(|v| match v {
-                Address(_) | Port(_) | NatFiltering(_) | NatMapping(_) | NatType(_) => false,
-                _ => true,
-            });
-
-            public_station
-                .options
-                .push(Address(*self.ip.regular_socket_addr.ip()));
-            public_station
-                .options
-                .push(Port(self.ip.regular_socket_addr.port()));
-            public_station.options.push(NatFiltering(0));
-            public_station.options.push(NatMapping(0));
-            public_station.options.push(NatType(3));
-
-            public_station
-        };
-
-        let both = [&mut public_station, &mut private_station];
-
-        for station in both {
-            station.options.retain(|v| match v {
-                PrincipalID(_) | RVConnectionID(_) => false,
-                _ => true,
-            });
-
-            station.options.push(PrincipalID(self.pid));
-            station.options.push(RVConnectionID(cid));
-        }
+        let first = stations.first().unwrap().clone();
 
         let mut lock = self.station_url.write().await;
 
-        *lock = vec![
-            public_station.clone(),
-            // private_station.clone()
-        ];
+        *lock = stations;
 
         drop(lock);
 
         let result = QResult::success(ErrorCode::Core_Unknown);
 
-        let out = public_station.to_string();
+        Ok((result, cid, first))
+    }
 
-        println!("out: {}", out);
-
-        Ok((result, cid, public_station))
+    async fn register_ex(
+        &self,
+        station_urls: Vec<StationUrl>,
+        _data: Any,
+    ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
+        self.register(station_urls).await
     }
 
     async fn replace_url(&self, target_url: StationUrl, dest: StationUrl) -> Result<(), ErrorCode> {
