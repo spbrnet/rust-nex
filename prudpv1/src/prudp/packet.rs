@@ -17,6 +17,7 @@ use rnex_core::prudp::virtual_port::VirtualPort;
 use std::fmt::{Debug, Formatter};
 use std::io;
 use std::io::{Cursor, Read, Seek, Write};
+use std::net::SocketAddr;
 use std::net::SocketAddrV4;
 use thiserror::Error;
 use v_byte_helpers::SwapEndian;
@@ -281,7 +282,7 @@ impl PRUDPV1Packet {
 
     pub fn source_sockaddr(&self, socket_addr_v4: SocketAddrV4) -> PRUDPSockAddr {
         PRUDPSockAddr {
-            regular_socket_addr: socket_addr_v4,
+            regular_socket_addr: SocketAddr::V4(socket_addr_v4),
             virtual_port: self.header.source_port,
         }
     }
