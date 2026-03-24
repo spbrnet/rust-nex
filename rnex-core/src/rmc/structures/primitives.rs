@@ -1,5 +1,5 @@
 use crate::rmc::structures::RmcSerialize;
-use bytemuck::bytes_of;
+use bytemuck::{bytes_of, bytes_of_mut};
 use std::io::{Read, Write};
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 
@@ -103,6 +103,23 @@ impl RmcSerialize for u64 {
     #[inline(always)]
     fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
+    }
+    #[inline(always)]
+    fn serialize_write_size(&self) -> crate::rmc::structures::Result<u32> {
+        Ok(8)
+    }
+}
+
+impl RmcSerialize for u128 {
+    #[inline(always)]
+    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+        Ok(writer.write_all(bytes_of(self))?)
+    }
+    #[inline(always)]
+    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+        let mut data = 0u128;
+        reader.read_exact(&mut bytes_of_mut(&mut data))?;
+        Ok(data)
     }
     #[inline(always)]
     fn serialize_write_size(&self) -> crate::rmc::structures::Result<u32> {

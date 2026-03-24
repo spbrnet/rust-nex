@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use log::{error, info};
 use rc4::{KeyInit, Rc4, Rc4Core, StreamCipher, cipher::StreamCipherCoreWrapper};
-use typenum::{U16, U32};
+use typenum::U16;
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 
 use crate::{
@@ -10,19 +10,17 @@ use crate::{
     nex::account::Account,
     rmc::structures::RmcSerialize,
 };
+use rnex_core::PID;
 
 pub fn read_secure_connection_data(
     data: &[u8],
     act: &Account,
-) -> Option<([u8; SESSION_KEY_LENGTH], u32, u32)> {
+) -> Option<([u8; SESSION_KEY_LENGTH], PID, u32)> {
     let mut cursor = Cursor::new(data);
 
     let mut ticket_data: Vec<u8> = Vec::deserialize(&mut cursor).ok()?;
     let mut request_data: Vec<u8> = Vec::deserialize(&mut cursor).ok()?;
-    info!(
-        "done
-    request data"
-    );
+    info!("done request data {}", SESSION_KEY_LENGTH);
 
     let ticket_data_size = ticket_data.len();
 
@@ -62,7 +60,7 @@ pub fn read_secure_connection_data(
 
     let mut reqest_data_cursor = Cursor::new(request_data);
 
-    let pid: u32 = reqest_data_cursor.read_struct(IS_BIG_ENDIAN).ok()?;
+    let pid: PID = reqest_data_cursor.read_struct(IS_BIG_ENDIAN).ok()?;
 
     if pid != ticket_source_pid {
         let ticket_created_on = issued_time.to_regular_time();

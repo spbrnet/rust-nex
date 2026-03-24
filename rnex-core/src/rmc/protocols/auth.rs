@@ -1,8 +1,20 @@
 use crate::rmc::structures::connection_data::{ConnectionData, ConnectionDataOld};
+use cfg_if::cfg_if;
 use macros::{method_id, rmc_proto};
+use rnex_core::PID;
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::any::Any;
 use rnex_core::rmc::structures::qresult::QResult;
+
+cfg_if! {
+    if #[cfg(feature = "nx")]{
+        type LOGIN_EX_RET = (QResult, PID, Vec<u8>, ConnectionData, String, String);
+        type REQUEST_TICKET_RET = (QResult, Vec<u8>, String);
+    } else {
+        type LOGIN_EX_RET = (QResult, PID, Vec<u8>, ConnectionData, String);
+        type REQUEST_TICKET_RET = (QResult, Vec<u8>);
+    }
+}
 
 /// This is the representation for `Ticket Granting`(for details see the
 /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))
@@ -14,25 +26,22 @@ pub trait Auth {
     async fn login(
         &self,
         name: String,
-    ) -> Result<(QResult, u32, Vec<u8>, ConnectionDataOld, String), ErrorCode>;
+    ) -> Result<(QResult, PID, Vec<u8>, ConnectionDataOld, String), ErrorCode>;
 
     /// representation of the `LoginEx` method(for details see the
     /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))
     #[method_id(2)]
-    async fn login_ex(
-        &self,
-        name: String,
-        extra_data: Any,
-    ) -> Result<(QResult, u32, Vec<u8>, ConnectionData, String), ErrorCode>;
+    async fn login_ex(&self, name: String, extra_data: Any) -> Result<LOGIN_EX_RET, ErrorCode>;
 
-    /// representation of the `RequestTicket` method(for details see the
-    /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))
     #[method_id(3)]
     async fn request_ticket(
         &self,
-        source_pid: u32,
-        destination_pid: u32,
-    ) -> Result<(QResult, Vec<u8>), ErrorCode>;
+        source_pid: PID,
+        destination_pid: PID,
+    ) -> Result<REQUEST_TICKET_RET, ErrorCode>;
+
+    /// representation of the `RequestTicket` method(for details see the
+    /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))
 
     /// representation of the `GetPID` method(for details see the
     /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))
@@ -42,7 +51,7 @@ pub trait Auth {
     /// representation of the `LoginWithContext` method(for details see the
     /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))
     #[method_id(5)]
-    async fn get_name(&self, pid: u32) -> Result<String, ErrorCode>;
+    async fn get_name(&self, pid: PID) -> Result<String, ErrorCode>;
 
     // `LoginWithContext` is left out here because we don't need it right now and versioning still
     // needs to be figured out

@@ -8,10 +8,12 @@ use rnex_core::rmc::response::ErrorCode::Core_Exception;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use rnex_core::rmc::response::ErrorCode;
 
+use rnex_core::PID;
+
 pub async fn get_station_urls(
     station_urls: &[StationUrl],
     addr: PRUDPSockAddr,
-    pid: u32,
+    pid: PID,
     cid: u32,
 ) -> Result<Vec<StationUrl>, ErrorCode> {
     let mut public_station: Option<StationUrl> = None;
@@ -66,7 +68,7 @@ pub async fn get_station_urls(
 
         public_station
             .options
-            .push(Address(*addr.regular_socket_addr.ip()));
+            .push(Address(addr.regular_socket_addr.ip().clone()));
         public_station
             .options
             .push(Port(addr.regular_socket_addr.port()));

@@ -1,5 +1,6 @@
 #![allow(async_fn_in_trait)]
 
+pub mod account_management;
 pub mod auth;
 pub mod friends;
 pub mod matchmake;

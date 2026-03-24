@@ -34,6 +34,11 @@ ureq = "3.1.4"
 rmc_struct_header = []
 guest_login = []
 friends = ["guest_login"]
+big_pid = []
+v3-8-15 = ["rmc_struct_header"]
+v4-3-11 = ["v3-8-15"]
+nx = ["big_pid"]
+
 
 [[bench]]
 name = "rmc_serialization"

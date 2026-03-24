@@ -6,18 +6,21 @@ use hmac::Mac;
 use md5::{Digest, Md5};
 use rc4::KeyInit;
 use rc4::cipher::StreamCipherCoreWrapper;
-use rc4::consts::U16;
 use rc4::{Rc4, Rc4Core, StreamCipher};
 use rnex_core::rmc::structures::RmcSerialize;
 use std::io::{Read, Write};
+use typenum::U16;
 use typenum::Unsigned;
 
 use rnex_core::rmc::structures::Result;
+
+use rnex_core::PID;
 
 cfg_if! {
     if #[cfg(feature = "friends")]{
         pub type SESSION_KEY_LENGTH_TY = U16;
     } else {
+        use rc4::consts::U32;
         pub type SESSION_KEY_LENGTH_TY = U32;
     }
 }
@@ -25,7 +28,7 @@ pub const SESSION_KEY_LENGTH: usize = SESSION_KEY_LENGTH_TY::USIZE;
 
 type Md5Hmac = Hmac<md5::Md5>;
 
-pub fn derive_key(pid: u32, password: &[u8]) -> [u8; 16] {
+pub fn derive_key(pid: PID, password: &[u8]) -> [u8; 16] {
     let iteration_count = 65000 + pid % 1024;
     // we do one iteration out here to ensure the key is always 16 bytes
 
@@ -125,12 +128,12 @@ impl RmcSerialize for KerberosDateTime {
 #[repr(C, packed)]
 pub struct TicketInternalData {
     pub issued_time: KerberosDateTime,
-    pub pid: u32,
+    pub pid: PID,
     pub session_key: [u8; SESSION_KEY_LENGTH],
 }
 
 impl TicketInternalData {
-    pub(crate) fn new(pid: u32) -> Self {
+    pub(crate) fn new(pid: PID) -> Self {
         Self {
             issued_time: KerberosDateTime::now(),
             pid,
@@ -162,7 +165,7 @@ impl TicketInternalData {
 #[repr(C, packed)]
 pub struct Ticket {
     pub session_key: [u8; SESSION_KEY_LENGTH],
-    pub pid: u32,
+    pub pid: PID,
 }
 
 impl Ticket {

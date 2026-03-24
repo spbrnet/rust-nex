@@ -1,0 +1,18 @@
+[package]
+name = "prudplite"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+nx = []
+v4-3-11 = []
+
+[dependencies]
+rnex-core = { path = "../rnex-core", version = "0.1.1" }
+tokio = { version =  "1.47.0", features = ["full"] }
+bytemuck = { version =  "1.23.1",  features = ["derive"] }
+proxy-common = {path = "../proxy-common"}
+tokio-tungstenite = {version =  "0.28.0", features = ["rustls", "rustls-tls-native-roots"]}
+log = "0.4.25"
+futures-util = "0.3.31"
+v-byte-helpers = { git = "https://github.com/RusticMaple/VByteMacros", version = "0.1.1" }

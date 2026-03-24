@@ -1,14 +1,16 @@
+use macros::RmcSerialize;
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::rmc::structures::variant::Variant;
-use macros::RmcSerialize;
+
+use rnex_core::PID;
 
 // rmc structure
 #[derive(RmcSerialize, Debug, Clone, Default)]
 #[rmc_struct(0)]
 pub struct Gathering {
     pub self_gid: u32,
-    pub owner_pid: u32,
-    pub host_pid: u32,
+    pub owner_pid: PID,
+    pub host_pid: PID,
     pub minimum_participants: u16,
     pub maximum_participants: u16,
     pub participant_policy: u32,
@@ -73,7 +75,7 @@ pub struct MatchmakeSessionSearchCriteria {
 #[rmc_struct(0)]
 pub struct AutoMatchmakeParam {
     pub matchmake_session: MatchmakeSession,
-    pub additional_participants: Vec<u32>,
+    pub additional_participants: Vec<PID>,
     pub gid_for_participation_check: u32,
     pub auto_matchmake_option: u32,
     pub join_message: String,
@@ -86,7 +88,7 @@ pub struct AutoMatchmakeParam {
 #[rmc_struct(0)]
 pub struct CreateMatchmakeSessionParam {
     pub matchmake_session: MatchmakeSession,
-    pub additional_participants: Vec<u32>,
+    pub additional_participants: Vec<PID>,
     pub gid_for_participation_check: u32,
     pub create_matchmake_session_option: u32,
     pub join_message: String,
@@ -103,7 +105,7 @@ pub struct MatchmakeBlockListParam {
 #[rmc_struct(0)]
 pub struct JoinMatchmakeSessionParam {
     pub gid: u32,
-    pub additional_participants: Vec<u32>,
+    pub additional_participants: Vec<PID>,
     pub gid_for_participation_check: u32,
     pub join_matchmake_session_open: u32,
     pub join_matchmake_session_behavior: u8,

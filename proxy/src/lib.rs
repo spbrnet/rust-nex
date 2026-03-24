@@ -8,6 +8,8 @@ cfg_if! {
         pub use prudpv0::*;
     } else if #[cfg(feature = "prudpv1")] {
         pub use prudpv1::*;
+    }  else if #[cfg(feature = "prudplite")]{
+        pub use prudplite::*;
     } else {
         compile_error!("no proxy type has been set");
     }

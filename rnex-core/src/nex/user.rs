@@ -9,9 +9,10 @@ use crate::rmc::protocols::nat_traversal::{
     NatTraversal, RawNatTraversal, RawNatTraversalInfo, RemoteNatTraversal,
     RemoteNatTraversalConsole,
 };
+use rnex_core::PID;
 use rnex_core::prudp::station_url::StationUrl;
 use rnex_core::prudp::station_url::UrlOptions::{
-    Address, NatFiltering, NatMapping, NatType, Port, PrincipalID, RVConnectionID,
+    Address, NatFiltering, NatMapping, Port, RVConnectionID,
 };
 use rnex_core::rmc::protocols::matchmake_ext::{
     MatchmakeExt, RawMatchmakeExt, RawMatchmakeExtInfo, RemoteMatchmakeExt,
@@ -31,10 +32,7 @@ use crate::rmc::protocols::notifications::{NotificationEvent, RemoteNotification
 use log::info;
 use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
-use rnex_core::prudp::station_url::nat_types::PUBLIC;
-use rnex_core::rmc::response::ErrorCode::{
-    Core_Exception, Core_InvalidArgument, RendezVous_AccountExpired,
-};
+use rnex_core::rmc::response::ErrorCode::{Core_InvalidArgument, RendezVous_AccountExpired};
 use rnex_core::rmc::structures::qresult::QResult;
 use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
@@ -52,7 +50,7 @@ define_rmc_proto!(
 
 #[rmc_struct(UserProtocol)]
 pub struct User {
-    pub pid: u32,
+    pub pid: PID,
     pub ip: PRUDPSockAddr,
     pub this: Weak<User>,
     pub remote: RemoteConsole,
@@ -423,7 +421,7 @@ impl Matchmake for User {
                 .process_notification_event(NotificationEvent {
                     notif_type: 110000,
                     pid_source: self.pid,
-                    param_1: gid,
+                    param_1: gid as PID,
                     param_2: self.pid,
                     param_3: 0,
                     str_param: "".to_string(),
@@ -444,7 +442,7 @@ impl Matchmake for User {
                     .process_notification_event(NotificationEvent {
                         notif_type: 4000,
                         pid_source: self.pid,
-                        param_1: gid,
+                        param_1: gid as PID,
                         param_2: self.pid,
                         param_3: 0,
                         str_param: "".to_string(),
@@ -459,7 +457,7 @@ impl Matchmake for User {
     async fn migrate_gathering_ownership(
         &self,
         gid: u32,
-        candidates: Vec<u32>,
+        candidates: Vec<PID>,
         _participants_only: bool,
     ) -> Result<(), ErrorCode> {
         let session = self.matchmake_manager.get_session(gid).await?;
@@ -479,8 +477,8 @@ impl Matchmake for User {
                 .process_notification_event(NotificationEvent {
                     notif_type: 4000,
                     pid_source: self.pid,
-                    param_1: gid,
-                    param_2: *candidate,
+                    param_1: gid as PID,
+                    param_2: *candidate as PID,
                     param_3: 0,
                     str_param: "".to_string(),
                 })

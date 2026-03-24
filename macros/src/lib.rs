@@ -48,7 +48,11 @@ impl Parse for ProtoInputParams {
 fn gen_serialize_data_struct(
     s: DataStruct,
     struct_attr: Option<&Attribute>,
-) -> (proc_macro2::TokenStream, proc_macro2::TokenStream, proc_macro2::TokenStream) {
+) -> (
+    proc_macro2::TokenStream,
+    proc_macro2::TokenStream,
+    proc_macro2::TokenStream,
+) {
     let serialize_base_content = {
         let mut serialize_content = quote! {};
 
@@ -123,8 +127,6 @@ fn gen_serialize_data_struct(
         let mut size_content = quote! { 0 };
 
         for f in &s.fields {
-
-
             let ident = f.ident.as_ref().unwrap();
 
             size_content.append_all(quote! {
@@ -135,11 +137,10 @@ fn gen_serialize_data_struct(
         size_content
     };
     let write_size = if let Some(_) = struct_attr {
-        quote!{ #write_size + if rnex_core::config::FEATURE_HAS_STRUCT_HEADER{ 5 } else { 0 } }
+        quote! { #write_size + if rnex_core::config::FEATURE_HAS_STRUCT_HEADER{ 5 } else { 0 } }
     } else {
         write_size
     };
-
 
     // generate base with extends stuff
 
@@ -215,7 +216,7 @@ fn gen_serialize_data_struct(
         deserialize_base_content
     };
 
-    let write_size = quote!{
+    let write_size = quote! {
         fn serialize_write_size(&self) -> rnex_core::rmc::structures::Result<u32>{
             Ok(#write_size)
         }
@@ -390,7 +391,7 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
                 Ok(val)
             };
 
-            (serialize_base_content, deserialize_base_content, quote!{})
+            (serialize_base_content, deserialize_base_content, quote! {})
         }
         Data::Union(_) => {
             unimplemented!()

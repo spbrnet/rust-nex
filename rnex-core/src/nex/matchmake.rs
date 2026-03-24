@@ -2,6 +2,7 @@ use crate::nex::user::User;
 use crate::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
 use log::info;
 use rand::random;
+use rnex_core::PID;
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::rmc::protocols::notifications::notification_types::{
     HOST_CHANGED, OWNERSHIP_CHANGED,
@@ -208,7 +209,7 @@ impl ExtendedMatchmakeSession {
                 .process_notification_event(NotificationEvent {
                     pid_source: initiating_pid,
                     notif_type: 122000,
-                    param_1: self.session.gathering.self_gid,
+                    param_1: self.session.gathering.self_gid as PID,
                     param_2: other_pid,
                     str_param: "".into(),
                     param_3: 0,
@@ -240,7 +241,7 @@ impl ExtendedMatchmakeSession {
                     .process_notification_event(NotificationEvent {
                         pid_source: initiating_pid,
                         notif_type: 3001,
-                        param_1: self.session.gathering.self_gid,
+                        param_1: self.session.gathering.self_gid as PID,
                         param_2: *pid,
                         str_param: join_msg.clone(),
                         param_3: self.connected_players.len() as _,
@@ -261,7 +262,7 @@ impl ExtendedMatchmakeSession {
                 .process_notification_event(NotificationEvent {
                     pid_source: initiating_pid,
                     notif_type: 3001,
-                    param_1: self.session.gathering.self_gid,
+                    param_1: self.session.gathering.self_gid as PID,
                     param_2: older_pid,
                     str_param: join_msg.clone(),
                     param_3: self.connected_players.len() as _,
@@ -393,7 +394,7 @@ impl ExtendedMatchmakeSession {
         Ok(true)
     }
 
-    pub async fn migrate_ownership(&mut self, initiator_pid: u32) -> Result<(), ErrorCode> {
+    pub async fn migrate_ownership(&mut self, initiator_pid: PID) -> Result<(), ErrorCode> {
         let players: Vec<_> = self
             .connected_players
             .iter()
@@ -414,7 +415,7 @@ impl ExtendedMatchmakeSession {
         self.broadcast_notification(&NotificationEvent {
             pid_source: initiator_pid,
             notif_type: OWNERSHIP_CHANGED,
-            param_1: self.session.gathering.self_gid,
+            param_1: self.session.gathering.self_gid as PID,
             param_2: new_owner.pid,
             ..Default::default()
         })
@@ -423,7 +424,7 @@ impl ExtendedMatchmakeSession {
         Ok(())
     }
 
-    pub async fn migrate_host(&mut self, initiator_pid: u32) -> Result<(), ErrorCode> {
+    pub async fn migrate_host(&mut self, initiator_pid: PID) -> Result<(), ErrorCode> {
         // let players: Vec<_> = self.connected_players.iter().filter_map(|p| p.upgrade()).collect();
 
         self.session.gathering.host_pid = self.session.gathering.owner_pid;
@@ -431,7 +432,7 @@ impl ExtendedMatchmakeSession {
         self.broadcast_notification(&NotificationEvent {
             pid_source: initiator_pid,
             notif_type: HOST_CHANGED,
-            param_1: self.session.gathering.self_gid,
+            param_1: self.session.gathering.self_gid as PID,
             ..Default::default()
         })
         .await;
@@ -441,7 +442,7 @@ impl ExtendedMatchmakeSession {
 
     pub async fn remove_player_from_session(
         &mut self,
-        pid: u32,
+        pid: PID,
         message: &str,
     ) -> Result<(), ErrorCode> {
         self.connected_players
@@ -468,7 +469,7 @@ impl ExtendedMatchmakeSession {
                 .process_notification_event(NotificationEvent {
                     notif_type: 3008,
                     pid_source: pid,
-                    param_1: self.session.gathering.self_gid,
+                    param_1: self.session.gathering.self_gid as PID,
                     param_2: pid,
                     str_param: message.to_owned(),
                     ..Default::default()

@@ -1,5 +1,6 @@
 use log::{error, info};
 use rnex_core::{
+    PID,
     executables::common::{OWN_IP_PUBLIC, try_get_ip},
     prudp::{socket_addr::PRUDPSockAddr, virtual_port::VirtualPort},
     reggie::{RemoteEdgeNodeHolder, UnitPacketWrite},
@@ -83,7 +84,7 @@ impl ProxyStartupParam {
         let self_public: SocketAddrV4 = match try_get_env("SERVER_IP_PUBLIC") {
             Ok(v) => v,
             Err(e) => try_get_ip()
-                .map(|v| SocketAddrV4::new(v, RNEX_DEFAULT_PORT))
+                .map(|v| SocketAddrV4::new(v, self_private.port()))
                 .map_err(move |v| Error::PubAddrGetErr(Box::new(e), v))?,
         };
 
@@ -175,7 +176,7 @@ pub async fn setup_edge_node_connection(
 pub async fn new_backend_connection(
     param: &ProxyStartupParam,
     addr: PRUDPSockAddr,
-    pid: u32,
+    pid: PID,
 ) -> Option<SplittableBufferConnection> {
     info!("attempting to connect to: {}", param.forward_destination);
     let mut stream = match TcpStream::connect(param.forward_destination).await {

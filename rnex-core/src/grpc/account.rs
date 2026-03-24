@@ -1,29 +1,27 @@
-use std::{env, result};
+use crate::grpc::account::Error::SomethingHappened;
+use json::{JsonValue, object};
+use once_cell::sync::Lazy;
+use rnex_core::PID;
 use std::array::TryFromSliceError;
 use std::ops::Deref;
-use json::{object, JsonValue};
-use once_cell::sync::Lazy;
+use std::{env, result};
 use thiserror::Error;
-use tokio::task::{spawn_blocking, JoinError};
-use crate::grpc::account::Error::SomethingHappened;
-static API_KEY: Lazy<String> = Lazy::new(||{
-    let key = env::var("ACCOUNT_GQL_API_KEY")
-        .expect("no graphql ip specified");
+use tokio::task::{JoinError, spawn_blocking};
+static API_KEY: Lazy<String> = Lazy::new(|| {
+    let key = env::var("ACCOUNT_GQL_API_KEY").expect("no graphql ip specified");
 
     key
 });
 
-static CLIENT_URI: Lazy<String> = Lazy::new(||{
+static CLIENT_URI: Lazy<String> = Lazy::new(|| {
     env::var("ACCOUNT_GQL_URL")
         .ok()
         .and_then(|s| s.parse().ok())
         .expect("no graphql ip specified")
 });
 
-
-
 #[derive(Error, Debug)]
-pub enum Error{
+pub enum Error {
     #[error(transparent)]
     RequestError(#[from] ureq::Error),
     #[error(transparent)]
@@ -35,20 +33,20 @@ pub enum Error{
     #[error("something happened")]
     SomethingHappened,
     #[error("error joining blocking task: {0}")]
-    Join(#[from] JoinError)
+    Join(#[from] JoinError),
 }
 
 pub type Result<T> = result::Result<T, Error>;
 
-pub struct Client;//(reqwest::Client);
+pub struct Client; //(reqwest::Client);
 
-impl Client{
+impl Client {
     pub async fn new() -> Result<Self> {
         //Ok(Self(reqwest::ClientBuilder::new().build()?))
         Ok(Self)
     }
 
-    async fn do_request(&self, request_data: JsonValue) -> Result<JsonValue>{
+    async fn do_request(&self, request_data: JsonValue) -> Result<JsonValue> {
         let request = ureq::post(CLIENT_URI.as_str())
             .header("X-API-Key", API_KEY.deref())
             .content_type("application/json");
@@ -70,28 +68,35 @@ impl Client{
          */
     }
 
-    pub async fn get_nex_password(&mut self , pid: u32) -> Result<[u8; 16]>{
-        let req = self.do_request(object!{
-            "query": r"query($pid: Int!){
+    pub async fn get_nex_password(&mut self, pid: PID) -> Result<[u8; 16]> {
+        let req = self
+            .do_request(object! {
+                "query": r"query($pid: Int!){
                 userByPid(pid: $pid){
                     nexPassword
                 }
             }",
-            "variables": {
-                "pid": pid
-            }
-        }).await?;
+                "variables": {
+                    "pid": pid
+                }
+            })
+            .await?;
 
-        let Some(val) = req.entries()
+        let Some(val) = req
+            .entries()
             .find(|v| v.0 == "data")
-            .ok_or(SomethingHappened)?.1
+            .ok_or(SomethingHappened)?
+            .1
             .entries()
             .find(|v| v.0 == "userByPid")
-            .ok_or(SomethingHappened)?.1
+            .ok_or(SomethingHappened)?
+            .1
             .entries()
             .find(|v| v.0 == "nexPassword")
-            .ok_or(SomethingHappened)?.1
-            .as_str() else {
+            .ok_or(SomethingHappened)?
+            .1
+            .as_str()
+        else {
             return Err(SomethingHappened);
         };
 
@@ -108,8 +113,6 @@ impl Client{
         Ok(response)
     }*/
 }
-
-
 
 /*
 

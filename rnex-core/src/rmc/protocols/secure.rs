@@ -12,6 +12,7 @@ pub trait Secure {
         &self,
         station_urls: Vec<StationUrl>,
     ) -> Result<(QResult, u32, StationUrl), ErrorCode>;
+
     #[method_id(4)]
     async fn register_ex(
         &self,

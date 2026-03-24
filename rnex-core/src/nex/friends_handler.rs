@@ -1,5 +1,4 @@
 use std::sync::{Arc, atomic::AtomicU32};
-use std::time::Duration;
 
 use log::info;
 use macros::rmc_struct;
@@ -20,9 +19,10 @@ use rnex_core::{
     },
 };
 use std::sync::atomic::Ordering::Relaxed;
-use tokio::time::sleep;
 
 use rnex_core::rmc::protocols::friends::{GameKey, MiiV2, PrincipalBasicInfo};
+
+use rnex_core::PID;
 
 define_rmc_proto!(
     proto FriendsUser{
@@ -30,11 +30,22 @@ define_rmc_proto!(
         Friends
     }
 );
+define_rmc_proto!(
+    proto FriendsGuest{
+        Secure
+    }
+);
 #[rmc_struct(FriendsUser)]
 pub struct FriendsUser {
     pub fm: Arc<FriendsManager>,
     pub addr: PRUDPSockAddr,
-    pub pid: u32,
+    pub pid: PID,
+}
+
+#[rmc_struct(FriendsGuest)]
+pub struct FriendsGuest {
+    pub fm: Arc<FriendsManager>,
+    pub addr: PRUDPSockAddr,
 }
 
 pub struct FriendsManager {
@@ -50,9 +61,9 @@ impl FriendsManager {
 impl Friends for FriendsUser {
     async fn update_and_get_all_information(
         &self,
-        info: NNAInfo,
-        presence: NintendoPresenceV2,
-        date_time: KerberosDateTime,
+        _info: NNAInfo,
+        _presence: NintendoPresenceV2,
+        _date_time: KerberosDateTime,
     ) -> Result<
         (
             PrincipalPreference,
@@ -89,10 +100,10 @@ impl Friends for FriendsUser {
                 nna_info: NNAInfo {
                     principal_basic_info: PrincipalBasicInfo {
                         pid: 101,
-                        nnid: "dummyaccount".to_string(),
+                        nnid: "dummy:3".to_string(),
                         mii: MiiV2{
                             date_time: KerberosDateTime::now(),
-                            name: "Dummy Account".to_string(),
+                            name: "TheDummy".to_string(),
                             mii_data: hex::decode("030000402bd7c32986a771f2dc6b35e31da15e37ff7c0000391e6f006f006d0069000000000000000000000000004040001065033568641e2013661a611821640f0000290052485000000000000000000000000000000000000000000000e838").unwrap(),
                             unk: 0,
                             unk2: 0,
@@ -149,12 +160,37 @@ impl Secure for FriendsUser {
     async fn register_ex(
         &self,
         station_urls: Vec<StationUrl>,
-        data: Any,
+        _data: Any,
     ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
         info!("register");
         self.register(station_urls).await
     }
-    async fn replace_url(&self, target: StationUrl, dest: StationUrl) -> Result<(), ErrorCode> {
+    async fn replace_url(&self, _target: StationUrl, _dest: StationUrl) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+}
+
+impl Secure for FriendsGuest {
+    async fn register(
+        &self,
+        station_urls: Vec<StationUrl>,
+    ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
+        let cid = self.fm.next_cid();
+        Ok((
+            QResult::success(ErrorCode::Core_Unknown),
+            cid,
+            get_station_urls(&station_urls, self.addr, 100, cid).await?[0].clone(),
+        ))
+    }
+    async fn register_ex(
+        &self,
+        station_urls: Vec<StationUrl>,
+        _data: Any,
+    ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
+        info!("register");
+        self.register(station_urls).await
+    }
+    async fn replace_url(&self, _target: StationUrl, _dest: StationUrl) -> Result<(), ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 }

@@ -17,6 +17,7 @@ async fn main() {
         if #[cfg(feature = "friends")]{
             start_friends_backend().await;
         } else {
+            use rnex_core::executables::regular_backend;
             regular_backend::start_regular_backend().await
         }
     }

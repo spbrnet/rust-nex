@@ -100,7 +100,7 @@ impl<C: Crypto> Server<C> {
         };
         /* we leave the sequence id as is for now as it defaults to 0 */
 
-        *packet.checksum_mut().expect("packet malformed in creation") =
+        packet.checksum_mut().expect("packet malformed in creation") =
             self.crypto.calculate_checksum(
                 packet
                     .checksummed_data()
@@ -434,7 +434,7 @@ impl<C: Crypto> Server<C> {
 
         info!("len: {}", packet.0.len());
 
-        let addr = PRUDPSockAddr::new(addr, header.source);
+        let addr = PRUDPSockAddr::new(SocketAddr::V4(addr), header.source);
 
         if let Some(conn) = self.get_connection(addr).await {
             let mut inner = conn.inner.lock().await;

@@ -4,6 +4,7 @@ use crate::{define_rmc_proto, kerberos};
 use cfg_if::cfg_if;
 use log::{info, warn};
 use macros::rmc_struct;
+use rnex_core::PID;
 use rnex_core::kerberos::{KerberosDateTime, Ticket, derive_key};
 use rnex_core::nex::account::Account;
 use rnex_core::rmc::protocols::OnlyRemote;
@@ -16,7 +17,7 @@ use rnex_core::rmc::structures::connection_data::ConnectionDataOld;
 use rnex_core::rmc::structures::qresult::QResult;
 use std::hash::{DefaultHasher, Hasher};
 use std::net::SocketAddrV4;
-use std::sync::{Arc, LazyLock, OnceLock};
+use std::sync::{Arc, LazyLock};
 
 define_rmc_proto!(
     proto AuthClientProtocol{
@@ -33,8 +34,8 @@ pub struct AuthHandler {
 }
 
 pub fn generate_ticket(
-    source_act_login_data: (u32, &[u8]),
-    dest_act_login_data: (u32, &[u8]),
+    source_act_login_data: (PID, &[u8]),
+    dest_act_login_data: (PID, &[u8]),
 ) -> Box<[u8]> {
     let source_key = derive_key(source_act_login_data.0, source_act_login_data.1);
     let dest_key = derive_key(dest_act_login_data.0, dest_act_login_data.1);
@@ -50,8 +51,28 @@ pub fn generate_ticket(
 
     encrypted_session_ticket
 }
+pub fn generate_ticket_with_string_user_key(
+    source_act: PID,
+    dest_act_login_data: (PID, &[u8]),
+) -> (String, Box<[u8]>) {
+    let source_key: [u8; 8] = rand::random();
+    let key_string = hex::encode(source_key);
+    let key_data: [u8; 16] = key_string.as_bytes().try_into().unwrap();
+    let dest_key = derive_key(dest_act_login_data.0, dest_act_login_data.1);
 
-async fn get_login_data_by_pid(pid: u32) -> Option<(u32, Box<[u8]>)> {
+    let internal_data = kerberos::TicketInternalData::new(source_act);
+
+    let encrypted_inner = internal_data.encrypt(dest_key);
+    let encrypted_session_ticket = Ticket {
+        pid: dest_act_login_data.0,
+        session_key: internal_data.session_key,
+    }
+    .encrypt(key_data, &encrypted_inner);
+
+    (key_string, encrypted_session_ticket)
+}
+
+async fn get_login_data_by_pid(pid: PID) -> Option<(PID, Box<[u8]>)> {
     if pid == GUEST_ACCOUNT.pid {
         let source_login_data = GUEST_ACCOUNT.get_login_data();
 
@@ -84,7 +105,7 @@ impl AuthHandler {
     pub async fn generate_ticket_from_name(
         &self,
         name: &str,
-    ) -> Result<(u32, Box<[u8]>), ErrorCode> {
+    ) -> Result<(PID, Box<[u8]>), ErrorCode> {
         #[cfg(feature = "guest_login")]
         {
             if name == GUEST_ACCOUNT.username {
@@ -120,13 +141,39 @@ impl AuthHandler {
             generate_ticket(source_login_data, destination_login_data),
         ))
     }
+
+    pub async fn generate_ticket_from_name_string_user_key(
+        &self,
+        name: &str,
+    ) -> Result<(PID, String, Box<[u8]>), ErrorCode> {
+        #[cfg(feature = "guest_login")]
+        {
+            if name == GUEST_ACCOUNT.username {
+                let source_login_data = GUEST_ACCOUNT.get_login_data();
+                let destination_login_data = self.destination_server_acct.get_login_data();
+
+                return Ok((
+                    source_login_data.0,
+                    generate_ticket(source_login_data, destination_login_data),
+                ));
+            }
+        }
+        let Ok(pid) = name.parse() else {
+            warn!("unable to connect to parse pid: {}", name);
+            return Err(ErrorCode::Core_InvalidArgument);
+        };
+        let destination_login_data = self.destination_server_acct.get_login_data();
+
+        let data = generate_ticket_with_string_user_key(pid, destination_login_data);
+        Ok((pid, data.0, data.1))
+    }
 }
 
 impl Auth for AuthHandler {
     async fn login(
         &self,
         name: String,
-    ) -> Result<(QResult, u32, Vec<u8>, ConnectionDataOld, String), ErrorCode> {
+    ) -> Result<(QResult, PID, Vec<u8>, ConnectionDataOld, String), ErrorCode> {
         let (pid, ticket) = self.generate_ticket_from_name(&name).await?;
 
         let result = QResult::success(Core_Unknown);
@@ -157,103 +204,135 @@ impl Auth for AuthHandler {
         info!("data: {:?}", ret);
         Ok(ret)
     }
+    cfg_if! {
 
-    async fn login_ex(
-        &self,
-        name: String,
-        _extra_data: Any,
-    ) -> Result<(QResult, u32, Vec<u8>, ConnectionData, String), ErrorCode> {
-        let (pid, ticket) = self.generate_ticket_from_name(&name).await?;
+        if #[cfg(feature = "nx")]{
+            async fn login_ex(
+                &self,
+                name: String,
+                _extra_data: Any,
+            ) -> Result<(QResult, PID, Vec<u8>, ConnectionData, String, String), ErrorCode> {
+                let (pid, key, ticket) = self.generate_ticket_from_name_string_user_key(&name).await?;
 
-        let result = QResult::success(Core_Unknown);
+                let result = QResult::success(Core_Unknown);
 
-        let mut hasher = DefaultHasher::new();
+                let mut hasher = DefaultHasher::new();
 
-        hasher.write(name.as_bytes());
+                hasher.write(name.as_bytes());
 
-        let Ok(addr) = self.control_server.get_url(hasher.finish()).await else {
-            warn!("no secure proxies");
-            return Err(ErrorCode::Core_Exception);
-        };
+                let Ok(addr) = self.control_server.get_url(hasher.finish()).await else {
+                    warn!("no secure proxies");
+                    return Err(ErrorCode::Core_Exception);
+                };
 
-        let connection_data = ConnectionData {
-            station_url: station_url_from_sock_addr(addr),
-            special_station_url: "".to_string(),
-            //date_time: KerberosDateTime::new(1,1,1,1,1,1),
-            date_time: KerberosDateTime::now(),
-            special_protocols: Vec::new(),
-        };
+                let connection_data = ConnectionData {
+                    station_url: station_url_from_sock_addr(addr),
+                    special_station_url: "".to_string(),
+                    //date_time: KerberosDateTime::new(1,1,1,1,1,1),
+                    date_time: KerberosDateTime::now(),
+                    special_protocols: Vec::new(),
+                };
 
-        let ret = (
-            result,
-            pid,
-            ticket.into(),
-            connection_data,
-            self.build_name.to_string(),
-        );
+                let ret = (
+                    result,
+                    pid,
+                    ticket.into(),
+                    connection_data,
+                    self.build_name.to_string(),
+                    key
+                );
 
-        info!("data: {:?}", ret);
-        Ok(ret)
-    }
+                info!("data: {:?}", ret);
+                Ok(ret)
+            }
+            async fn request_ticket(
+                &self,
+                source_pid: PID,
+                destination_pid: PID,
+            ) -> Result<(QResult, Vec<u8>, String), ErrorCode> {
+                let Some((pid, _)) = get_login_data_by_pid(source_pid).await else {
+                    return Err(ErrorCode::Core_Exception);
+                };
 
-    async fn request_ticket(
-        &self,
-        source_pid: u32,
-        destination_pid: u32,
-    ) -> Result<(QResult, Vec<u8>), ErrorCode> {
-        let Some((pid, passwd)) = get_login_data_by_pid(source_pid).await else {
-            return Err(ErrorCode::Core_Exception);
-        };
+                let desgination_login_data = if destination_pid == self.destination_server_acct.pid {
+                    self.destination_server_acct.get_login_data()
+                } else {
+                    return Err(ErrorCode::RendezVous_InvalidOperation);
+                };
 
-        let desgination_login_data = if destination_pid == self.destination_server_acct.pid {
-            self.destination_server_acct.get_login_data()
+                let result = QResult::success(Core_Unknown);
+
+                let ticket = generate_ticket_with_string_user_key(pid, desgination_login_data);
+
+                Ok((result, ticket.1.into(), ticket.0))
+            }
         } else {
-            return Err(ErrorCode::RendezVous_InvalidOperation);
-        };
+            async fn login_ex(
+                &self,
+                name: String,
+                _extra_data: Any,
+            ) -> Result<(QResult, PID, Vec<u8>, ConnectionData, String), ErrorCode> {
+                let (pid, ticket) = self.generate_ticket_from_name(&name).await?;
 
-        let result = QResult::success(Core_Unknown);
+                let result = QResult::success(Core_Unknown);
 
-        let ticket = generate_ticket((pid, &passwd[..]), desgination_login_data);
+                let mut hasher = DefaultHasher::new();
 
-        Ok((result, ticket.into()))
+                hasher.write(name.as_bytes());
+
+                let Ok(addr) = self.control_server.get_url(hasher.finish()).await else {
+                    warn!("no secure proxies");
+                    return Err(ErrorCode::Core_Exception);
+                };
+
+                let connection_data = ConnectionData {
+                    station_url: station_url_from_sock_addr(addr),
+                    special_station_url: "".to_string(),
+                    //date_time: KerberosDateTime::new(1,1,1,1,1,1),
+                    date_time: KerberosDateTime::now(),
+                    special_protocols: Vec::new(),
+                };
+
+                let ret = (
+                    result,
+                    pid,
+                    ticket.into(),
+                    connection_data,
+                    self.build_name.to_string(),
+                );
+
+                info!("data: {:?}", ret);
+                Ok(ret)
+            }
+            async fn request_ticket(
+                &self,
+                source_pid: PID,
+                destination_pid: PID,
+            ) -> Result<(QResult, Vec<u8>), ErrorCode> {
+                let Some((pid, passwd)) = get_login_data_by_pid(source_pid).await else {
+                    return Err(ErrorCode::Core_Exception);
+                };
+
+                let desgination_login_data = if destination_pid == self.destination_server_acct.pid {
+                    self.destination_server_acct.get_login_data()
+                } else {
+                    return Err(ErrorCode::RendezVous_InvalidOperation);
+                };
+
+                let result = QResult::success(Core_Unknown);
+
+                let ticket = generate_ticket((pid, &passwd[..]), desgination_login_data);
+
+                Ok((result, ticket.into()))
+            }
+        }
     }
 
     async fn get_pid(&self, _username: String) -> Result<u32, ErrorCode> {
         Err(ErrorCode::Core_Exception)
     }
 
-    async fn get_name(&self, _pid: u32) -> Result<String, ErrorCode> {
+    async fn get_name(&self, _pid: PID) -> Result<String, ErrorCode> {
         Err(ErrorCode::Core_Exception)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use rnex_core::rmc::response::RMCResponse;
-    use rnex_core::rmc::structures::RmcSerialize;
-    use rnex_core::rmc::structures::connection_data::ConnectionData;
-    use rnex_core::rmc::structures::qresult::QResult;
-    use std::io::Cursor;
-
-    #[test]
-    fn test() {
-        return;
-        let stuff = hex::decode("200100000a0106000000028000000100010051b3995774000000a6321c7f78847c1c5e9fb825eb26bd91841f1a40d92fc694159666119cb13527f1463ac48ad42a63e6613ede67041554b1770978112e6f1f3e177a2bfc75933216dbe38f70133a1eb28e2ae32a4b5c4b0c3e3efd4c02907992e259b257270b57a9dbe7792f4721b07f8fafb9e32d50f2555c616a015c0000004b007072756470733a2f5049443d323b7369643d313b73747265616d3d31303b747970653d323b616464726573733d322e3234332e39352e3131333b706f72743d31303030313b4349443d3100000000000100002c153ba51f00000033006272616e63683a6f726967696e2f70726f6a6563742f7775702d61676d6a206275696c643a335f385f31355f323030345f3000").unwrap();
-        let stuff = RMCResponse::new(&mut Cursor::new(stuff)).unwrap();
-
-        let rnex_core::rmc::response::RMCResponseResult::Success { .. } = stuff.response_result
-        else {
-            panic!()
-        };
-
-        // let stuff = hex::decode("0100010051B399577400000085F1736FCFBE93660275A3FE36FED6C2EFC57222AC99A9219CF54170A415B02DF1463AC48AD42A6307813FDE67041554B177097832ED000F892D9551A09F88E9CB0388DC1BC9527CC7384556A3287B2A349ABBF7E34A5A3EC14C2287CC7F78DA616BC3B03A035347FBD2E9A505C8EF42447CD809015F0000004E007072756470733A2F73747265616D3D31303B747970653D323B616464726573733D3139322E3136382E3137382E3132303B706F72743D31303030313B4349443D313B5049443D323B7369643D310000000000010000CDF53AA51F00000033006272616E63683A6F726967696E2F70726F6A6563742F7775702D61676D6A206275696C643A335F385F31355F323030345F3000").unwrap();
-        let stuff = hex::decode("0100010051b399577400000037d3d4814d2b16dd546c94a75d32637b45f856b5abe73cf26cfaa235c5f2c1cef1463ac48ad42a637d873fde67041554b177097880cfa7e10bb810eaf686bfb0a0cf3d65b1f476ebc046d0855327986f557dca14fbb8594883c186b863f2206f22baa0309dbcc81da2f883cb2cdc12628ec7fced015c0000004b007072756470733a2f5049443d323b7369643d313b73747265616d3d31303b747970653d323b616464726573733d322e3234332e39352e3131333b706f72743d31303030313b4349443d310000000000010000b7f33aa51f00000033006272616e63683a6f726967696e2f70726f6a6563742f7775702d61676d6a206275696c643a335f385f31355f323030345f3000").unwrap();
-
-        let data = <(QResult, u32, Vec<u8>, ConnectionData, String) as RmcSerialize>::deserialize(
-            &mut Cursor::new(stuff),
-        )
-        .unwrap();
-
-        println!("data: {:?}", data);
     }
 }

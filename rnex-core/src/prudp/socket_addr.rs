@@ -3,19 +3,19 @@ use macros::RmcSerialize;
 use md5::digest::Mac;
 use rnex_core::prudp::virtual_port::VirtualPort;
 use std::io::Write;
-use std::net::SocketAddrV4;
+use std::net::{IpAddr, SocketAddr};
 
 type Md5Hmac = Hmac<md5::Md5>;
 
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone, Ord, PartialOrd, RmcSerialize)]
 #[rmc_struct(0)]
 pub struct PRUDPSockAddr {
-    pub regular_socket_addr: SocketAddrV4,
+    pub regular_socket_addr: SocketAddr,
     pub virtual_port: VirtualPort,
 }
 
 impl PRUDPSockAddr {
-    pub fn new(regular_socket_addr: SocketAddrV4, virtual_port: VirtualPort) -> Self {
+    pub fn new(regular_socket_addr: SocketAddr, virtual_port: VirtualPort) -> Self {
         Self {
             regular_socket_addr,
             virtual_port,
@@ -23,9 +23,12 @@ impl PRUDPSockAddr {
     }
 
     pub fn calculate_connection_signature(&self) -> [u8; 16] {
-        let mut hmac = Md5Hmac::new_from_slice(&[0; 16]).expect("fuck");
+        let mut hmac = Md5Hmac::new_from_slice(&[0; 16]).expect("?");
 
-        let data = self.regular_socket_addr.ip().octets().to_vec();
+        let data = match self.regular_socket_addr.ip() {
+            IpAddr::V4(v) => v.octets().to_vec(),
+            IpAddr::V6(v) => v.octets().to_vec(),
+        };
         //data.extend_from_slice(&self.regular_socket_addr.port().to_be_bytes());
 
         hmac.write_all(&data)
