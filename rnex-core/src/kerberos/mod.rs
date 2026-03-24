@@ -161,7 +161,7 @@ impl TicketInternalData {
     }
 }
 
-#[derive(Pod, Zeroable, Copy, Clone)]
+#[derive(Pod, Zeroable, Debug, Copy, Clone)]
 #[repr(C, packed)]
 pub struct Ticket {
     pub session_key: [u8; SESSION_KEY_LENGTH],

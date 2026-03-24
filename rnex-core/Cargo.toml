@@ -17,7 +17,7 @@ rand = "0.8.5"
 cfg-if = "1.0.4"
 hmac = "0.12.1"
 md-5 = "^0.10.6"
-tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread", "net", "sync", "fs"] }
+tokio = { version = "1.43.0", features = ["full"] }
 hex = "0.4.3"
 
 macros = { path = "../macros" }

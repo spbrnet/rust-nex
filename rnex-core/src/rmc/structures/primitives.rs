@@ -280,8 +280,8 @@ impl<T: RmcSerialize, U: RmcSerialize, V: RmcSerialize, W: RmcSerialize, X: RmcS
         Ok(self.0.serialize_write_size()?
             + self.1.serialize_write_size()?
             + self.2.serialize_write_size()?
-            + self.2.serialize_write_size()?
-            + self.3.serialize_write_size()?)
+            + self.3.serialize_write_size()?
+            + self.4.serialize_write_size()?)
     }
 }
 

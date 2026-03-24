@@ -1,15 +1,13 @@
-
+use crate::rmc::structures::Result;
 use std::cmp::max;
 use std::fmt::Arguments;
 use std::io;
 use std::io::{ErrorKind, IoSlice, Read, Write};
-use crate::rmc::structures::Result;
-
 
 #[repr(C, packed)]
-struct StructureHeader{
+struct StructureHeader {
     version: u8,
-    length: u32
+    length: u32,
 }
 
 #[cfg(feature = "rmc_struct_header")]
@@ -38,7 +36,12 @@ impl Write for OnlyWriteVec<'_> {
 }
 
 #[cfg(feature = "rmc_struct_header")]
-pub fn write_struct<T: Write>(writer: &mut T, version: u8, inner_size: u32, pred: impl FnOnce(&mut T) -> Result<()> ) -> Result<()> {
+pub fn write_struct<T: Write>(
+    writer: &mut T,
+    version: u8,
+    inner_size: u32,
+    pred: impl FnOnce(&mut T) -> Result<()>,
+) -> Result<()> {
     use bytemuck::bytes_of;
 
     writer.write_all(&[version])?;
@@ -50,29 +53,31 @@ pub fn write_struct<T: Write>(writer: &mut T, version: u8, inner_size: u32, pred
     Ok(())
 }
 
-
-
 #[cfg(not(feature = "rmc_struct_header"))]
-pub fn write_struct<T: Write>(writer: &mut T, _version: u8, _inner_size: u32, pred: impl FnOnce(&mut T) -> Result<()> ) -> Result<()> {
+pub fn write_struct<T: Write>(
+    writer: &mut T,
+    _version: u8,
+    _inner_size: u32,
+    pred: impl FnOnce(&mut T) -> Result<()>,
+) -> Result<()> {
     pred(writer)
 }
 
-
-pub struct SubRead<'a, T: Read>{
+pub struct SubRead<'a, T: Read> {
     left_to_read: usize,
-    origin: &'a mut T
+    origin: &'a mut T,
 }
 
-impl<'a, T: Read> SubRead<'a, T>{
-    pub const fn new(origin: &'a mut T, left_to_read: usize) -> Self{
-        Self{
+impl<'a, T: Read> SubRead<'a, T> {
+    pub const fn new(origin: &'a mut T, left_to_read: usize) -> Self {
+        Self {
             left_to_read,
-            origin
+            origin,
         }
     }
 }
 
-impl<T: Read> Read for SubRead<'_, T>{
+impl<T: Read> Read for SubRead<'_, T> {
     #[inline(always)]
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let max_read = max(self.left_to_read, buf.len());
@@ -83,8 +88,11 @@ impl<T: Read> Read for SubRead<'_, T>{
 
     #[inline(always)]
     fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
-        if buf.len() > self.left_to_read{
-            return Err(io::Error::new(ErrorKind::UnexpectedEof, "Would run over end of SubRead"));
+        if buf.len() > self.left_to_read {
+            return Err(io::Error::new(
+                ErrorKind::UnexpectedEof,
+                "Would run over end of SubRead",
+            ));
         }
         self.left_to_read -= buf.len();
         self.origin.read_exact(buf)
@@ -92,10 +100,14 @@ impl<T: Read> Read for SubRead<'_, T>{
 }
 
 #[cfg(feature = "rmc_struct_header")]
-pub fn read_struct<T: Sized, R: Read>(reader: &mut R, version: u8, pred: impl FnOnce(&mut SubRead<R>) -> Result<T>) -> Result<T> {
+pub fn read_struct<T: Sized, R: Read>(
+    reader: &mut R,
+    version: u8,
+    pred: impl FnOnce(&mut SubRead<R>) -> Result<T>,
+) -> Result<T> {
     use crate::rmc::structures::Error::VersionMismatch;
-    use v_byte_helpers::ReadExtensions;
     use v_byte_helpers::IS_BIG_ENDIAN;
+    use v_byte_helpers::ReadExtensions;
     let ver: u8 = reader.read_struct(IS_BIG_ENDIAN)?;
 
     if ver != version {
@@ -108,6 +120,10 @@ pub fn read_struct<T: Sized, R: Read>(reader: &mut R, version: u8, pred: impl Fn
 }
 
 #[cfg(not(feature = "rmc_struct_header"))]
-pub fn read_struct<T: Sized, R: Read>(mut reader: &mut R, _version: u8, pred: impl FnOnce(&mut R) -> Result<T>) -> Result<T> {
+pub fn read_struct<T: Sized, R: Read>(
+    mut reader: &mut R,
+    _version: u8,
+    pred: impl FnOnce(&mut R) -> Result<T>,
+) -> Result<T> {
     Ok(pred(&mut reader)?)
 }

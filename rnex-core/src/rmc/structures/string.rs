@@ -1,18 +1,18 @@
-use std::io::{Read, Write};
+use super::{Result, RmcSerialize};
 use bytemuck::bytes_of;
 use log::error;
+use std::io::{Read, Write};
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
-use super::{Result, RmcSerialize};
 
-impl RmcSerialize for String{
+impl RmcSerialize for String {
     fn deserialize(reader: &mut impl Read) -> Result<Self> {
         let len: u16 = reader.read_struct(IS_BIG_ENDIAN)?;
-        if len == 0{
+        if len == 0 {
             return Ok("".to_string());
         }
         let mut data = vec![0; len as usize];
         reader.read_exact(&mut data)?;
-        if *data.last().unwrap() != 0{
+        if *data.last().unwrap() != 0 {
             error!("unable to find null terminator... continuing anyways");
         }
         data.pop();
@@ -27,7 +27,7 @@ impl RmcSerialize for String{
     }
 }
 
-impl RmcSerialize for &str{
+impl RmcSerialize for &str {
     fn deserialize(_reader: &mut impl Read) -> Result<Self> {
         panic!("cannot serialize to &str")
     }
@@ -45,4 +45,3 @@ impl RmcSerialize for &str{
         Ok(2 + self.as_bytes().len() as u32 + 1)
     }
 }
-

@@ -2,17 +2,18 @@
 // attributes but this gets it to not complain anymore
 #![allow(unused_parens)]
 
-use std::io;
-use std::io::{Read, Seek, Write};
-use std::mem::transmute;
-use bytemuck::bytes_of;
-use log::error;
-use v_byte_helpers::EnumTryInto;
-use v_byte_helpers::{ReadExtensions, IS_BIG_ENDIAN};
 use crate::rmc::response::ErrorCode::Core_Exception;
 use crate::rmc::structures::qresult::ERROR_MASK;
 use crate::util::SendingBufferConnection;
+use bytemuck::bytes_of;
+use log::error;
+use std::io;
+use std::io::{Read, Seek, Write};
+use std::mem::transmute;
+use v_byte_helpers::EnumTryInto;
+use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 
+#[derive(Debug, Clone)]
 pub enum RMCResponseResult {
     Success {
         call_id: u32,
@@ -25,13 +26,14 @@ pub enum RMCResponseResult {
     },
 }
 
+#[derive(Debug, Clone)]
 pub struct RMCResponse {
     pub protocol_id: u8,
     pub response_result: RMCResponseResult,
 }
 
 impl RMCResponse {
-    pub fn new(stream: &mut (impl Seek + Read)) -> io::Result<Self>{
+    pub fn new(stream: &mut (impl Seek + Read)) -> io::Result<Self> {
         // ignore the size for now this will only be used for checking
         let size: u32 = stream.read_struct(IS_BIG_ENDIAN)?;
 
@@ -46,7 +48,7 @@ impl RMCResponse {
 
         let is_success: u8 = stream.read_struct(IS_BIG_ENDIAN)?;
 
-        let response_result = if is_success == 0x01{
+        let response_result = if is_success == 0x01 {
             let call_id: u32 = stream.read_struct(IS_BIG_ENDIAN)?;
             let method_id: u32 = stream.read_struct(IS_BIG_ENDIAN)?;
             let method_id = method_id & (!0x8000);
@@ -55,11 +57,10 @@ impl RMCResponse {
 
             stream.read(&mut data)?;
 
-
             RMCResponseResult::Success {
                 call_id,
                 method_id,
-                data
+                data,
             }
         } else {
             let error_code: u32 = stream.read_struct(IS_BIG_ENDIAN)?;
@@ -68,7 +69,7 @@ impl RMCResponse {
 
             RMCResponseResult::Error {
                 error_code: {
-                    match ErrorCode::try_from(error_code){
+                    match ErrorCode::try_from(error_code) {
                         Ok(v) => v,
                         Err(()) => {
                             error!("invalid error code {:#010x}", error_code);
@@ -77,36 +78,35 @@ impl RMCResponse {
                     }
                 },
                 call_id,
-
             }
         };
 
-        Ok(Self{
+        Ok(Self {
             protocol_id,
-            response_result
+            response_result,
         })
     }
 
-    pub fn get_call_id(&self) -> u32{
-        match &self.response_result{
-            RMCResponseResult::Success { call_id, ..} => *call_id,
-            RMCResponseResult::Error { call_id, .. } => *call_id
+    pub fn get_call_id(&self) -> u32 {
+        match &self.response_result {
+            RMCResponseResult::Success { call_id, .. } => *call_id,
+            RMCResponseResult::Error { call_id, .. } => *call_id,
         }
     }
 
     pub fn to_data(self) -> Vec<u8> {
-        generate_response(self.protocol_id, self.response_result).expect("failed to generate response")
+        generate_response(self.protocol_id, self.response_result)
+            .expect("failed to generate response")
     }
 }
 
 pub fn generate_response(protocol_id: u8, response: RMCResponseResult) -> io::Result<Vec<u8>> {
-    let size = 1 + 1 + match &response {
-        RMCResponseResult::Success {
-            data,
-            ..
-        } => 4 + 4 + data.len(),
-        RMCResponseResult::Error { .. } => 4 + 4,
-    };
+    let size = 1
+        + 1
+        + match &response {
+            RMCResponseResult::Success { data, .. } => 4 + 4 + data.len(),
+            RMCResponseResult::Error { .. } => 4 + 4,
+        };
 
     let mut data_out = Vec::with_capacity(size + 4);
 
@@ -119,7 +119,7 @@ pub fn generate_response(protocol_id: u8, response: RMCResponseResult) -> io::Re
         RMCResponseResult::Success {
             call_id,
             method_id,
-            data
+            data,
         } => {
             data_out.push(1);
             data_out.write_all(bytes_of(&call_id))?;
@@ -129,7 +129,7 @@ pub fn generate_response(protocol_id: u8, response: RMCResponseResult) -> io::Re
         }
         RMCResponseResult::Error {
             call_id,
-            error_code
+            error_code,
         } => {
             data_out.push(0);
             let error_code_val: u32 = error_code.into();
@@ -151,23 +151,21 @@ pub async fn send_result(
     method_id: u32,
     call_id: u32,
 ) {
-    
     let response_result = match result {
         Ok(v) => RMCResponseResult::Success {
             call_id,
             method_id,
-            data: v
+            data: v,
         },
-        Err(e) =>
-            RMCResponseResult::Error {
-                call_id,
-                error_code: e.into()
-            }
+        Err(e) => RMCResponseResult::Error {
+            call_id,
+            error_code: e.into(),
+        },
     };
 
-    let response = RMCResponse{
+    let response = RMCResponse {
         response_result,
-        protocol_id
+        protocol_id,
     };
 
     send_response(connection, response).await
@@ -176,7 +174,6 @@ pub async fn send_result(
 pub async fn send_response(connection: &SendingBufferConnection, rmcresponse: RMCResponse) {
     connection.send(rmcresponse.to_data()).await;
 }
-
 
 //taken from kinnays error list directly
 #[allow(nonstandard_style)]
@@ -464,25 +461,23 @@ impl Into<u32> for ErrorCode {
 
 #[cfg(test)]
 mod test {
-    use hmac::digest::consts::U5;
-    use hmac::digest::KeyInit;
-    use rc4::{Rc4, StreamCipher};
     use crate::rmc::response::ErrorCode;
+    use hmac::digest::KeyInit;
+    use hmac::digest::consts::U5;
+    use rc4::{Rc4, StreamCipher};
 
     #[test]
     fn test() {
         let data_orig = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 69, 4, 20];
         let mut data = data_orig;
 
-        let mut rc4: Rc4<U5> =
-            Rc4::new_from_slice("FUCKE".as_bytes().into()).expect("invalid key");
+        let mut rc4: Rc4<U5> = Rc4::new_from_slice("FUCKE".as_bytes().into()).expect("invalid key");
 
         rc4.apply_keystream(&mut data);
 
         assert_ne!(data_orig, data);
 
-        let mut rc4: Rc4<U5> =
-            Rc4::new_from_slice("FUCKE".as_bytes().into()).expect("invalid key");
+        let mut rc4: Rc4<U5> = Rc4::new_from_slice("FUCKE".as_bytes().into()).expect("invalid key");
 
         rc4.apply_keystream(&mut data);
 
