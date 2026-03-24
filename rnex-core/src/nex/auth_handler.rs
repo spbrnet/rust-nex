@@ -146,16 +146,16 @@ impl AuthHandler {
         &self,
         name: &str,
     ) -> Result<(PID, String, Box<[u8]>), ErrorCode> {
-        #[cfg(feature = "guest_login")]
         {
             if name == GUEST_ACCOUNT.username {
                 let source_login_data = GUEST_ACCOUNT.get_login_data();
                 let destination_login_data = self.destination_server_acct.get_login_data();
-
-                return Ok((
+                let ticket = generate_ticket_with_string_user_key(
                     source_login_data.0,
-                    generate_ticket(source_login_data, destination_login_data),
-                ));
+                    destination_login_data,
+                );
+
+                return Ok((source_login_data.0, ticket.0, ticket.1));
             }
         }
         let Ok(pid) = name.parse() else {
