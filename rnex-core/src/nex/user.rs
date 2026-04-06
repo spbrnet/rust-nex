@@ -659,6 +659,12 @@ impl Ranking for User {
         };
 
         let team_votes = fetch_team_votes(fest_id)?;
+        let mut wins = vec![0u32, 0u32];
+        for r in &results {
+            if r.team_win == 1 && (r.team_id == 0 || r.team_id == 1) {
+                wins[r.team_id as usize] += 1;
+            }
+        }
 
         let score_data: Vec<CompetitionRankingScoreData> = results
             .iter()
@@ -672,11 +678,16 @@ impl Ranking for User {
             })
             .collect();
 
+        println!("Fest id: {:?}", fest_id);
+        println!("Score data: {:?}", score_data);
+        println!("Wins: {:?}", wins);
+        println!("Votes: {:?}", team_votes);
+        
         let info = CompetitionRankingScoreInfo {
             fest_id,
             score_data,
             unk: 0,
-            team_wins: results.iter().map(|r| r.team_win as u32).collect(),
+            team_wins: wins,
             team_votes,
         };
 
