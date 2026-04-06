@@ -42,7 +42,8 @@ impl RMCMessage{
             error!("received incorrect rmc packet: expected size {} but found {}", size, header_size + rest_of_data.len());
         }
 
-
+        // println!("rmc packet: protoid: {}, method id: {}", protocol_id, method_id);
+        // println!("{}", hex::encode(&rest_of_data));
 
         //stream.
         Ok(Self{
