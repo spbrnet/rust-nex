@@ -850,6 +850,7 @@ dependencies = [
 name = "proxy-common"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "log",
  "rnex-core",
  "thiserror",

@@ -187,17 +187,14 @@ pub async fn new_backend_connection(
         }
     };
 
-    if let Err(e) = stream
-        .send_buffer(
-            &ConnectionInitData {
-                prudpsock_addr: addr,
-                pid: pid,
-            }
-            .to_data()
-            .unwrap(),
-        )
-        .await
-    {
+    let data = ConnectionInitData {
+        prudpsock_addr: addr,
+        pid: pid,
+    }
+    .to_data()
+    .unwrap();
+
+    if let Err(e) = stream.send_buffer(&data).await {
         error!("unable to send establishment data to backend: {}", e);
         return None;
     };

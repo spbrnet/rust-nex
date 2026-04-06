@@ -268,6 +268,7 @@ pub fn new_connect_packet(
             .checksummed_data()
             .expect("packet malformed in creation"),
     );
+    info!("header: {:?}", packet.header());
 
     packet.0
 }
