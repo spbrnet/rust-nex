@@ -677,11 +677,6 @@ impl Ranking for User {
                 appdata: QBuffer(vec![]),
             })
             .collect();
-
-        println!("Fest id: {:?}", fest_id);
-        println!("Score data: {:?}", score_data);
-        println!("Wins: {:?}", wins);
-        println!("Votes: {:?}", team_votes);
         
         let info = CompetitionRankingScoreInfo {
             fest_id,
