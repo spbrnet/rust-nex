@@ -6,7 +6,6 @@ use std::{
         Arc, LazyLock, Weak,
         atomic::{AtomicBool, AtomicU32},
     },
-    thread::sleep,
     time::Duration,
 };
 
@@ -30,7 +29,7 @@ use tokio::{
     net::{TcpSocket, UdpSocket},
     spawn,
     sync::{Mutex, RwLock},
-    time::Instant,
+    time::{Instant, sleep},
 };
 
 use crate::{
@@ -170,7 +169,7 @@ impl<C: Crypto> Server<C> {
     async fn timeout_thread(self: Arc<Self>, conn: Weak<Connection<C::Instance>>) {
         loop {
             let Some(conn) = conn.upgrade() else { break };
-            sleep(Duration::from_secs(3));
+            sleep(Duration::from_secs(3)).await;
             let mut inner = conn.inner.lock().await;
 
             if (Instant::now() - inner.last_action).as_secs() > 5 {
@@ -259,6 +258,7 @@ impl<C: Crypto> Server<C> {
         };
 
         let pid = ci.get_user_id();
+        println!("user with pid {} is connecting", pid);
         let buf_conn = new_backend_connection(&self.param, addr, pid).await;
         let Some(buf_conn) = buf_conn else {
             error!("unable to connect to backend");
