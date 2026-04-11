@@ -143,4 +143,6 @@ pub trait Friends {
         ),
         ErrorCode,
     >;
+    #[method_id(19)]
+    async fn check_setting_status(&self) -> Result<u8, ErrorCode>;
 }

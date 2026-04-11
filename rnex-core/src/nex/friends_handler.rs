@@ -143,6 +143,10 @@ impl Friends for FriendsUser {
             false,
         ))
     }
+
+    async fn check_setting_status(&self) -> Result<u8, ErrorCode> {
+        Ok(0xFF)
+    }
 }
 
 impl Secure for FriendsUser {
