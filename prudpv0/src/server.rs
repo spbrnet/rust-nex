@@ -284,6 +284,9 @@ impl<C: Crypto> Server<C> {
         });
 
         let mut conns = self.connections.write().await;
+        if conns.contains_key(&addr) {
+            error!("client already connected but tried to connect again");
+        }
         conns.insert(addr, conn.clone());
         drop(conns);
 
@@ -346,7 +349,8 @@ impl<C: Crypto> Server<C> {
         );
         while let Some((_, mut packet)) = {
             let ctr = conn.client_packet_counter;
-            conn.packet_queue.remove(&ctr)
+            let packet = conn.packet_queue.remove(&ctr);
+            packet
         } {
             info!("processing packet: {}", conn.client_packet_counter);
             let Some(payload) = packet.payload_mut() else {
