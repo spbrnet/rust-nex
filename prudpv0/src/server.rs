@@ -414,6 +414,10 @@ impl<C: Crypto> Server<C> {
         );
         drop(inner);
 
+        let mut conns = self.connections.write().await;
+        conns.remove(&addr);
+        drop(conns);
+
         self.socket.send_to(&packet, addr.regular_socket_addr).await;
         self.socket.send_to(&packet, addr.regular_socket_addr).await;
         self.socket.send_to(&packet, addr.regular_socket_addr).await;
