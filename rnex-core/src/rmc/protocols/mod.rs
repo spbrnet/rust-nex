@@ -10,6 +10,7 @@ pub mod nat_traversal;
 pub mod notifications;
 pub mod ranking;
 pub mod secure;
+pub mod datastore;
 
 use crate::result::ResultExtension;
 use crate::rmc::message::RMCMessage;
