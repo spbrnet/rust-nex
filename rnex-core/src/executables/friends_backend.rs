@@ -56,9 +56,11 @@ pub async fn start_friends_backend() {
                 })
             });
         } else {
-            Arc::new_cyclic(move |this| FriendsGuest {
-                fm,
-                addr: c.prudpsock_addr,
+            new_rmc_gateway_connection(stream.into(), move |r| {
+                Arc::new_cyclic(move |this| FriendsGuest {
+                    fm,
+                    addr: c.prudpsock_addr,
+                })
             });
         }
     }
