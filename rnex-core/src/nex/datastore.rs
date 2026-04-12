@@ -16,7 +16,7 @@ pub struct User {
 }
 
 impl DataStore for User {
-    async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, rnex_core::rmc::response::ErrorCode> {
+    async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode> {
         // // bogus
         // let info: GetMetaInfo = GetMetaInfo {
         //     dataid: 10,
@@ -26,6 +26,6 @@ impl DataStore for User {
         // }
 
         // just trying to see what methods it tries to use
-        Err(rnex_core::rmc::response::ErrorCode::DataStore_NotFound)
+        Err(ErrorCode::DataStore_NotFound)
     }
 }

@@ -1,5 +1,5 @@
 use macros::{method_id, rmc_proto, RmcSerialize, rmc_struct};
-use crate::rmc::response::ErrorCode;
+use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::qbuffer::QBuffer;
 
 use rnex_core::kerberos::KerberosDateTime;
@@ -70,5 +70,5 @@ pub struct GetMetaInfo {
 #[rmc_proto(115)]
 pub trait DataStore{
     #[method_id(8)]
-    async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, rnex_core::rmc::response::ErrorCode>;
+    async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode>;
 }
