@@ -2,7 +2,7 @@ use macros::{RmcSerialize, method_id, rmc_proto};
 
 use rnex_core::{kerberos::KerberosDateTime, rmc::response::ErrorCode};
 
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
 pub struct MiiV2 {
     pub name: String,
@@ -12,7 +12,7 @@ pub struct MiiV2 {
     pub date_time: KerberosDateTime,
 }
 
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
 pub struct PrincipalBasicInfo {
     pub pid: u32,
@@ -21,7 +21,7 @@ pub struct PrincipalBasicInfo {
     pub unk: u8,
 }
 
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
 pub struct NNAInfo {
     pub principal_basic_info: PrincipalBasicInfo,

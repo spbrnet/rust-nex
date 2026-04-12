@@ -1,5 +1,8 @@
+use std::io::{Cursor, Write};
 use std::sync::{Arc, atomic::AtomicU32};
 
+use bytemuck::bytes_of;
+use hmac::Mac;
 use log::info;
 use macros::rmc_struct;
 use rnex_core::rmc::protocols::account_management::{
@@ -26,6 +29,9 @@ use std::sync::atomic::Ordering::Relaxed;
 use rnex_core::rmc::protocols::friends::{GameKey, MiiV2, PrincipalBasicInfo};
 
 use rnex_core::PID;
+
+use crate::rmc::protocols::account_management::NintendoCreateAccountData;
+use rnex_core::rmc::structures::RmcSerialize;
 
 define_rmc_proto!(
     proto FriendsUser{
@@ -153,6 +159,8 @@ impl Friends for FriendsUser {
     }
 }
 
+type HMacMd5 = hmac::Hmac<md5::Md5>;
+
 impl Secure for FriendsUser {
     async fn register(
         &self,
@@ -213,6 +221,28 @@ impl AccountManagement for FriendsGuest {
         auth_data: Any,
     ) -> Result<(PID, String), ErrorCode> {
         println!("{}, {}, {}, {}", principal_name, key, groups, email);
+        if auth_data.name == "NintendoCreateAccountData" {
+            let Ok(data) =
+                NintendoCreateAccountData::deserialize(&mut Cursor::new(&auth_data.data))
+            else {
+                return Err(ErrorCode::Authentication_InvalidParam);
+            };
+
+            let pid = data.nna_info.principal_basic_info.pid;
+            info!("create account: {}", pid);
+
+            let Ok(mut mac) = HMacMd5::new_from_slice(key.as_bytes()) else {
+                return Err(ErrorCode::Authentication_InvalidParam);
+            };
+
+            mac.write_all(bytes_of(&pid))
+                .expect("failed to write to hmac???");
+            let mac = mac.finalize().into_bytes();
+
+            let hex_str = hex::encode(mac);
+
+            return Ok((pid, hex_str));
+        }
         Err(ErrorCode::Core_NotImplemented)
     }
 }
