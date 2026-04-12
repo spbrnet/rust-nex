@@ -1,7 +1,13 @@
+use std::io::{Cursor, Write};
 use std::sync::{Arc, atomic::AtomicU32};
 
+use bytemuck::bytes_of;
+use hmac::Mac;
 use log::info;
 use macros::rmc_struct;
+use rnex_core::rmc::protocols::account_management::{
+    AccountManagement, RawAccountManagement, RawAccountManagementInfo, RemoteAccountManagement,
+};
 use rnex_core::rmc::protocols::friends::{Friends, RawFriends, RawFriendsInfo, RemoteFriends};
 use rnex_core::rmc::protocols::secure::{RawSecure, RawSecureInfo, RemoteSecure, Secure};
 use rnex_core::{
@@ -24,6 +30,9 @@ use rnex_core::rmc::protocols::friends::{GameKey, MiiV2, PrincipalBasicInfo};
 
 use rnex_core::PID;
 
+use crate::rmc::protocols::account_management::NintendoCreateAccountData;
+use rnex_core::rmc::structures::RmcSerialize;
+
 define_rmc_proto!(
     proto FriendsUser{
         Secure,
@@ -32,7 +41,8 @@ define_rmc_proto!(
 );
 define_rmc_proto!(
     proto FriendsGuest{
-        Secure
+        Secure,
+        AccountManagement
     }
 );
 #[rmc_struct(FriendsUser)]
@@ -143,7 +153,13 @@ impl Friends for FriendsUser {
             false,
         ))
     }
+
+    async fn check_setting_status(&self) -> Result<u8, ErrorCode> {
+        Ok(0xFF)
+    }
 }
+
+type HMacMd5 = hmac::Hmac<md5::Md5>;
 
 impl Secure for FriendsUser {
     async fn register(
@@ -191,6 +207,42 @@ impl Secure for FriendsGuest {
         self.register(station_urls).await
     }
     async fn replace_url(&self, _target: StationUrl, _dest: StationUrl) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+}
+
+impl AccountManagement for FriendsGuest {
+    async fn nintendo_create_account(
+        &self,
+        principal_name: String,
+        key: String,
+        groups: u32,
+        email: String,
+        auth_data: Any,
+    ) -> Result<(PID, String), ErrorCode> {
+        println!("{}, {}, {}, {}", principal_name, key, groups, email);
+        if auth_data.name == "NintendoCreateAccountData" {
+            let Ok(data) =
+                NintendoCreateAccountData::deserialize(&mut Cursor::new(&auth_data.data))
+            else {
+                return Err(ErrorCode::Authentication_InvalidParam);
+            };
+
+            let pid = data.nna_info.principal_basic_info.pid;
+            info!("create account: {}", pid);
+
+            let Ok(mut mac) = HMacMd5::new_from_slice(key.as_bytes()) else {
+                return Err(ErrorCode::Authentication_InvalidParam);
+            };
+
+            mac.write_all(bytes_of(&pid))
+                .expect("failed to write to hmac???");
+            let mac = mac.finalize().into_bytes();
+
+            let hex_str = hex::encode(mac);
+
+            return Ok((pid, hex_str));
+        }
         Err(ErrorCode::Core_NotImplemented)
     }
 }

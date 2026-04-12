@@ -103,6 +103,42 @@ impl Client {
         Ok(val.as_bytes().try_into().map_err(|_| SomethingHappened)?)
     }
 
+    pub async fn get_pid_from_token(&mut self, token: String) -> Result<PID> {
+        let req = self
+            .do_request(object! {
+                "query":
+                r"query($token: String!){
+                    token(tokenData: $token){
+                        pid
+                    }
+                }",
+                "variables": {
+                    "token": token
+                }
+            })
+            .await?;
+        // this breaks switch nex servers and should be fixed eventually
+        let Some(val) = req
+            .entries()
+            .find(|v| v.0 == "data")
+            .ok_or(SomethingHappened)?
+            .1
+            .entries()
+            .find(|v| v.0 == "token")
+            .ok_or(SomethingHappened)?
+            .1
+            .entries()
+            .find(|v| v.0 == "pid")
+            .ok_or(SomethingHappened)?
+            .1
+            .as_u32()
+        else {
+            return Err(SomethingHappened);
+        };
+
+        Ok(val)
+    }
+
     /*pub async fn get_user_data(&mut self , pid: u32) -> Result<GetUserDataResponse>{
         let req = Request::new(GetUserDataRequest{
             pid

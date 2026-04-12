@@ -6,7 +6,6 @@ use std::{
         Arc, LazyLock, Weak,
         atomic::{AtomicBool, AtomicU32},
     },
-    thread::sleep,
     time::Duration,
 };
 
@@ -30,7 +29,7 @@ use tokio::{
     net::{TcpSocket, UdpSocket},
     spawn,
     sync::{Mutex, RwLock},
-    time::Instant,
+    time::{Instant, sleep},
 };
 
 use crate::{
@@ -73,7 +72,7 @@ pub struct Server<C: Crypto> {
     param: ProxyStartupParam,
     socket: UdpSocket,
     crypto: C,
-    connections: RwLock<HashMap<PRUDPSockAddr, Arc<Connection<C::Instance>>>>,
+    connections: RwLock<HashMap<(PRUDPSockAddr, u8), Arc<Connection<C::Instance>>>>,
 }
 
 impl<C: Crypto> Server<C> {
@@ -167,9 +166,10 @@ impl<C: Crypto> Server<C> {
             self.clone().send_data_packet(conn.clone(), &data).await;
         }
     }
-    async fn timeout_thread(self: Arc<Self>, conn: Arc<Connection<C::Instance>>) {
+    async fn timeout_thread(self: Arc<Self>, conn: Weak<Connection<C::Instance>>) {
         loop {
-            sleep(Duration::from_secs(3));
+            let Some(conn) = conn.upgrade() else { break };
+            sleep(Duration::from_secs(3)).await;
             let mut inner = conn.inner.lock().await;
 
             if (Instant::now() - inner.last_action).as_secs() > 5 {
@@ -214,7 +214,7 @@ impl<C: Crypto> Server<C> {
                 drop(inner);
 
                 let mut conns = self.connections.write().await;
-                conns.remove(&conn.addr);
+                conns.remove(&(conn.addr, conn.session_id));
                 drop(conns);
                 break;
             }
@@ -258,6 +258,7 @@ impl<C: Crypto> Server<C> {
         };
 
         let pid = ci.get_user_id();
+        println!("user with pid {} is connecting", pid);
         let buf_conn = new_backend_connection(&self.param, addr, pid).await;
         let Some(buf_conn) = buf_conn else {
             error!("unable to connect to backend");
@@ -284,7 +285,10 @@ impl<C: Crypto> Server<C> {
         });
 
         let mut conns = self.connections.write().await;
-        conns.insert(addr, conn.clone());
+        if conns.contains_key(&(addr, header.session_id)) {
+            error!("client already connected but tried to connect again");
+        }
+        conns.insert((addr, header.session_id), conn.clone());
         drop(conns);
 
         spawn({
@@ -294,7 +298,7 @@ impl<C: Crypto> Server<C> {
         });
         spawn({
             let this = self.clone();
-            let conn = conn.clone();
+            let conn = Arc::downgrade(&conn);
             this.timeout_thread(conn)
         });
 
@@ -322,7 +326,7 @@ impl<C: Crypto> Server<C> {
             return;
         };
 
-        let Some(res) = self.get_connection(addr).await else {
+        let Some(res) = self.get_connection((addr, header.session_id)).await else {
             warn!("data packet on inactive connection from: {:?}", addr);
             return;
         };
@@ -346,7 +350,8 @@ impl<C: Crypto> Server<C> {
         );
         while let Some((_, mut packet)) = {
             let ctr = conn.client_packet_counter;
-            conn.packet_queue.remove(&ctr)
+            let packet = conn.packet_queue.remove(&ctr);
+            packet
         } {
             info!("processing packet: {}", conn.client_packet_counter);
             let Some(payload) = packet.payload_mut() else {
@@ -368,7 +373,7 @@ impl<C: Crypto> Server<C> {
         info!("got ping");
         let header = packet.header().unwrap();
 
-        let Some(conn) = self.get_connection(addr).await else {
+        let Some(conn) = self.get_connection((addr, header.session_id)).await else {
             warn!("ping on inactive connection: {:?}", addr);
             return;
         };
@@ -394,7 +399,7 @@ impl<C: Crypto> Server<C> {
         info!("got disconnect");
         let header = packet.header().unwrap();
 
-        let Some(conn) = self.get_connection(addr).await else {
+        let Some(conn) = self.get_connection((addr, header.session_id)).await else {
             warn!("ping on inactive connection: {:?}", addr);
             return;
         };
@@ -410,11 +415,18 @@ impl<C: Crypto> Server<C> {
         );
         drop(inner);
 
+        let mut conns = self.connections.write().await;
+        conns.remove(&(addr, header.session_id));
+        drop(conns);
+
         self.socket.send_to(&packet, addr.regular_socket_addr).await;
         self.socket.send_to(&packet, addr.regular_socket_addr).await;
         self.socket.send_to(&packet, addr.regular_socket_addr).await;
     }
-    async fn get_connection(&self, addr: PRUDPSockAddr) -> Option<Arc<Connection<C::Instance>>> {
+    async fn get_connection(
+        &self,
+        addr: (PRUDPSockAddr, u8),
+    ) -> Option<Arc<Connection<C::Instance>>> {
         let rd = self.connections.read().await;
         let res = rd.get(&addr).cloned();
         drop(rd);
@@ -436,7 +448,7 @@ impl<C: Crypto> Server<C> {
 
         let addr = PRUDPSockAddr::new(SocketAddr::V4(addr), header.source);
 
-        if let Some(conn) = self.get_connection(addr).await {
+        if let Some(conn) = self.get_connection((addr, header.session_id)).await {
             let mut inner = conn.inner.lock().await;
             inner.last_action = Instant::now();
             drop(inner);
