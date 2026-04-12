@@ -7,6 +7,7 @@ splatoon:
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
     RNEX_VIRTUAL_PORT_SECURE: "1:10"
     RNEX_DEFAULT_PORT: 6000
+    RNEX_ACCESS_KEY: "6f599f81"
 splatoon2:
   features:
     - v4-3-11
@@ -25,3 +26,4 @@ friends:
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
     RNEX_VIRTUAL_PORT_SECURE: "1:10"
     RNEX_DEFAULT_PORT: 6000
+    RNEX_ACCESS_KEY: "ridfebb9"

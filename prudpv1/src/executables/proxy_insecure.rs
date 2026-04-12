@@ -43,7 +43,7 @@ pub async fn start() {
         .expect("unable to start router");
 
     let mut socket_secure = router_secure
-        .add_socket(VirtualPort::new(1, 10), Unsecure("6f599f81"))
+        .add_socket(VirtualPort::new(1, 10), Unsecure(RNEX_ACCESS_KEY))
         .await
         .expect("unable to add socket");
 
