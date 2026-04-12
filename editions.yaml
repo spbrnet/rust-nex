@@ -27,3 +27,13 @@ friends:
     RNEX_VIRTUAL_PORT_SECURE: "1:10"
     RNEX_DEFAULT_PORT: 6000
     RNEX_ACCESS_KEY: "ridfebb9"
+super-mario-maker:
+  features:
+    - prudpv1
+    - v3-8-15
+  settings:
+    AUTH_REPORT_VERSION: "branch:origin/project/wup-ama build:3_8_29_3022_0"
+    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
+    RNEX_VIRTUAL_PORT_SECURE: "1:10"
+    RNEX_DEFAULT_PORT: 6000
+    RNEX_ACCESS_KEY: "9f2b4678"
