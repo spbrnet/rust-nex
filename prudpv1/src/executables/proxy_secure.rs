@@ -21,6 +21,7 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::task;
 use tokio::time::sleep;
+use proxy_common::RNEX_ACCESS_KEY;
 
 pub async fn start() {
     let (router_secure, _) = Router::new(SocketAddrV4::new(*OWN_IP_PRIVATE, *SERVER_PORT))
