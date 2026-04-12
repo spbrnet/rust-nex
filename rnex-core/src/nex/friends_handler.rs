@@ -2,6 +2,9 @@ use std::sync::{Arc, atomic::AtomicU32};
 
 use log::info;
 use macros::rmc_struct;
+use rnex_core::rmc::protocols::account_management::{
+    AccountManagement, RawAccountManagement, RawAccountManagementInfo, RemoteAccountManagement,
+};
 use rnex_core::rmc::protocols::friends::{Friends, RawFriends, RawFriendsInfo, RemoteFriends};
 use rnex_core::rmc::protocols::secure::{RawSecure, RawSecureInfo, RemoteSecure, Secure};
 use rnex_core::{
@@ -32,7 +35,8 @@ define_rmc_proto!(
 );
 define_rmc_proto!(
     proto FriendsGuest{
-        Secure
+        Secure,
+        AccountManagement
     }
 );
 #[rmc_struct(FriendsUser)]
@@ -195,6 +199,20 @@ impl Secure for FriendsGuest {
         self.register(station_urls).await
     }
     async fn replace_url(&self, _target: StationUrl, _dest: StationUrl) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+}
+
+impl AccountManagement for FriendsGuest {
+    async fn nintendo_create_account(
+        &self,
+        principal_name: String,
+        key: String,
+        groups: u32,
+        email: String,
+        auth_data: Any,
+    ) -> Result<(PID, String), ErrorCode> {
+        println!("{}, {}, {}, {}", principal_name, key, groups, email);
         Err(ErrorCode::Core_NotImplemented)
     }
 }
