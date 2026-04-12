@@ -1,5 +1,5 @@
 use rnex_core::rmc::protocols::datastore::DataStore;
-// use crate::define_rmc_proto;
+use crate::define_rmc_proto;
 // use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use std::sync::{Weak};
@@ -8,14 +8,20 @@ use crate::nex::remote_console::RemoteConsole;
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::protocols::datastore::{GetMetaInfo, GetMetaParam};
 
-pub struct User {
+define_rmc_proto!(
+    proto DataStoreUser {
+        DataStore
+    }
+);
+
+pub struct DataStoreUser {
     pub pid: PID,
     pub ip: PRUDPSockAddr,
-    pub this: Weak<User>,
+    pub this: Weak<DataStoreUser>,
     pub remote: RemoteConsole,
 }
 
-impl DataStore for User {
+impl DataStore for DataStoreUser {
     async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode> {
         // // bogus
         // let info: GetMetaInfo = GetMetaInfo {
