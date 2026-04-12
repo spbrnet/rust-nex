@@ -1,12 +1,12 @@
-use rnex_core::rmc::protocols::datastore::DataStore;
 use crate::define_rmc_proto;
-// use macros::rmc_struct;
+use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use std::sync::{Weak};
 use rnex_core::PID;
-use crate::nex::remote_console::RemoteConsole;
+use rnex_core::nex::remote_console::RemoteConsole;
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::protocols::datastore::{GetMetaInfo, GetMetaParam};
+use rnex_core::rmc::protocols::datastore::{DataStore, RawDataStore, RawDataStoreInfo, RemoteDataStore};
 
 define_rmc_proto!(
     proto DataStoreUser {
@@ -14,6 +14,7 @@ define_rmc_proto!(
     }
 );
 
+#[rmc_struct(DataStoreUser)]
 pub struct DataStoreUser {
     pub pid: PID,
     pub ip: PRUDPSockAddr,
