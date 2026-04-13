@@ -26,6 +26,7 @@ use rnex_core::rmc::protocols::matchmake_extension::{
 };
 use rnex_core::rmc::protocols::ranking::{Ranking, RawRanking, RawRankingInfo, RemoteRanking};
 use rnex_core::rmc::protocols::secure::{RawSecure, RawSecureInfo, RemoteSecure, Secure};
+use rnex_core::rmc::protocols::datastore::{DataStore, RawDataStore, RawDataStoreInfo, RemoteDataStore};
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::any::Any;
 use rnex_core::rmc::structures::matchmake::{
@@ -51,7 +52,8 @@ define_rmc_proto!(
         MatchmakeExt,
         Matchmake,
         NatTraversal,
-        Ranking
+        Ranking,
+        DataStore
     }
 );
 
