@@ -1,11 +1,11 @@
 use macros::{method_id, rmc_proto, RmcSerialize, rmc_struct};
 use rnex_core::rmc::structures::qbuffer::QBuffer;
 use rnex_core::rmc::response::ErrorCode;
-
+use rnex_core::rmc::structures::qresult::QResult;
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::PID;
 
-#[derive(RmcSerialize, Clone)]
+#[derive(RmcSerialize, Clone, Debug)]
 #[rmc_struct(0)]
 pub struct PersistenceTarget {
     pub owner: PID,
@@ -152,6 +152,23 @@ pub struct BufferQueueParam {
     pub slot: u32,
 }
 
+// I just realized I forgot to add "DataStore" in front of the structs. I can't be assed to change it, sucks to be you lol.
+
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct DataStoreGetCustomRankingByDataIDParam {
+    pub application_id: u32,
+    pub data_id_list: Vec<u64>,
+    pub result_option: u8,
+}
+
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct DataStoreCustomRankingResult {
+    pub score: u32,
+    pub meta_info: GetMetaInfo,
+}
+
 #[rmc_proto(115)]
 pub trait DataStore{
     #[method_id(8)]
@@ -164,4 +181,8 @@ pub trait DataStore{
     async fn rate_custom_ranking(&self, rankingparam: Vec<RateCustomRankingParam>) -> Result<(), ErrorCode>;
     #[method_id(61)]
     async fn get_application_config(&self, appid: u32) -> Result<Vec<i32>, ErrorCode>;
+    #[method_id(50)]
+    async fn get_custom_ranking_by_data_id(&self, param: DataStoreGetCustomRankingByDataIDParam) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode>;
+    #[method_id(54)]
+    async fn get_buffer_queue(&self, param: BufferQueueParam) -> Result<Vec<QBuffer>, ErrorCode>;
 }

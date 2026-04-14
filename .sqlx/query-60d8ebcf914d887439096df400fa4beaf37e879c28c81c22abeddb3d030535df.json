@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT under_review, access_password\n        FROM datastore.objects\n        WHERE data_id = $1 AND upload_completed = TRUE AND deleted = FALSE\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "under_review",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 1,
+        "name": "access_password",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "60d8ebcf914d887439096df400fa4beaf37e879c28c81c22abeddb3d030535df"
+}

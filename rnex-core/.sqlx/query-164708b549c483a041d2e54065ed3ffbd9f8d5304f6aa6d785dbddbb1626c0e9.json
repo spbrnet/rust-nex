@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT owner, under_review FROM datastore.objects WHERE data_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "owner",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "under_review",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      true,
+      false
+    ]
+  },
+  "hash": "164708b549c483a041d2e54065ed3ffbd9f8d5304f6aa6d785dbddbb1626c0e9"
+}

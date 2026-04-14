@@ -11,4 +11,5 @@ echo ENV SETTINGS:
 env
 
 #OPENSSL_LIB_DIR=/usr/lib OPENSSL_INCLUDE_DIR=/usr/include/openssl OPENSSL_STATIC=1 RUSTFLAGS="-C relocation-model=static -C linker=ld.lld" cargo build --release --features "$EDITION_FEATURES" --target x86_64-unknown-linux-musl
+OPENSSL_LIB_DIR=/usr/lib OPENSSL_INCLUDE_DIR=/usr/include/openssl OPENSSL_STATIC=1 cargo sqlx prepare --workspace -- --features "$EDITION_FEATURES"
 OPENSSL_LIB_DIR=/usr/lib OPENSSL_INCLUDE_DIR=/usr/include/openssl OPENSSL_STATIC=1 cargo build --release --features "$EDITION_FEATURES"

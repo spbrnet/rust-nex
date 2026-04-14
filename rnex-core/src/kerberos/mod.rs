@@ -51,6 +51,23 @@ pub fn derive_key(pid: PID, password: &[u8]) -> [u8; 16] {
 pub struct KerberosDateTime(pub u64);
 
 impl KerberosDateTime {
+    pub fn from_u64(val: u64) -> Self {
+        Self(val)
+    }
+
+    pub fn from_naive(dt: chrono::NaiveDateTime) -> Self {
+        use chrono::Datelike;
+        use chrono::Timelike;
+        Self::new(
+            dt.second() as u64,
+            dt.minute() as u64,
+            dt.hour() as u64,
+            dt.day() as u64,
+            dt.month() as u64,
+            dt.year() as u64,
+        )
+    }
+
     pub fn new(second: u64, minute: u64, hour: u64, day: u64, month: u64, year: u64) -> Self {
         Self(second | (minute << 6) | (hour << 12) | (day << 17) | (month << 22) | (year << 26))
     }
