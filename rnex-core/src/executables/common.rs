@@ -9,6 +9,8 @@ use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use std::sync::LazyLock;
+use std::sync::OnceLock;
+use sqlx::postgres::PgPool;
 
 use log::error;
 use std::error::Error;
@@ -17,6 +19,16 @@ use crate::reggie::UnitPacketRead;
 
 const IP_REQ_SERVICE_URL: &str = "https://ipinfo.io/ip";
 
+pub static RNEX_DATASTORE_DATABASE_URL: LazyLock<String> = LazyLock::new(|| {
+    std::env::var("RNEX_DATASTORE_DATABASE_URL")
+        .expect("RNEX_DATASTORE_DATABASE_URL must be set")
+});
+
+pub static DB_POOL: OnceLock<PgPool> = OnceLock::new();
+
+pub fn get_db() -> &'static PgPool {
+    DB_POOL.get().expect("db_pool not initialized")
+}
 pub static RNEX_DATASTORE_S3_ENDPOINT: LazyLock<String> = LazyLock::new(|| {
     std::env::var("RNEX_DATASTORE_S3_ENDPOINT")
         .expect("RNEX_DATASTORE_S3_ENDPOINT must be set")

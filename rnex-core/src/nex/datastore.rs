@@ -2,6 +2,9 @@ use crate::define_rmc_proto;
 use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use std::sync::{Weak};
+use chrono::Utc;
+use sqlx::types::time;
+use sqlx::types::time::PrimitiveDateTime;
 use rnex_core::PID;
 use rnex_core::nex::remote_console::RemoteConsole;
 use rnex_core::nex::s3presigner::S3Presigner;
@@ -10,7 +13,7 @@ use rnex_core::rmc::protocols::secure::{Secure, RawSecure, RawSecureInfo, Remote
 use rnex_core::rmc::protocols::datastore::{CompletePostParam, GetMetaInfo, GetMetaParam, KeyValue, RateCustomRankingParam};
 use rnex_core::rmc::protocols::datastore::{DataStore, RawDataStore, RawDataStoreInfo, RemoteDataStore, PreparePostParam, ReqPostInfo};
 use crate::nex::user::User;
-use rnex_core::executables::common::{RNEX_DATASTORE_S3_BUCKET, RNEX_DATASTORE_S3_ENDPOINT};
+use rnex_core::executables::common::{RNEX_DATASTORE_S3_BUCKET, RNEX_DATASTORE_S3_ENDPOINT, get_db};
 
 impl DataStore for User {
     async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode> {
@@ -22,7 +25,49 @@ impl DataStore for User {
     }
 
     async fn prepare_post_object(&self, postparam: PreparePostParam) -> Result<ReqPostInfo, ErrorCode> {
-        let data_id: u64 = 9400001;
+        // Prepare your arrays first (Postgres needs i32, not u32)
+        let recipient_ids: Vec<i32> = postparam.permission.recipient_ids.iter().map(|&id| id as i32).collect();
+        let del_recipient_ids: Vec<i32> = postparam.del_permission.recipient_ids.iter().map(|&id| id as i32).collect();
+        let now = time::OffsetDateTime::now_utc();
+
+        let row = sqlx::query!(
+                r#"
+                INSERT INTO datastore.objects (
+                    owner, size, name, data_type, meta_binary,
+                    permission, permission_recipients,
+                    delete_permission, delete_permission_recipients,
+                    flag, period, refer_data_id, tags,
+                    persistence_slot_id, extra_data, creation_date, update_date
+                ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+                ) RETURNING data_id
+                "#,
+                self.pid as i32,
+                postparam.size as i32,
+                postparam.name,
+                postparam.data_type as i32,
+                &postparam.meta_binary.0, // unwrap QBuffer to &[u8]
+                postparam.permission.permission as i32,
+                &recipient_ids,
+                postparam.del_permission.permission as i32,
+                &del_recipient_ids,
+                postparam.flag as i32,
+                postparam.period as i32,
+                postparam.refer_data_id as i64,
+                &postparam.tags,
+                postparam.persistence_init_param.persistence_slot_id as i32,
+                &postparam.extra_data,
+                time::PrimitiveDateTime::new(now.date(), now.time()),
+                time::PrimitiveDateTime::new(now.date(), now.time())
+            )
+            .fetch_one(get_db())
+            .await
+            .map_err(|e| {
+                log::error!("DB Error: {:?}", e);
+                ErrorCode::DataStore_SystemFileError
+            })?;
+
+        let data_id = row.data_id as u64;
         let presigner = S3Presigner::new(
             &format!("https://{}", *RNEX_DATASTORE_S3_ENDPOINT),
             format!("{}", *RNEX_DATASTORE_S3_BUCKET)
