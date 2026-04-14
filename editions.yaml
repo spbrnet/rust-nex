@@ -31,6 +31,7 @@ super-mario-maker:
   features:
     - prudpv1
     - v3-8-15
+    - datastore
   settings:
     AUTH_REPORT_VERSION: "branch:origin/project/wup-ama build:3_8_29_3022_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"

@@ -6,3 +6,4 @@ pub mod matchmake;
 pub mod remote_console;
 pub mod user;
 pub mod datastore;
+pub mod s3presigner;
