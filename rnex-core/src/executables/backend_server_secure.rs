@@ -27,6 +27,8 @@ async fn main() {
                 .expect("Failed to create pool");
 
             DB_POOL.set(pool).expect("failed to set global DB_POOL");
+            use rnex_core::executables::regular_backend;
+            regular_backend::start_regular_backend().await
         } else {
             use rnex_core::executables::regular_backend;
             regular_backend::start_regular_backend().await
