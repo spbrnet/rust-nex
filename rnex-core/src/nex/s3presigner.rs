@@ -4,6 +4,7 @@ use hmac::{Hmac, Mac};
 use sha2::{Sha256, Digest};
 use chrono::{Utc, Duration};
 use serde_json::json;
+use rnex_core::executables::common::RNEX_DATASTORE_S3_ENDPOINT;
 
 pub struct S3Presigner {
     endpoint: String,
@@ -20,7 +21,7 @@ impl S3Presigner {
     pub async fn generate_presigned_post(&self, key: &str) -> (String, Vec<(String, String)>) {
         let access_key = std::env::var("AWS_ACCESS_KEY_ID").expect("Missing Access Key");
         let secret_key = std::env::var("AWS_SECRET_ACCESS_KEY").expect("Missing Secret Key");
-        let region = "us-east-1";
+        let region = "us-east-1"; // hardcoded because its the default region for most s3 clones
         let date_short = Utc::now().format("%Y%m%d").to_string();
         let date_full = Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
         let expiration = (Utc::now() + Duration::minutes(15)).format("%Y-%m-%dT%H:%M:%SZ").to_string();
@@ -51,7 +52,7 @@ impl S3Presigner {
             ("X-Amz-Signature".to_string(), signature),
         ];
 
-        let url = format!("https://s3.perditum.com/{}", self.bucket);
+        let url = format!("https://{}/{}", *RNEX_DATASTORE_S3_ENDPOINT, self.bucket);
         (url, fields)
     }
 

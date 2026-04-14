@@ -10,6 +10,7 @@ use rnex_core::rmc::protocols::secure::{Secure, RawSecure, RawSecureInfo, Remote
 use rnex_core::rmc::protocols::datastore::{CompletePostParam, GetMetaInfo, GetMetaParam, KeyValue, RateCustomRankingParam};
 use rnex_core::rmc::protocols::datastore::{DataStore, RawDataStore, RawDataStoreInfo, RemoteDataStore, PreparePostParam, ReqPostInfo};
 use crate::nex::user::User;
+use rnex_core::executables::common::{RNEX_DATASTORE_S3_BUCKET, RNEX_DATASTORE_S3_ENDPOINT};
 
 impl DataStore for User {
     async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode> {
@@ -22,7 +23,10 @@ impl DataStore for User {
 
     async fn prepare_post_object(&self, postparam: PreparePostParam) -> Result<ReqPostInfo, ErrorCode> {
         let data_id: u64 = 9400001;
-        let presigner = S3Presigner::new("https://s3.perditum.com", "miku".into()).await;
+        let presigner = S3Presigner::new(
+            &format!("https://{}", *RNEX_DATASTORE_S3_ENDPOINT),
+            format!("{}", *RNEX_DATASTORE_S3_BUCKET)
+        ).await;
 
         let key = format!("data/{}.bin", data_id);
 

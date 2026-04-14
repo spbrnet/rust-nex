@@ -8,13 +8,23 @@ use std::io::Cursor;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::Arc;
 use tokio::net::TcpListener;
+use std::sync::LazyLock;
 
 use log::error;
 use std::error::Error;
-
+use std::string::ToString;
 use crate::reggie::UnitPacketRead;
 
 const IP_REQ_SERVICE_URL: &str = "https://ipinfo.io/ip";
+
+pub static RNEX_DATASTORE_S3_ENDPOINT: LazyLock<String> = LazyLock::new(|| {
+    std::env::var("RNEX_DATASTORE_S3_ENDPOINT")
+        .expect("RNEX_DATASTORE_S3_ENDPOINT must be set")
+});
+pub static RNEX_DATASTORE_S3_BUCKET: LazyLock<String> = LazyLock::new(|| {
+    std::env::var("RNEX_DATASTORE_S3_BUCKET")
+        .expect("RNEX_DATASTORE_S3_BUCKET must be set")
+});
 
 pub fn try_get_ip() -> Result<Ipv4Addr, Box<dyn Error>> {
     let mut req = ureq::get(IP_REQ_SERVICE_URL).call()?;
