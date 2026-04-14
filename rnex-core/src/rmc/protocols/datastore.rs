@@ -145,6 +145,13 @@ pub struct RateCustomRankingParam {
     pub period: u16,
 }
 
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct BufferQueueParam {
+    pub dataid: u64,
+    pub slot: u32,
+}
+
 #[rmc_proto(115)]
 pub trait DataStore{
     #[method_id(8)]
@@ -155,4 +162,6 @@ pub trait DataStore{
     async fn complete_post_object(&self, completeparam: CompletePostParam) -> Result<(), ErrorCode>;
     #[method_id(48)]
     async fn rate_custom_ranking(&self, rankingparam: Vec<RateCustomRankingParam>) -> Result<(), ErrorCode>;
+    #[method_id(61)]
+    async fn get_application_config(&self, appid: u32) -> Result<Vec<i32>, ErrorCode>;
 }
