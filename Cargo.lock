@@ -2225,6 +2225,7 @@ dependencies = [
  "tokio",
  "typenum",
  "ureq",
+ "urlencoding",
  "v-byte-helpers",
 ]
 

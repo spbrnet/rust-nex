@@ -56,6 +56,50 @@ impl S3Presigner {
         (url, fields)
     }
 
+    pub fn generate_presigned_get(&self, key: &str) -> String {
+        let access_key = std::env::var("AWS_ACCESS_KEY_ID").expect("Missing Access Key");
+        let secret_key = std::env::var("AWS_SECRET_ACCESS_KEY").expect("Missing Secret Key");
+        let region = "us-east-1";
+        let date_short = Utc::now().format("%Y%m%d").to_string();
+        let date_full = Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
+
+        let credential_scope = format!("{}/{}/s3/aws4_request", date_short, region);
+
+        let query_string = format!(
+            "X-Amz-Algorithm=AWS4-HMAC-SHA256&\
+             X-Amz-Credential={}%2F{}&\
+             X-Amz-Date={}&\
+             X-Amz-Expires=900&\
+             X-Amz-SignedHeaders=host",
+            access_key,
+            urlencoding::encode(&credential_scope),
+            date_full
+        );
+
+        let canonical_request = format!(
+            "GET\n/{}/{}\n{}\nhost:{}\n\nhost\nUNSIGNED-PAYLOAD",
+            self.bucket, key, query_string, *RNEX_DATASTORE_S3_ENDPOINT
+        );
+
+        let hashed_request = hex::encode(Sha256::digest(canonical_request.as_bytes()));
+
+        let string_to_sign = format!(
+            "AWS4-HMAC-SHA256\n{}\n{}\n{}",
+            date_full, credential_scope, hashed_request
+        );
+
+        let k_date = self.hmac_sha256(format!("AWS4{}", secret_key).as_bytes(), &date_short);
+        let k_region = self.hmac_sha256(&k_date, region);
+        let k_service = self.hmac_sha256(&k_region, "s3");
+        let k_signing = self.hmac_sha256(&k_service, "aws4_request");
+        let signature = hex::encode(self.hmac_sha256(&k_signing, &string_to_sign));
+
+        format!(
+            "https://{}/{}/{}?{}&X-Amz-Signature={}",
+            *RNEX_DATASTORE_S3_ENDPOINT, self.bucket, key, query_string, signature
+        )
+    }
+
     fn calculate_signature(&self, secret: &str, date: &str, region: &str, policy: &str) -> String {
         let k_date = self.hmac_sha256(format!("AWS4{}", secret).as_bytes(), date);
         let k_region = self.hmac_sha256(&k_date, region);

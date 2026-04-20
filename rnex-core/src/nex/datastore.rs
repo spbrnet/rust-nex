@@ -10,7 +10,7 @@ use rnex_core::nex::remote_console::RemoteConsole;
 use rnex_core::nex::s3presigner::S3Presigner;
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::protocols::secure::{Secure, RawSecure, RawSecureInfo, RemoteSecure};
-use rnex_core::rmc::protocols::datastore::{BufferQueueParam, CompletePostParam, DataStoreCustomRankingResult, DataStoreGetCustomRankingByDataIDParam, GetMetaInfo, GetMetaParam, KeyValue, Permission, PersistenceTarget, RateCustomRankingParam, RatingInfo, RatingInfoWithSlot};
+use rnex_core::rmc::protocols::datastore::{BufferQueueParam, CompletePostParam, DataStoreCustomRankingResult, DataStoreGetCustomRankingByDataIDParam, DataStorePrepareGetParam, DataStoreReqGetInfo, DataStoreSearchParam, GetMetaInfo, GetMetaParam, KeyValue, Permission, PersistenceTarget, RateCustomRankingParam, RatingInfo, RatingInfoWithSlot};
 use rnex_core::rmc::protocols::datastore::{DataStore, RawDataStore, RawDataStoreInfo, RemoteDataStore, PreparePostParam, ReqPostInfo};
 use crate::nex::user::User;
 use rnex_core::executables::common::{RNEX_DATASTORE_S3_BUCKET, RNEX_DATASTORE_S3_ENDPOINT, get_db};
@@ -336,6 +336,7 @@ async fn get_custom_rankings_by_data_ids(
 
         if let Ok(meta) = get_object_info_by_data_id(data_id, 0).await {
             results.push(DataStoreCustomRankingResult {
+                order: 0,
                 score,
                 meta_info: meta,
             });
@@ -345,6 +346,70 @@ async fn get_custom_rankings_by_data_ids(
     }
 
     results
+}
+
+async fn get_user_course_object_ids(owner_pid: u32) -> Result<Vec<u64>, ErrorCode> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT data_id
+        FROM datastore.objects
+        WHERE owner = $1 AND data_type > 2 AND data_type < 50
+        "#,
+        owner_pid as i64
+    )
+        .fetch_all(get_db())
+        .await
+        .map_err(|e| {
+            log::error!("error fetching course IDs for PID {}: {:?}", owner_pid, e);
+            ErrorCode::DataStore_SystemFileError
+        })?;
+
+    let mut valid_ids = Vec::new();
+    for row in rows {
+        let data_id = row.data_id as u64;
+        // always check avail
+        if check_object_availability(data_id, 0).await.is_ok() {
+            valid_ids.push(data_id);
+        }
+    }
+
+    Ok(valid_ids)
+}
+
+fn get_blacklist_1() -> Vec<String> {
+    vec![
+        "けされ", "消され", "削除され", "リセットされ", "BANされ", "ＢＡＮされ",
+        "キミのコース", "君のコース", "きみのコース", "い い ね", "遊びます", "地震",
+        "震災", "被災", "津波", "バンされ", "い~ね", "震度", "じしん", "banされ",
+        "くわしくは", "詳しくは", "ちんちん", "ち0こ", "bicth", "い.い．ね",
+        "ナイ～ス", "い&い", "い-いね", "いぃね", "nigger", "ngger", "star if u",
+        "Star if u", "Star if you", "star if you", "PENlS", "マンコ", "butthole",
+        "LILI", "vagina", "vagyna", "うんち", "うんこ", "ウンコ", "Ｉｉｎｅ",
+        "EENE", "まんこ", "ウンチ", "niglet", "nigglet", "please like", "きんたま",
+        "Butthole", "llね", "iいね", "give a star", "ちんぽ", "亀頭", "penis",
+        "ｳﾝｺ", "plz more stars", "star plz", "い()ね", "PLEASE star", "Bitte Sterne",
+    ].into_iter().map(String::from).collect()
+}
+
+fn get_blacklist_2() -> Vec<String> {
+    vec![
+        "ゼロから", "０から", "0から", "い　　い　　ね", "いい", "東日本", "大震",
+    ].into_iter().map(String::from).collect()
+}
+
+fn get_blacklist_3() -> Vec<String> {
+    vec![
+        "いいね", "下さい", "ください", "押して", "おして", "返す", "かえす",
+        "星", "してくれ", "するよ", "☆くれたら", "☆あげます", "★くれたら",
+        "★あげます", "しね", "ころす", "ころされた", "アナル", "ファック",
+        "キンタマ", "○ね", "キチガイ", "うんこ", "KITIGAI", "金玉", "おっぱい",
+        "☆おす", "☆押す", "★おす", "★押す", "いいする", "いいよ", "イイネ",
+        "ケツ", "うんち", "かくせいざい", "覚せい剤", "シャブ", "きんたま",
+        "ちんちん", "おしっこ", "ちんぽこ", "ころして", "グッド", "グット",
+        "レ●プ", "バーカ", "きちがい", "ちんげ", "マンコ", "まんこ", "チンポ",
+        "クズ", "ウンコ", "ナイスおねがいします", "penis", "イイね", "☆よろ",
+        "ナイス!して", "ま/んこ", "まん/こ",
+    ].into_iter().map(String::from).collect()
 }
 
 impl DataStore for User {
@@ -429,6 +494,9 @@ impl DataStore for User {
     }
 
     async fn complete_post_object(&self, completeparam: CompletePostParam) -> Result<(), ErrorCode> {
+        log::info!("Data ID: {:?}", completeparam.dataid);
+        log::info!("Success: {:?}", completeparam.success);
+
         let record = sqlx::query!(
                 r#"SELECT owner, under_review FROM datastore.objects WHERE data_id = $1"#,
                 completeparam.dataid as i64
@@ -469,10 +537,10 @@ impl DataStore for User {
     }
 
     async fn rate_custom_ranking(&self, rankingparam: Vec<RateCustomRankingParam>) -> Result<(), ErrorCode> {
-        for param in rankingparam {
+        for abcparam in rankingparam {
             let exists = sqlx::query_scalar!(
             r#"SELECT EXISTS(SELECT 1 FROM datastore.objects WHERE data_id = $1)"#,
-            param.dataid as i64
+            abcparam.dataid as i64
             )
                 .fetch_one(get_db())
                 .await
@@ -489,9 +557,9 @@ impl DataStore for User {
                     ON CONFLICT (data_id, application_id)
                     DO UPDATE SET value = datastore.object_custom_rankings.value + EXCLUDED.value
                     "#,
-                    param.dataid as i64,
-                    param.appid as i32,
-                    param.score as i32
+                    abcparam.dataid as i64,
+                    abcparam.appid as i32,
+                    abcparam.score as i32
                 )
                 .execute(get_db())
                 .await
@@ -542,27 +610,30 @@ impl DataStore for User {
 
     async fn get_custom_ranking_by_data_id(
         &self,
-        param: DataStoreGetCustomRankingByDataIDParam
+        custom_ranking_param: DataStoreGetCustomRankingByDataIDParam
     ) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode> {
+        println!("appid: {:?}", custom_ranking_param.application_id);
+        println!("dataid list: {:?}", custom_ranking_param.data_id_list);
+        println!("result option: {:?}", custom_ranking_param.result_option);
 
-        let mut ranking_results = get_custom_rankings_by_data_ids(param.application_id, param.data_id_list).await;
+        let mut ranking_results = get_custom_rankings_by_data_ids(custom_ranking_param.application_id, custom_ranking_param.data_id_list).await;
 
         let mut q_results = Vec::with_capacity(ranking_results.len());
 
         for result in &mut ranking_results {
-            if (param.result_option & 0x01) == 0 {
+            if (custom_ranking_param.result_option & 0x01) == 0 {
                 result.meta_info.tags = Vec::new();
             }
 
-            if (param.result_option & 0x02) == 0 {
+            if (custom_ranking_param.result_option & 0x02) == 0 {
                 result.meta_info.ratings = Vec::new();
             }
 
-            if (param.result_option & 0x04) == 0 {
+            if (custom_ranking_param.result_option & 0x04) == 0 {
                 result.meta_info.meta_binary = QBuffer(Vec::new());
             }
 
-            if (param.result_option & 0x20) == 0 {
+            if (custom_ranking_param.result_option & 0x20) == 0 {
                 result.score = 0;
             }
 
@@ -572,11 +643,138 @@ impl DataStore for User {
         Ok((ranking_results, q_results))
     }
 
-    async fn get_buffer_queue(&self, param: BufferQueueParam) -> Result<Vec<QBuffer>, ErrorCode> {
+    async fn get_buffer_queue(&self, bufferparam: BufferQueueParam) -> Result<Vec<QBuffer>, ErrorCode> {
         // log::info!("GetBufferQueue: dataid={}, slot={}", param.dataid, param.slot);
 
-        let buffers = get_buffer_queues_by_data_id_and_slot(param.dataid, param.slot).await?;
+        let buffers = get_buffer_queues_by_data_id_and_slot(bufferparam.dataid, bufferparam.slot).await?;
 
         Ok(buffers)
+    }
+
+    async fn prepare_get_object(&self, prepare_get_param: DataStorePrepareGetParam) -> Result<DataStoreReqGetInfo, ErrorCode> {
+        let meta_info = if prepare_get_param.dataid != 0 {
+            get_object_info_by_data_id(prepare_get_param.dataid, prepare_get_param.access_password).await?
+        } else {
+            get_object_info_by_persistence_target(prepare_get_param.persistence_target, prepare_get_param.access_password).await?
+        };
+
+        verify_object_permission(meta_info.owner, self.pid, &meta_info.permission)?;
+
+        let presigner = S3Presigner::new(
+            &format!("https://{}", *RNEX_DATASTORE_S3_ENDPOINT),
+            format!("{}", *RNEX_DATASTORE_S3_BUCKET)
+        ).await;
+
+        let key = format!("data/{}.bin", meta_info.dataid);
+        let download_url = presigner.generate_presigned_get(&key);
+
+        Ok(DataStoreReqGetInfo {
+            url: download_url,
+            request_headers: vec![],
+            size: meta_info.size,
+            root_ca_cert: vec![],
+            dataid: meta_info.dataid,
+        })
+    }
+
+    async fn followings_latest_course_search_object(
+        &self,
+        course_search_param: DataStoreSearchParam,
+        _extra_data: Vec<String>
+    ) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode> {
+        let mut all_results = Vec::new();
+
+        for &owner_pid in &course_search_param.owner_ids {
+            let course_ids = get_user_course_object_ids(owner_pid).await?;
+
+            if course_ids.is_empty() {
+                continue;
+            }
+
+            let mut results = get_custom_rankings_by_data_ids(0, course_ids).await;
+
+            // Flag 0x1: Return Tags
+            // Flag 0x2: Return Ratings
+            // Flag 0x4: Return MetaBinary
+            // Flag 0x20: Return Score
+            for res in &mut results {
+                if course_search_param.result_option & 0x1 == 0 {
+                    res.meta_info.tags = Vec::new();
+                }
+                if course_search_param.result_option & 0x2 == 0 {
+                    res.meta_info.ratings = Vec::new();
+                }
+                if course_search_param.result_option & 0x4 == 0 {
+                    res.meta_info.meta_binary = rnex_core::rmc::structures::qbuffer::QBuffer(Vec::new());
+                }
+                if course_search_param.result_option & 0x20 == 0 {
+                    res.score = 0;
+                }
+            }
+
+            all_results.extend(results);
+        }
+
+        // note: we assume the client sorts the data lol
+
+        Ok(all_results)
+    }
+
+    async fn get_application_config_string(&self, application_id: u32) -> Result<Vec<String>, ErrorCode> {
+        let config = match application_id {
+            128 => get_blacklist_1(),
+            129 => get_blacklist_2(),
+            130 => get_blacklist_3(),
+            _ => {
+                log::warn!("unsupported application_id in GetApplicationConfigString: {}", application_id);
+                Vec::new()
+            }
+        };
+
+        Ok(config)
+    }
+
+    async fn get_metas_multiple_param(
+        &self,
+        params: Vec<GetMetaParam>
+    ) -> Result<(Vec<GetMetaInfo>, Vec<QResult>), ErrorCode> {
+        let mut metas = Vec::with_capacity(params.len());
+        let mut results = Vec::with_capacity(params.len());
+
+        for param in params {
+            let info_result = if param.dataid != 0 {
+                get_object_info_by_data_id(param.dataid, param.access_password).await
+            } else {
+                get_object_info_by_persistence_target(param.persistence_target, param.access_password).await
+            };
+
+            match info_result {
+                Ok(mut meta) => {
+                    if let Err(e) = verify_object_permission(meta.owner, self.pid, &meta.permission) {
+                        metas.push(GetMetaInfo::default());
+                        results.push(QResult::error(e));
+                    } else {
+                        if param.result_option & 0x1 == 0 {
+                            meta.tags = Vec::new();
+                        }
+                        if param.result_option & 0x2 == 0 {
+                            meta.ratings = Vec::new();
+                        }
+                        if param.result_option & 0x4 == 0 {
+                            meta.meta_binary = rnex_core::rmc::structures::qbuffer::QBuffer(Vec::new());
+                        }
+
+                        metas.push(meta);
+                        results.push(QResult::success(ErrorCode::Core_Unknown));
+                    }
+                }
+                Err(e) => {
+                    metas.push(GetMetaInfo::default());
+                    results.push(QResult::error(e));
+                }
+            }
+        }
+
+        Ok((metas, results))
     }
 }

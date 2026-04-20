@@ -4,15 +4,16 @@ use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::qresult::QResult;
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::PID;
+use rnex_core::rmc::structures::resultsrange::ResultsRange;
 
-#[derive(RmcSerialize, Clone, Debug)]
+#[derive(RmcSerialize, Clone, Debug, Default)]
 #[rmc_struct(0)]
 pub struct PersistenceTarget {
     pub owner: PID,
     pub persistence_slot_id: u16,
 }
 
-#[derive(RmcSerialize, Clone, Debug)]
+#[derive(RmcSerialize, Clone, Debug, Default)]
 #[rmc_struct(0)]
 pub struct Permission {
     pub permission: u8,
@@ -34,7 +35,7 @@ pub struct RatingInfo {
     pub initial_value: i64,
 }
 
-#[derive(RmcSerialize, Clone)]
+#[derive(RmcSerialize, Clone, Default)]
 #[rmc_struct(0)]
 pub struct GetMetaParam {
     pub dataid: u64,
@@ -43,7 +44,7 @@ pub struct GetMetaParam {
     pub access_password: u64,
 }
 
-#[derive(RmcSerialize, Clone)]
+#[derive(RmcSerialize, Clone, Default)]
 #[rmc_struct(0)]
 pub struct GetMetaInfo {
     pub dataid: u64,
@@ -165,14 +166,59 @@ pub struct DataStoreGetCustomRankingByDataIDParam {
 #[derive(RmcSerialize, Clone)]
 #[rmc_struct(0)]
 pub struct DataStoreCustomRankingResult {
+    pub order: u32,
     pub score: u32,
     pub meta_info: GetMetaInfo,
+}
+
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct DataStorePrepareGetParam {
+    pub dataid: u64,
+    pub lockid: u32,
+    pub persistence_target: PersistenceTarget,
+    pub access_password: u64,
+    pub extra_data: Vec<String>,
+}
+
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct DataStoreReqGetInfo {
+    pub url: String,
+    pub request_headers: Vec<KeyValue>,
+    pub size: u32,
+    pub root_ca_cert: Vec<u8>,
+    pub dataid: u64,
+}
+
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(1)]
+pub struct DataStoreSearchParam {
+    pub search_target: u8,
+    pub owner_ids: Vec<PID>,
+    pub owner_type: u8,
+    pub destination_ids: Vec<u64>,
+    pub data_type: u16,
+    pub created_after: KerberosDateTime,
+    pub created_before: KerberosDateTime,
+    pub updated_after: KerberosDateTime,
+    pub updated_before: KerberosDateTime,
+    pub refer_dat_id: u32,
+    pub tags: Vec<String>,
+    pub result_order_column: u8,
+    pub result_order: u8,
+    pub result_range: ResultsRange,
+    pub result_option: u8,
+    pub minimal_rating_frequency: u32,
+    pub use_cache: bool,
 }
 
 #[rmc_proto(115)]
 pub trait DataStore{
     #[method_id(8)]
     async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode>;
+    #[method_id(36)]
+    async fn get_metas_multiple_param(&self, params: Vec<GetMetaParam>) -> Result<(Vec<GetMetaInfo>, Vec<QResult>), ErrorCode>;
     #[method_id(24)]
     async fn prepare_post_object(&self, postparam: PreparePostParam) -> Result<ReqPostInfo, ErrorCode>;
     #[method_id(26)]
@@ -182,7 +228,13 @@ pub trait DataStore{
     #[method_id(61)]
     async fn get_application_config(&self, appid: u32) -> Result<Vec<i32>, ErrorCode>;
     #[method_id(50)]
-    async fn get_custom_ranking_by_data_id(&self, param: DataStoreGetCustomRankingByDataIDParam) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode>;
+    async fn get_custom_ranking_by_data_id(&self, custom_ranking_param: DataStoreGetCustomRankingByDataIDParam) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode>;
     #[method_id(54)]
-    async fn get_buffer_queue(&self, param: BufferQueueParam) -> Result<Vec<QBuffer>, ErrorCode>;
+    async fn get_buffer_queue(&self, bufferparam: BufferQueueParam) -> Result<Vec<QBuffer>, ErrorCode>;
+    #[method_id(25)]
+    async fn prepare_get_object(&self, prepare_get_param: DataStorePrepareGetParam) -> Result<DataStoreReqGetInfo, ErrorCode>;
+    #[method_id(65)]
+    async fn followings_latest_course_search_object(&self, course_search_param: DataStoreSearchParam, extra_data: Vec<String>) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode>;
+    #[method_id(74)]
+    async fn get_application_config_string(&self, application_id: u32) -> Result<Vec<String>, ErrorCode>;
 }
