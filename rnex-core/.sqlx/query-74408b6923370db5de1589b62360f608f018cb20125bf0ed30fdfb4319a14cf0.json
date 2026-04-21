@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT data_id\n        FROM datastore.objects\n        WHERE owner = $1 AND data_type > 2 AND data_type < 50\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "data_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "74408b6923370db5de1589b62360f608f018cb20125bf0ed30fdfb4319a14cf0"
+}
