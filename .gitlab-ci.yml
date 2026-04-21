@@ -24,3 +24,7 @@ splatoon:
 friends:
   stage: build_and_test
   script: ./.ci-scripts/make-edition.sh friends
+
+super-mario-maker:
+  stage: build_and_test
+  script: ./.ci-scripts/make-edition.sh super-mario-maker
