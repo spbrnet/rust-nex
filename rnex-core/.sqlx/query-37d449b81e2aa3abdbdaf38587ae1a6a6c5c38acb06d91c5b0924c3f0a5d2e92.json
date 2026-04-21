@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT data_id\n        FROM datastore.objects\n        WHERE owner = $1 AND data_type > 2 AND data_type < 50\n        ",
+  "query": "\n                SELECT data_id\n                FROM datastore.objects\n                WHERE owner = $1 AND data_type > 2 AND data_type < 50\n                ",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       false
     ]
   },
-  "hash": "74408b6923370db5de1589b62360f608f018cb20125bf0ed30fdfb4319a14cf0"
+  "hash": "37d449b81e2aa3abdbdaf38587ae1a6a6c5c38acb06d91c5b0924c3f0a5d2e92"
 }

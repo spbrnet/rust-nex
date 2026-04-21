@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT data_id, owner, size, name, data_type, meta_binary,\n                  permission, permission_recipients, delete_permission, delete_permission_recipients,\n                  period, refer_data_id, flag, tags, creation_date, update_date,\n                  access_password, under_review\n           FROM datastore.objects\n           WHERE owner = $1 AND persistence_slot_id = $2\n           AND upload_completed = TRUE AND deleted = FALSE",
+  "query": "SELECT data_id, owner, size, name, data_type, meta_binary,\n                          permission, permission_recipients, delete_permission, delete_permission_recipients,\n                          period, refer_data_id, flag, tags, creation_date, update_date\n                   FROM datastore.objects WHERE data_id = $1",
   "describe": {
     "columns": [
       {
@@ -82,22 +82,11 @@
         "ordinal": 15,
         "name": "update_date",
         "type_info": "Timestamp"
-      },
-      {
-        "ordinal": 16,
-        "name": "access_password",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 17,
-        "name": "under_review",
-        "type_info": "Bool"
       }
     ],
     "parameters": {
       "Left": [
-        "Int4",
-        "Int4"
+        "Int8"
       ]
     },
     "nullable": [
@@ -116,10 +105,8 @@
       true,
       true,
       true,
-      true,
-      false,
-      false
+      true
     ]
   },
-  "hash": "18fb671d9d97353420446413b74077f9b06ffe11cab2693e4e365c265f8e2418"
+  "hash": "1c2be699b4bfc7e5e6d3a74d7badf67d1812b99e1ec952a044fc03e1a5c63703"
 }

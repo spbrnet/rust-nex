@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT slot, total_value, count, initial_value\n        FROM datastore.object_ratings\n        WHERE data_id = $1\n        ",
+  "query": "\n                SELECT slot, total_value, count, initial_value\n                FROM datastore.object_ratings\n                WHERE data_id = $1\n                ",
   "describe": {
     "columns": [
       {
@@ -36,5 +36,5 @@
       true
     ]
   },
-  "hash": "c2a0ca72fdcb060a7fb1c670b25e1efdbf3cef31e4b6cea4adbd51ee0218f5aa"
+  "hash": "8706ac06d78ffaa2a45418be7ae71340561031d8e5c91f46c041f83e54c31a7d"
 }

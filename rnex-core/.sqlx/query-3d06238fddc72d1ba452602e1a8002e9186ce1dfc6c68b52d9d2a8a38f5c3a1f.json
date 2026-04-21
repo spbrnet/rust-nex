@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT buffer\n        FROM datastore.buffer_queues\n        WHERE data_id = $1 AND slot = $2\n        ORDER BY creation_date ASC\n        ",
+  "query": "\n                SELECT buffer\n                FROM datastore.buffer_queues\n                WHERE data_id = $1 AND slot = $2\n                ORDER BY creation_date ASC\n                ",
   "describe": {
     "columns": [
       {
@@ -19,5 +19,5 @@
       false
     ]
   },
-  "hash": "48d94383f1a261f19060f5c75d9f7803ee88233c53efaa2df9966a6c72c8c763"
+  "hash": "3d06238fddc72d1ba452602e1a8002e9186ce1dfc6c68b52d9d2a8a38f5c3a1f"
 }
