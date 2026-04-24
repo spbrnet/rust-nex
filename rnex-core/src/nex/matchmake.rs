@@ -246,7 +246,7 @@ impl ExtendedMatchmakeSession {
                     pid_source: initiating_pid,
                     notif_type: 3001,
                     param_1: self.session.gathering.self_gid as PID,
-                    param_2: *pid,
+                    param_2: other_conn.pid,
                     str_param: join_msg.clone(),
                     param_3: self.connected_players.len() as _,
                 })
