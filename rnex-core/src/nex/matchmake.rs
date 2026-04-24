@@ -240,6 +240,9 @@ impl ExtendedMatchmakeSession {
             } */
 
             for pid in &list_of_connected_pids {
+                if other_conn.pid != self.session.gathering.host_pid && other_conn.pid == *pid {
+                    continue;
+                }
                 other_conn
                     .remote
                     .process_notification_event(NotificationEvent {
@@ -258,11 +261,11 @@ impl ExtendedMatchmakeSession {
             let Some(old_conns) = old_conns.upgrade() else {
                 continue;
             };
-            /*
-            if old_conns.pid != self.session.gathering.host_pid {
-                continue;
-            } */
             for new_conn_pid in conns.iter().filter_map(Weak::upgrade).map(|c| c.pid) {
+                if old_conns.pid != self.session.gathering.host_pid && old_conns.pid == new_conn_pid
+                {
+                    continue;
+                }
                 old_conns
                     .remote
                     .process_notification_event(NotificationEvent {
