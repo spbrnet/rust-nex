@@ -5,15 +5,12 @@ use crate::nex::remote_console::RemoteConsole;
 use crate::rmc::protocols::matchmake::{
     Matchmake, RawMatchmake, RawMatchmakeInfo, RemoteMatchmake,
 };
-use serde::{Serialize, Deserialize};
-use std::env;
-use std::str::FromStr;
 use crate::rmc::protocols::nat_traversal::{
     NatTraversal, RawNatTraversal, RawNatTraversalInfo, RemoteNatTraversal,
     RemoteNatTraversalConsole,
 };
-use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::PID;
+use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::prudp::station_url::StationUrl;
 use rnex_core::prudp::station_url::UrlOptions::{
     Address, NatFiltering, NatMapping, Port, RVConnectionID,
@@ -31,17 +28,22 @@ use rnex_core::rmc::structures::any::Any;
 use rnex_core::rmc::structures::matchmake::{
     AutoMatchmakeParam, CreateMatchmakeSessionParam, JoinMatchmakeSessionParam, MatchmakeSession,
 };
+use serde::{Deserialize, Serialize};
+use std::env;
+use std::str::FromStr;
 
 use crate::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
-use log::{info, error};
+use log::{error, info};
 use macros::rmc_struct;
-use rnex_core::rmc::structures::qbuffer::QBuffer;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
+use rnex_core::rmc::protocols::ranking::{
+    CompetitionRankingGetParam, CompetitionRankingScoreData, CompetitionRankingScoreInfo,
+};
 use rnex_core::rmc::response::ErrorCode::{Core_InvalidArgument, RendezVous_AccountExpired};
+use rnex_core::rmc::structures::qbuffer::QBuffer;
 use rnex_core::rmc::structures::qresult::QResult;
+use rnex_core::rmc::structures::ranking::UploadCompetitionData;
 use std::sync::{Arc, Weak};
-use rnex_core::rmc::protocols::ranking::{CompetitionRankingScoreData, CompetitionRankingGetParam, CompetitionRankingScoreInfo};
-use rnex_core::rmc::structures::ranking::{UploadCompetitionData};
 use tokio::sync::{Mutex, RwLock};
 
 define_rmc_proto!(
@@ -617,10 +619,7 @@ fn fetch_team_votes(fest_id: u32) -> Result<Vec<u32>, ErrorCode> {
     })?;
 
     let body = body.trim().trim_start_matches('[').trim_end_matches(']');
-    let votes: Result<Vec<u32>, _> = body
-        .split(',')
-        .map(|s| u32::from_str(s.trim()))
-        .collect();
+    let votes: Result<Vec<u32>, _> = body.split(',').map(|s| u32::from_str(s.trim())).collect();
 
     votes.map_err(|e| {
         error!("failed to parse votes: {:?}", e);
@@ -635,23 +634,19 @@ impl Ranking for User {
     ) -> Result<Vec<CompetitionRankingScoreInfo>, ErrorCode> {
         let fest_id = param.festival_ids.get(0).copied().unwrap_or(0);
 
-        let endpoint_results = env::var("RNEX_SPLATOON_RESULTS_GET")
-            .map_err(|_| {
-                error!("RNEX_SPLATOON_RESULTS_GET not set");
-                ErrorCode::RendezVous_InvalidConfiguration
-            })?;
+        let endpoint_results = env::var("RNEX_SPLATOON_RESULTS_GET").map_err(|_| {
+            error!("RNEX_SPLATOON_RESULTS_GET not set");
+            ErrorCode::RendezVous_InvalidConfiguration
+        })?;
 
         let url_results = format!("{}?splatfest_id={}", endpoint_results, fest_id);
         let response_results = ureq::get(&url_results).call();
 
         let results: Vec<CompetitionPostResults> = match response_results {
-            Ok(mut res) => res
-                .body_mut()
-                .read_json()
-                .map_err(|e| {
-                    error!("failed to parse JSON: {:?}", e);
-                    ErrorCode::RendezVous_InvalidConfiguration
-                })?,
+            Ok(mut res) => res.body_mut().read_json().map_err(|e| {
+                error!("failed to parse JSON: {:?}", e);
+                ErrorCode::RendezVous_InvalidConfiguration
+            })?,
             Err(e) => {
                 error!("GET failed: {:?}", e);
                 return Err(ErrorCode::RendezVous_InvalidConfiguration);
@@ -661,9 +656,8 @@ impl Ranking for User {
         let team_votes = fetch_team_votes(fest_id)?;
         let mut wins = vec![0u32, 0u32];
         for r in &results {
-            if r.team_win == 1 && (r.team_id == 0 || r.team_id == 1) {
-                wins[r.team_id as usize] += 1;
-            }
+            let won_team = r.team_id ^ (!r.team_win);
+            wins[won_team as usize] += 1;
         }
 
         let score_data: Vec<CompetitionRankingScoreData> = results
@@ -677,7 +671,7 @@ impl Ranking for User {
                 appdata: QBuffer(vec![]),
             })
             .collect();
-        
+
         let info = CompetitionRankingScoreInfo {
             fest_id,
             score_data,
@@ -689,7 +683,10 @@ impl Ranking for User {
         Ok(vec![info])
     }
 
-    async fn upload_competition_ranking_score(&self, param: UploadCompetitionData) -> Result<bool, ErrorCode> {
+    async fn upload_competition_ranking_score(
+        &self,
+        param: UploadCompetitionData,
+    ) -> Result<bool, ErrorCode> {
         info!("fest results for user {:?}:", self.pid);
         info!("fest id: {:?}", param.splatfest_id);
         info!("score: {:?}", param.score);
@@ -732,8 +729,7 @@ impl Ranking for User {
                 error!("POST borked: {:?}", e);
             }
         }
-        
+
         Ok(true)
     }
 }
-

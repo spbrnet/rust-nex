@@ -234,10 +234,10 @@ impl ExtendedMatchmakeSession {
                 joining_pid == self.session.gathering.owner_pid{
                 continue;
             }*/
-
+            /*
             if other_conn.pid != self.session.gathering.host_pid {
                 continue;
-            }
+            } */
 
             for pid in &list_of_connected_pids {
                 other_conn
@@ -258,9 +258,10 @@ impl ExtendedMatchmakeSession {
             let Some(old_conns) = old_conns.upgrade() else {
                 continue;
             };
+            /*
             if old_conns.pid != self.session.gathering.host_pid {
                 continue;
-            }
+            } */
             for new_conn_pid in conns.iter().filter_map(Weak::upgrade).map(|c| c.pid) {
                 old_conns
                     .remote
