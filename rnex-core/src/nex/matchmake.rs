@@ -246,12 +246,35 @@ impl ExtendedMatchmakeSession {
                     pid_source: initiating_pid,
                     notif_type: 3001,
                     param_1: self.session.gathering.self_gid as PID,
-                    param_2: other_conn.pid,
+                    param_2: *pid,
                     str_param: join_msg.clone(),
                     param_3: self.connected_players.len() as _,
                 })
                 .await;
             //            }
+        }
+        for other_connection in conns {
+            let Some(other_conn) = other_connection.upgrade() else {
+                continue;
+            };
+
+            for old_participant in &old_particip {
+                let Some(old_particip) = old_participant.upgrade() else {
+                    continue;
+                };
+
+                other_conn
+                    .remote
+                    .process_notification_event(NotificationEvent {
+                        pid_source: initiating_pid,
+                        notif_type: 3001,
+                        param_1: self.session.gathering.self_gid as PID,
+                        param_2: old_particip.pid,
+                        str_param: join_msg.clone(),
+                        param_3: self.connected_players.len() as _,
+                    })
+                    .await;
+            }
         }
 
         for old_conns in &old_particip {
