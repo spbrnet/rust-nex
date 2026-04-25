@@ -99,7 +99,7 @@ pub fn friend_info_from_user(data: &UserData) -> FriendInfo {
         presence: data.presence.clone(),
         comment: Comment {
             unk: 0,
-            message: "litterally everyone is friends here =w=".to_string(),
+            message: "haii =w=".to_string(),
             last_changed: KerberosDateTime::now(),
         },
         became_friends: KerberosDateTime::now(),
@@ -273,6 +273,13 @@ impl Friends for FriendsUser {
         }
         drop(users);
 
+        Ok(())
+    }
+
+    async fn delete_persistent_notification(
+        &self,
+        notifs: Vec<PersistentNotification>,
+    ) -> Result<(), ErrorCode> {
         Ok(())
     }
 

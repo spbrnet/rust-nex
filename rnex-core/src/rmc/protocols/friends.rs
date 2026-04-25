@@ -2,6 +2,8 @@ use macros::{RmcSerialize, method_id, rmc_proto};
 
 use rnex_core::{kerberos::KerberosDateTime, rmc::response::ErrorCode};
 
+use crate::rmc::structures::rmc_struct;
+
 #[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
 pub struct MiiV2 {
@@ -145,6 +147,11 @@ pub trait Friends {
     >;
     #[method_id(13)]
     async fn update_presence(&self, presence: NintendoPresenceV2) -> Result<(), ErrorCode>;
+    #[method_id(18)]
+    async fn delete_persistent_notification(
+        &self,
+        notifs: Vec<PersistentNotification>,
+    ) -> Result<(), ErrorCode>;
     #[method_id(19)]
     async fn check_setting_status(&self) -> Result<u8, ErrorCode>;
 }
