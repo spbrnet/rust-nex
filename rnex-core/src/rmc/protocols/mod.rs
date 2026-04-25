@@ -7,6 +7,7 @@ pub mod matchmake;
 pub mod matchmake_ext;
 pub mod matchmake_extension;
 pub mod nat_traversal;
+pub mod nintendo_notification;
 pub mod notifications;
 pub mod ranking;
 pub mod secure;

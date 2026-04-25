@@ -9,10 +9,12 @@ use tokio::net::TcpListener;
 
 use crate::{
     executables::common::{OWN_IP_PRIVATE, SERVER_PORT, new_simple_backend},
-    nex::friends_handler::{FriendsGuest, FriendsManager, FriendsUser},
+    nex::friends_handler::{FriendsGuest, FriendsManager, FriendsUser, RemoteFriendsUser},
     reggie::UnitPacketRead,
     rmc::{
-        protocols::{RmcCallable, new_rmc_gateway_connection},
+        protocols::{
+            RmcCallable, RmcPureRemoteObject, friends::RemoteFriends, new_rmc_gateway_connection,
+        },
         structures::RmcSerialize,
     },
     rnex_proxy_common::ConnectionInitData,
@@ -21,6 +23,7 @@ use crate::{
 pub async fn start_friends_backend() {
     let fm = Arc::new(FriendsManager {
         cid_counter: AtomicU32::new(1),
+        users: Default::default(),
     });
     let listen = TcpListener::bind(SocketAddrV4::new(*OWN_IP_PRIVATE, *SERVER_PORT))
         .await
@@ -53,6 +56,10 @@ pub async fn start_friends_backend() {
                     fm,
                     addr: c.prudpsock_addr,
                     pid: c.pid,
+                    data: Default::default(),
+                    current_friends: Default::default(),
+                    this: this.clone(),
+                    remote: RemoteFriendsUser::new(r),
                 })
             });
         } else {

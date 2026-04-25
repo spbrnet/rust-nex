@@ -29,14 +29,14 @@ pub struct NNAInfo {
     pub unk2: u8,
 }
 
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Clone, Copy, Debug)]
 #[rmc_struct(0)]
 pub struct GameKey {
     pub tid: u64,
     pub version: u16,
 }
 
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Clone, Debug)]
 #[rmc_struct(0)]
 pub struct NintendoPresenceV2 {
     pub changed_flags: u32,
@@ -143,6 +143,8 @@ pub trait Friends {
         ),
         ErrorCode,
     >;
+    #[method_id(13)]
+    async fn update_presence(&self, presence: NintendoPresenceV2) -> Result<(), ErrorCode>;
     #[method_id(19)]
     async fn check_setting_status(&self) -> Result<u8, ErrorCode>;
 }

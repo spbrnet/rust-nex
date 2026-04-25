@@ -1,4 +1,6 @@
 use std::io::{Cursor, Write};
+use std::ops::Deref;
+use std::sync::Weak;
 use std::sync::{Arc, atomic::AtomicU32};
 
 use bytemuck::bytes_of;
@@ -9,6 +11,10 @@ use rnex_core::rmc::protocols::account_management::{
     AccountManagement, RawAccountManagement, RawAccountManagementInfo, RemoteAccountManagement,
 };
 use rnex_core::rmc::protocols::friends::{Friends, RawFriends, RawFriendsInfo, RemoteFriends};
+use rnex_core::rmc::protocols::nintendo_notification::{
+    NintendoNotification, RawNintendoNotification, RawNintendoNotificationInfo,
+    RemoteNintendoNotification,
+};
 use rnex_core::rmc::protocols::secure::{RawSecure, RawSecureInfo, RemoteSecure, Secure};
 use rnex_core::{
     define_rmc_proto,
@@ -25,12 +31,15 @@ use rnex_core::{
     },
 };
 use std::sync::atomic::Ordering::Relaxed;
+use tokio::sync::RwLock;
 
 use rnex_core::rmc::protocols::friends::{GameKey, MiiV2, PrincipalBasicInfo};
 
 use rnex_core::PID;
 
+use crate::nex::user;
 use crate::rmc::protocols::account_management::NintendoCreateAccountData;
+use crate::rmc::protocols::nintendo_notification::NintendoNotificationEvent;
 use rnex_core::rmc::structures::RmcSerialize;
 
 define_rmc_proto!(
@@ -40,16 +49,31 @@ define_rmc_proto!(
     }
 );
 define_rmc_proto!(
+    proto FriendRemote{
+        NintendoNotification
+    }
+);
+define_rmc_proto!(
     proto FriendsGuest{
         Secure,
         AccountManagement
     }
 );
+
+pub struct UserData {
+    info: NNAInfo,
+    presence: NintendoPresenceV2,
+}
+
 #[rmc_struct(FriendsUser)]
 pub struct FriendsUser {
     pub fm: Arc<FriendsManager>,
     pub addr: PRUDPSockAddr,
     pub pid: PID,
+    pub data: RwLock<Option<UserData>>,
+    pub current_friends: RwLock<Vec<PID>>,
+    pub this: Weak<FriendsUser>,
+    pub remote: RemoteFriendRemote,
 }
 
 #[rmc_struct(FriendsGuest)]
@@ -60,6 +84,7 @@ pub struct FriendsGuest {
 
 pub struct FriendsManager {
     pub cid_counter: AtomicU32,
+    pub users: RwLock<Vec<Weak<FriendsUser>>>,
 }
 
 impl FriendsManager {
@@ -68,11 +93,26 @@ impl FriendsManager {
     }
 }
 
+pub fn friend_info_from_user(data: &UserData) -> FriendInfo {
+    FriendInfo {
+        nna_info: data.info.clone(),
+        presence: data.presence.clone(),
+        comment: Comment {
+            unk: 0,
+            message: "litterally everyone is friends here =w=".to_string(),
+            last_changed: KerberosDateTime::now(),
+        },
+        became_friends: KerberosDateTime::now(),
+        last_online: KerberosDateTime::now(),
+        unk: 0,
+    }
+}
+
 impl Friends for FriendsUser {
     async fn update_and_get_all_information(
         &self,
-        _info: NNAInfo,
-        _presence: NintendoPresenceV2,
+        info: NNAInfo,
+        presence: NintendoPresenceV2,
         _date_time: KerberosDateTime,
     ) -> Result<
         (
@@ -88,17 +128,15 @@ impl Friends for FriendsUser {
         ),
         ErrorCode,
     > {
-        Ok((
-            PrincipalPreference {
-                block_friend_request: false,
-                show_online: false,
-                show_playing_title: false,
-            },
-            Comment {
-                last_changed: KerberosDateTime::now(),
-                message: "".to_string(),
-                unk: 0,
-            },
+        let mut data = self.data.write().await;
+        *data = Some(UserData { info, presence });
+        let self_fr_info = friend_info_from_user(data.as_ref().unwrap());
+        let Ok(any_self_fr_info) = Any::new(&self_fr_info) else {
+            return Err(ErrorCode::RendezVous_ControlScriptFailure);
+        };
+        drop(data);
+
+        let mut fr_list =
             vec![FriendInfo {
                 became_friends: KerberosDateTime::now(),
                 comment: Comment {
@@ -144,7 +182,51 @@ impl Friends for FriendsUser {
                     unk7: 0
                 },
                 unk: 0
-            }],
+            }];
+
+        let users = self.fm.users.read().await;
+        let mut curr_friends = self.current_friends.write().await;
+        for u in users.deref().iter().filter_map(|u| u.upgrade()) {
+            let data = u.data.read().await;
+            let Some(data) = data.as_ref() else {
+                continue;
+            };
+
+            let mut fr = u.current_friends.write().await;
+            if !fr.contains(&self.pid) {
+                fr.push(self.pid);
+                u.remote
+                    .process_nintendo_notification_event_1(NintendoNotificationEvent {
+                        event_type: 30,
+                        sender: self.pid,
+                        data: any_self_fr_info.clone(),
+                    })
+                    .await;
+            }
+            drop(fr);
+
+            fr_list.push(friend_info_from_user(&data));
+            curr_friends.push(u.pid);
+        }
+        drop(curr_friends);
+        drop(users);
+
+        let mut users = self.fm.users.write().await;
+        users.push(self.this.clone());
+        drop(users);
+
+        Ok((
+            PrincipalPreference {
+                block_friend_request: false,
+                show_online: false,
+                show_playing_title: false,
+            },
+            Comment {
+                last_changed: KerberosDateTime::now(),
+                message: "".to_string(),
+                unk: 0,
+            },
+            fr_list,
             vec![],
             vec![],
             vec![],
@@ -152,6 +234,32 @@ impl Friends for FriendsUser {
             vec![],
             false,
         ))
+    }
+
+    async fn update_presence(&self, presence: NintendoPresenceV2) -> Result<(), ErrorCode> {
+        let mut data = self.data.write().await;
+        let Some(data) = data.as_mut() else {
+            return Err(ErrorCode::RendezVous_PermissionDenied);
+        };
+        data.presence = presence;
+        let Ok(any_self_fr_info) = Any::new(&data.presence) else {
+            return Err(ErrorCode::RendezVous_ControlScriptFailure);
+        };
+        drop(data);
+
+        let users = self.fm.users.read().await;
+        for u in users.deref().iter().filter_map(|u| u.upgrade()) {
+            u.remote
+                .process_nintendo_notification_event_2(NintendoNotificationEvent {
+                    event_type: 24,
+                    sender: self.pid,
+                    data: any_self_fr_info.clone(),
+                })
+                .await;
+        }
+        drop(users);
+
+        Ok(())
     }
 
     async fn check_setting_status(&self) -> Result<u8, ErrorCode> {

@@ -61,6 +61,9 @@ pub trait RmcSerialize {
 
         Ok(data)
     }
+    fn name() -> &'static str {
+        "NoNameSpecified"
+    }
 }
 
 impl RmcSerialize for () {

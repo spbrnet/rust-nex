@@ -1,8 +1,8 @@
 use rnex_core::rmc::structures::{Result, RmcSerialize};
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Write};
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Any {
     pub name: String,
     pub data: Vec<u8>,
@@ -14,7 +14,7 @@ impl RmcSerialize for Any {
 
         let u32_len = self.data.len() as u32;
 
-        u32_len.serialize(writer)?;
+        (u32_len + 4).serialize(writer)?;
         u32_len.serialize(writer)?;
 
         self.data.serialize(writer)?;
@@ -33,5 +33,20 @@ impl RmcSerialize for Any {
         reader.read_exact(&mut data)?;
 
         Ok(Any { name, data })
+    }
+}
+
+impl Any {
+    pub fn try_get<T: RmcSerialize>(&self) -> Option<Result<T>> {
+        if self.name != T::name() {
+            return None;
+        }
+        return Some(T::deserialize(&mut Cursor::new(&self.data[..])));
+    }
+    pub fn new<T: RmcSerialize>(val: &T) -> Result<Self> {
+        return Ok(Self {
+            name: T::name().to_owned(),
+            data: val.to_data()?,
+        });
     }
 }
