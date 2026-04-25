@@ -230,10 +230,8 @@ impl MatchmakeExtension for User {
             .await?;
 
         let mut session = session.lock().await;
-        if session.session.user_password_enabled {
-            if join_session_param.user_password != session.session.user_password {
-                return Err(ErrorCode::RendezVous_InvalidPassword);
-            }
+        if join_session_param.user_password != session.session.user_password {
+            return Err(ErrorCode::RendezVous_InvalidPassword);
         }
 
         session
@@ -656,7 +654,7 @@ impl Ranking for User {
         let team_votes = fetch_team_votes(fest_id)?;
         let mut wins = vec![0u32, 0u32];
         for r in &results {
-            let won_team = r.team_id ^ (!r.team_win);
+            let won_team = (r.team_id ^ (!r.team_win)) & 1;
             if let Some(team) = wins.get_mut(won_team as usize) {
                 *team += 1
             };
