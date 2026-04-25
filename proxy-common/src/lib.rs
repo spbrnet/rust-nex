@@ -31,6 +31,8 @@ const RNEX_DEFAULT_PORT: u16 = match u16::from_str_radix(env!("RNEX_DEFAULT_PORT
     Err(_) => panic!("unable to get default port from env"),
 };
 
+pub const RNEX_ACCESS_KEY: &'static str = env!("RNEX_ACCESS_KEY");
+
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("error getting environment variable \"{0}\": {1}")]

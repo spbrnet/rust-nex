@@ -19,6 +19,7 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::task;
 use tokio::time::sleep;
+use proxy_common::RNEX_ACCESS_KEY;
 
 pub async fn start() {
     /*let conn = tokio::net::TcpStream::connect(&*EDGE_NODE_HOLDER)
@@ -43,7 +44,7 @@ pub async fn start() {
         .expect("unable to start router");
 
     let mut socket_secure = router_secure
-        .add_socket(VirtualPort::new(1, 10), Unsecure("6f599f81"))
+        .add_socket(VirtualPort::new(1, 10), Unsecure(RNEX_ACCESS_KEY))
         .await
         .expect("unable to add socket");
 
