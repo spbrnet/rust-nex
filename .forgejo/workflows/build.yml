@@ -28,11 +28,6 @@ jobs:
             ~/.local/share/containers/storage
           key: image-cache
 
-      - name: Install Podman
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y podman
-
       - name: Login to registry
         run: podman login -u ${{ vars.PACKAGE_USER }} -p ${{ vars.PACKAGE_PWD }} ${{ vars.PACKAGE_URL }}
 
