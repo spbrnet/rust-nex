@@ -29,7 +29,9 @@ jobs:
           key: image-cache
 
       - name: Login to registry
-        run: docker login -u ${{ vars.PACKAGE_USER }} -p ${{ vars.PACKAGE_PWD }} ${{ vars.PACKAGE_URL }}
+        run: |
+          echo ${{ vars.PACKAGE_URL }}
+          docker login -u ${{ vars.PACKAGE_USER }} -p ${{ vars.PACKAGE_PWD }} ${{ vars.PACKAGE_URL }}
 
       - name: Build Splatoon edition
         run: ./.ci-scripts/make-edition.sh splatoon
