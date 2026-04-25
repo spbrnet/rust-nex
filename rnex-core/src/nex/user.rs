@@ -657,7 +657,9 @@ impl Ranking for User {
         let mut wins = vec![0u32, 0u32];
         for r in &results {
             let won_team = r.team_id ^ (!r.team_win);
-            wins[won_team as usize] += 1;
+            if let Some(team) = wins.get_mut(won_team as usize) {
+                *team += 1
+            };
         }
 
         let score_data: Vec<CompetitionRankingScoreData> = results
