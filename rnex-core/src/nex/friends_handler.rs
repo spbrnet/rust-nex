@@ -139,6 +139,9 @@ impl Friends for FriendsUser {
         let Ok(any_self_fr_info) = Any::new(&self_fr_info) else {
             return Err(ErrorCode::RendezVous_ControlScriptFailure);
         };
+        let Ok(any_self_presence) = Any::new(&self_fr_info.presence) else {
+            return Err(ErrorCode::RendezVous_ControlScriptFailure);
+        };
         drop(data);
 
         let mut fr_list = vec![FriendInfo {
@@ -227,6 +230,18 @@ impl Friends for FriendsUser {
                         .await;
                 });
             } else {
+                let data = any_self_presence.clone();
+                let u = u.clone();
+                let sender = self.pid;
+                spawn(async move {
+                    u.remote
+                        .process_nintendo_notification_event_2(NintendoNotificationEvent {
+                            event_type: 24,
+                            sender,
+                            data,
+                        })
+                        .await;
+                });
                 drop(fr);
             }
         }
@@ -263,18 +278,22 @@ impl Friends for FriendsUser {
     }
 
     async fn update_presence(&self, presence: NintendoPresenceV2) -> Result<(), ErrorCode> {
+        info!("user updated presence: {:?}", presence);
         let mut data = self.data.write().await;
         let Some(inner_data) = data.as_mut() else {
+            log::error!("unable to get presence data");
             return Err(ErrorCode::RendezVous_PermissionDenied);
         };
         inner_data.presence = presence;
         let Ok(any_self_fr_info) = Any::new(&inner_data.presence) else {
+            log::error!("unable to create presence any data holder");
             return Err(ErrorCode::RendezVous_ControlScriptFailure);
         };
         drop(data);
 
         let users = self.fm.users.read().await;
         for u in users.deref().iter().filter_map(|u| u.upgrade()) {
+            info!("sending presence update");
             u.remote
                 .process_nintendo_notification_event_2(NintendoNotificationEvent {
                     event_type: 24,
