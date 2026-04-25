@@ -26,6 +26,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub mod any;
 pub mod buffer;
 pub mod connection_data;
+pub mod data;
 pub mod helpers;
 pub mod list;
 pub mod matchmake;
@@ -61,6 +62,9 @@ pub trait RmcSerialize {
         debug_assert_eq!(expected_size, data.len() as u32);
 
         Ok(data)
+    }
+    fn name() -> &'static str {
+        "NoNameSpecified"
     }
 }
 
