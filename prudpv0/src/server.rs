@@ -133,6 +133,7 @@ impl<C: Crypto> Server<C> {
             let this = Arc::downgrade(&self);
 
             spawn(async move {
+                sleep(Duration::from_millis(i as u64 * 16)).await;
                 for n in 0..5 {
                     let Some(data) = packet_ref.upgrade() else {
                         return;
@@ -153,7 +154,6 @@ impl<C: Crypto> Server<C> {
                 }
             });
             frag_num += 1;
-            sleep(Duration::from_millis(16)).await;
         }
         drop(inner);
     }
