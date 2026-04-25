@@ -11,7 +11,7 @@ env:
 
 jobs:
   splatoon:
-    runs-on: alpine
+    runs-on: debian-trixie
 
     steps:
       - name: Checkout repository
@@ -40,7 +40,7 @@ jobs:
         run: ./.ci-scripts/make-edition.sh splatoon
 
   friends:
-    runs-on: alpine
+    runs-on: debian-trixie
 
     steps:
       - name: Checkout repository
