@@ -101,6 +101,7 @@ pub fn friend_info_from_user(data: &UserData) -> FriendInfo {
         nna_info: data.info.clone(),
         presence: data.presence.clone(),
         comment: Comment {
+            data: Data {},
             unk: 0,
             message: "haii =w=".to_string(),
             last_changed: KerberosDateTime::now(),
@@ -140,54 +141,59 @@ impl Friends for FriendsUser {
         };
         drop(data);
 
-        let mut fr_list =
-            vec![FriendInfo {
+        let mut fr_list = vec![FriendInfo {
+            data: Data{},
+            became_friends: KerberosDateTime::now(),
+            comment: Comment {
                 data: Data{},
-                became_friends: KerberosDateTime::now(),
-                comment: Comment {
-                    last_changed: KerberosDateTime::now(),
-                    message: "I'm just a dummy account :3".to_string(),
-                    unk: 0,
-                },
-                last_online: KerberosDateTime::now(),
-                nna_info: NNAInfo {
-                    principal_basic_info: PrincipalBasicInfo {
-                        pid: 101,
-                        nnid: "dummy:3".to_string(),
-                        mii: MiiV2{
-                            date_time: KerberosDateTime::now(),
-                            name: "TheDummy".to_string(),
-                            mii_data: hex::decode("030000402bd7c32986a771f2dc6b35e31da15e37ff7c0000391e6f006f006d0069000000000000000000000000004040001065033568641e2013661a611821640f0000290052485000000000000000000000000000000000000000000000e838").unwrap(),
-                            unk: 0,
-                            unk2: 0,
-                        },
-                        unk: 0
-                    },
-                    unk: 0,
-                    unk2: 0
-                },
-                presence: NintendoPresenceV2{
-                    changed_flags: 0,
-                    message: "".to_string(),
-                    app_data: vec![],
-                    game_key: GameKey{
-                        tid: 0x00050002101ce400,
-                        version: 0x0
-                    },
-                    game_server_id: 0,
-                    is_online: true,
-                    gid: 0,
+                last_changed: KerberosDateTime::now(),
+                message: "I'm just a dummy account :3".to_string(),
+                unk: 0,
+            },
+            last_online: KerberosDateTime::now(),
+            nna_info: NNAInfo {
+                data: Data{},
+                principal_basic_info: PrincipalBasicInfo {
+                    data: Data{},
                     pid: 101,
-                    unk: 0,
-                    unk2: 0,
-                    unk3: 0,
-                    unk4: 0,
-                    unk5: 0,
-                    unk6: 0,
-                    unk7: 0
+                    nnid: "dummy:3".to_string(),
+                    mii: MiiV2{
+                        data: Data{},
+                        date_time: KerberosDateTime::now(),
+                        name: "TheDummy".to_string(),
+                        mii_data: hex::decode("030000402bd7c32986a771f2dc6b35e31da15e37ff7c0000391e6f006f006d0069000000000000000000000000004040001065033568641e2013661a611821640f0000290052485000000000000000000000000000000000000000000000e838").unwrap(),
+                        unk: 0,
+                        unk2: 0,
+                    },
+                    unk: 0
                 },
-                unk: 0
-            }];
+                unk: 0,
+                unk2: 0
+            },
+            presence: NintendoPresenceV2{
+                data: Data{},
+                changed_flags: 0,
+                message: "".to_string(),
+                app_data: vec![],
+                game_key: GameKey{
+                    data: Data{},
+                    tid: 0x00050002101ce400,
+                    version: 0x0
+                },
+                game_server_id: 0,
+                is_online: true,
+                gid: 0,
+                pid: 101,
+                unk: 0,
+                unk2: 0,
+                unk3: 0,
+                unk4: 0,
+                unk5: 0,
+                unk6: 0,
+                unk7: 0
+            },
+            unk: 0
+        }];
 
         println!("acquiring user and current friends locks");
         let users = self.fm.users.read().await;
@@ -235,11 +241,13 @@ impl Friends for FriendsUser {
         println!("done...");
         Ok((
             PrincipalPreference {
+                data: Data {},
                 block_friend_request: false,
                 show_online: false,
                 show_playing_title: false,
             },
             Comment {
+                data: Data {},
                 last_changed: KerberosDateTime::now(),
                 message: "".to_string(),
                 unk: 0,

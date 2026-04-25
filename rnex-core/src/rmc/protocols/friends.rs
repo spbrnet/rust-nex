@@ -7,6 +7,8 @@ use rnex_core::rmc::structures::{data::Data, rmc_struct};
 #[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
 pub struct MiiV2 {
+    #[extends]
+    pub data: Data,
     pub name: String,
     pub unk: u8,
     pub unk2: u8,
@@ -17,6 +19,8 @@ pub struct MiiV2 {
 #[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
 pub struct PrincipalBasicInfo {
+    #[extends]
+    pub data: Data,
     pub pid: u32,
     pub nnid: String,
     pub mii: MiiV2,
@@ -26,6 +30,8 @@ pub struct PrincipalBasicInfo {
 #[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
 pub struct NNAInfo {
+    #[extends]
+    pub data: Data,
     pub principal_basic_info: PrincipalBasicInfo,
     pub unk: u8,
     pub unk2: u8,
@@ -34,6 +40,8 @@ pub struct NNAInfo {
 #[derive(RmcSerialize, Clone, Copy, Debug)]
 #[rmc_struct(0)]
 pub struct GameKey {
+    #[extends]
+    pub data: Data,
     pub tid: u64,
     pub version: u16,
 }
@@ -41,6 +49,8 @@ pub struct GameKey {
 #[derive(RmcSerialize, Clone, Debug)]
 #[rmc_struct(0)]
 pub struct NintendoPresenceV2 {
+    #[extends]
+    pub data: Data,
     pub changed_flags: u32,
     pub is_online: bool,
     pub game_key: GameKey,
@@ -60,6 +70,8 @@ pub struct NintendoPresenceV2 {
 #[derive(RmcSerialize)]
 #[rmc_struct(0)]
 pub struct PrincipalPreference {
+    #[extends]
+    pub data: Data,
     pub show_online: bool,
     pub show_playing_title: bool,
     pub block_friend_request: bool,
@@ -68,6 +80,8 @@ pub struct PrincipalPreference {
 #[derive(RmcSerialize)]
 #[rmc_struct(0)]
 pub struct Comment {
+    #[extends]
+    pub data: Data,
     pub unk: u8,
     pub message: String,
     pub last_changed: KerberosDateTime,
@@ -89,6 +103,8 @@ pub struct FriendInfo {
 #[derive(RmcSerialize)]
 #[rmc_struct(0)]
 pub struct FriendRequestMessage {
+    #[extends]
+    pub data: Data,
     pub friend_request_id: u64,
     pub is_recieved: u8,
     pub unk: u8,
@@ -103,6 +119,8 @@ pub struct FriendRequestMessage {
 #[derive(RmcSerialize)]
 #[rmc_struct(0)]
 pub struct FriendRequest {
+    #[extends]
+    pub data: Data,
     pub basic_info: PrincipalBasicInfo,
     pub request_message: FriendRequestMessage,
     pub sent_on: KerberosDateTime,
@@ -111,6 +129,8 @@ pub struct FriendRequest {
 #[derive(RmcSerialize)]
 #[rmc_struct(0)]
 pub struct BlacklistedPrincipal {
+    #[extends]
+    pub data: Data,
     pub basic_info: PrincipalBasicInfo,
     pub game_key: GameKey,
     pub since: KerberosDateTime,
@@ -118,6 +138,8 @@ pub struct BlacklistedPrincipal {
 #[derive(RmcSerialize)]
 #[rmc_struct(0)]
 pub struct PersistentNotification {
+    #[extends]
+    pub data: Data,
     pub unk1: u64,
     pub unk2: u32,
     pub unk3: u32,
