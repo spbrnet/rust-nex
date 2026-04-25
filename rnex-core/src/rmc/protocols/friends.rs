@@ -2,7 +2,7 @@ use macros::{RmcSerialize, method_id, rmc_proto};
 
 use rnex_core::{kerberos::KerberosDateTime, rmc::response::ErrorCode};
 
-use crate::rmc::structures::rmc_struct;
+use crate::rmc::structures::{data::Data, rmc_struct};
 
 #[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
@@ -76,6 +76,8 @@ pub struct Comment {
 #[derive(RmcSerialize)]
 #[rmc_struct(0)]
 pub struct FriendInfo {
+    #[extends]
+    pub data: Data,
     pub nna_info: NNAInfo,
     pub presence: NintendoPresenceV2,
     pub comment: Comment,

@@ -42,6 +42,8 @@ use rnex_core::rmc::protocols::account_management::NintendoCreateAccountData;
 use rnex_core::rmc::protocols::nintendo_notification::NintendoNotificationEvent;
 use rnex_core::rmc::structures::RmcSerialize;
 
+use crate::rmc::structures::data::Data;
+
 define_rmc_proto!(
     proto FriendsUser{
         Secure,
@@ -95,6 +97,7 @@ impl FriendsManager {
 
 pub fn friend_info_from_user(data: &UserData) -> FriendInfo {
     FriendInfo {
+        data: Data {},
         nna_info: data.info.clone(),
         presence: data.presence.clone(),
         comment: Comment {

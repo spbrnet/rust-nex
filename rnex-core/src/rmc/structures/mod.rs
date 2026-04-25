@@ -26,6 +26,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub mod any;
 pub mod buffer;
 pub mod connection_data;
+pub mod data;
 pub mod helpers;
 pub mod list;
 pub mod matchmake;
