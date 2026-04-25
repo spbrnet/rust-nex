@@ -42,7 +42,7 @@ use rnex_core::rmc::protocols::account_management::NintendoCreateAccountData;
 use rnex_core::rmc::protocols::nintendo_notification::NintendoNotificationEvent;
 use rnex_core::rmc::structures::RmcSerialize;
 
-use crate::rmc::structures::data::Data;
+use rnex_core::rmc::structures::data::Data;
 
 define_rmc_proto!(
     proto FriendsUser{
@@ -142,6 +142,7 @@ impl Friends for FriendsUser {
 
         let mut fr_list =
             vec![FriendInfo {
+                data: Data{},
                 became_friends: KerberosDateTime::now(),
                 comment: Comment {
                     last_changed: KerberosDateTime::now(),
