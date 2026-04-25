@@ -127,6 +127,7 @@ impl Friends for FriendsUser {
         ),
         ErrorCode,
     > {
+        println!("updating own data");
         let mut data = self.data.write().await;
         *data = Some(UserData { info, presence });
         let self_fr_info = friend_info_from_user(data.as_ref().unwrap());
@@ -183,8 +184,10 @@ impl Friends for FriendsUser {
                 unk: 0
             }];
 
+        println!("acquiring user and current friends locks");
         let users = self.fm.users.read().await;
         let mut curr_friends = self.current_friends.write().await;
+        println!("started summing users");
         for u in users.deref().iter().filter_map(|u| u.upgrade()) {
             let data = u.data.read().await;
             let Some(data) = data.as_ref() else {
@@ -207,13 +210,16 @@ impl Friends for FriendsUser {
             fr_list.push(friend_info_from_user(&data));
             curr_friends.push(u.pid);
         }
+        println!("finished summing users");
         drop(curr_friends);
         drop(users);
 
+        println!("adding self to users");
         let mut users = self.fm.users.write().await;
         users.push(self.this.clone());
         drop(users);
 
+        println!("done...");
         Ok((
             PrincipalPreference {
                 block_friend_request: false,
@@ -237,11 +243,11 @@ impl Friends for FriendsUser {
 
     async fn update_presence(&self, presence: NintendoPresenceV2) -> Result<(), ErrorCode> {
         let mut data = self.data.write().await;
-        let Some(data) = data.as_mut() else {
+        let Some(inner_data) = data.as_mut() else {
             return Err(ErrorCode::RendezVous_PermissionDenied);
         };
-        data.presence = presence;
-        let Ok(any_self_fr_info) = Any::new(&data.presence) else {
+        inner_data.presence = presence;
+        let Ok(any_self_fr_info) = Any::new(&inner_data.presence) else {
             return Err(ErrorCode::RendezVous_ControlScriptFailure);
         };
         drop(data);
