@@ -10,8 +10,8 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Fields, FnArg, LitInt, Pat, Token,
-    TraitItem,
+    parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Fields, FnArg, Lit, LitInt,
+    LitStr, Pat, Token, TraitItem,
 };
 
 struct ProtoInputParams {
@@ -400,6 +400,10 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
 
     // generate base data
 
+    let str_name = Lit::Str(LitStr::new(
+        &derive_input.ident.to_string(),
+        derive_input.ident.span(),
+    ));
     let ident = derive_input.ident;
 
     let tokens = quote! {
@@ -414,6 +418,10 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
             }
 
             #write_size
+
+            fn name() -> &'static str{
+                #str_name
+            }
         }
     };
 

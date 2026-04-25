@@ -9,7 +9,9 @@ use tokio::net::TcpListener;
 
 use crate::{
     executables::common::{OWN_IP_PRIVATE, SERVER_PORT, new_simple_backend},
-    nex::friends_handler::{FriendsGuest, FriendsManager, FriendsUser, RemoteFriendsUser},
+    nex::friends_handler::{
+        FriendsGuest, FriendsManager, FriendsUser, RemoteFriendRemote, RemoteFriendsUser,
+    },
     reggie::UnitPacketRead,
     rmc::{
         protocols::{
@@ -59,7 +61,7 @@ pub async fn start_friends_backend() {
                     data: Default::default(),
                     current_friends: Default::default(),
                     this: this.clone(),
-                    remote: RemoteFriendsUser::new(r),
+                    remote: RemoteFriendRemote::new(r),
                 })
             });
         } else {

@@ -145,7 +145,7 @@ impl<C: Crypto> Server<C> {
                     };
                     info!("send attempt {}", n);
 
-                    self.socket
+                    this.socket
                         .send_to(&data, conn.addr.regular_socket_addr)
                         .await;
 

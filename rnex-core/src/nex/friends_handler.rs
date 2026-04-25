@@ -37,9 +37,8 @@ use rnex_core::rmc::protocols::friends::{GameKey, MiiV2, PrincipalBasicInfo};
 
 use rnex_core::PID;
 
-use crate::nex::user;
-use crate::rmc::protocols::account_management::NintendoCreateAccountData;
-use crate::rmc::protocols::nintendo_notification::NintendoNotificationEvent;
+use rnex_core::rmc::protocols::account_management::NintendoCreateAccountData;
+use rnex_core::rmc::protocols::nintendo_notification::NintendoNotificationEvent;
 use rnex_core::rmc::structures::RmcSerialize;
 
 define_rmc_proto!(
