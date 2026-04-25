@@ -153,6 +153,7 @@ impl<C: Crypto> Server<C> {
                 }
             });
             frag_num += 1;
+            sleep(Duration::from_millis(16)).await;
         }
         drop(inner);
     }

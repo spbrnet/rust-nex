@@ -31,6 +31,7 @@ use rnex_core::{
     },
 };
 use std::sync::atomic::Ordering::Relaxed;
+use tokio::spawn;
 use tokio::sync::RwLock;
 
 use rnex_core::rmc::protocols::friends::{GameKey, MiiV2, PrincipalBasicInfo};
@@ -186,32 +187,40 @@ impl Friends for FriendsUser {
 
         println!("acquiring user and current friends locks");
         let users = self.fm.users.read().await;
-        let mut curr_friends = self.current_friends.write().await;
         println!("started summing users");
         for u in users.deref().iter().filter_map(|u| u.upgrade()) {
             let data = u.data.read().await;
-            let Some(data) = data.as_ref() else {
+            let Some(inner_data) = data.as_ref() else {
                 continue;
             };
+            fr_list.push(friend_info_from_user(&inner_data));
+            drop(data);
+
+            let mut curr_friends = self.current_friends.write().await;
+            curr_friends.push(u.pid);
+            drop(curr_friends);
 
             let mut fr = u.current_friends.write().await;
             if !fr.contains(&self.pid) {
                 fr.push(self.pid);
-                u.remote
-                    .process_nintendo_notification_event_1(NintendoNotificationEvent {
-                        event_type: 30,
-                        sender: self.pid,
-                        data: any_self_fr_info.clone(),
-                    })
-                    .await;
+                drop(fr);
+                let data = any_self_fr_info.clone();
+                let u = u.clone();
+                let sender = self.pid;
+                spawn(async move {
+                    u.remote
+                        .process_nintendo_notification_event_1(NintendoNotificationEvent {
+                            event_type: 30,
+                            sender,
+                            data,
+                        })
+                        .await;
+                });
+            } else {
+                drop(fr);
             }
-            drop(fr);
-
-            fr_list.push(friend_info_from_user(&data));
-            curr_friends.push(u.pid);
         }
         println!("finished summing users");
-        drop(curr_friends);
         drop(users);
 
         println!("adding self to users");
