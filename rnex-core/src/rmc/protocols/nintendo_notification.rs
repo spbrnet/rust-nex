@@ -30,7 +30,7 @@ pub struct NintendoNotificationEventProfile {
     pub platform: u8,
 }
 
-#[rmc_proto(3, NoReturn)]
+#[rmc_proto(100, NoReturn)]
 pub trait NintendoNotification {
     #[method_id(1)]
     async fn process_nintendo_notification_event_1(&self, notif: NintendoNotificationEvent);
