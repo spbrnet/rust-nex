@@ -1,0 +1,69 @@
+name: Build and Test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+env:
+  DOCKER_TLS_CERTDIR: /certs
+  IMAGE_TAG: ${{ github.ref_name }}
+
+jobs:
+  splatoon:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache container storage
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/lib/containers/storage
+            /run/containers/storage
+            ~/.local/share/containers/storage
+          key: image-cache
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Login to registry
+        run: podman login -u ${{ vars.PACKAGE_USER }} -p ${{ vars.PACKAGE_PWD }} ${{ vars.PACKAGE_URL }}
+
+      - name: Build Splatoon edition
+        run: ./.ci-scripts/make-edition.sh splatoon
+
+  friends:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache container storage
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/lib/containers/storage
+            /run/containers/storage
+            ~/.local/share/containers/storage
+          key: image-cache
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Login to registry
+        run: podman login -u ${{ vars.PACKAGE_USER }} -p ${{ vars.PACKAGE_PWD }} ${{ vars.PACKAGE_URL }}
+
+      - name: Build Friends edition
+        run: ./.ci-scripts/make-edition.sh friends
