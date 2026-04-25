@@ -29,9 +29,7 @@ jobs:
           key: image-cache
 
       - name: Login to registry
-        run: |
-          echo ${{ secrets.PACKAGE_URL }}
-          docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} ${{ secrets.PACKAGE_URL }}
+        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} ${{ secrets.PACKAGE_URL }}
 
       - name: Build Splatoon edition
         run: ./.ci-scripts/make-edition.sh splatoon
@@ -55,7 +53,7 @@ jobs:
           key: image-cache
 
       - name: Login to registry
-        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} ${{ secrets.PACKAGE_URL }}
+        run: podman login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} ${{ secrets.PACKAGE_URL }}
 
       - name: Build Friends edition
         run: ./.ci-scripts/make-edition.sh friends
