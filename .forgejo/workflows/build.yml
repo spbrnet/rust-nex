@@ -60,6 +60,6 @@ jobs:
 
       - name: Build Friends edition
         env:
-          CI_REGISTRY_IMAGE: ${{ secrets.PACKAGE_URL }}
+          CI_REGISTRY_IMAGE: ${{ secrets.PACKAGE_URL }}/rust-nex
           CI_COMMIT_SHORT_SHA: ${{ github.ref_name }}
         run: ./.ci-scripts/make-edition.sh friends
