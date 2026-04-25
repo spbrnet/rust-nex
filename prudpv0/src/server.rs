@@ -106,7 +106,7 @@ impl<C: Crypto> Server<C> {
                     .expect("packet malformed in creation"),
             );*/
         let mut inner = conn.inner.lock().await;
-        let pieces = data.chunks(1000);
+        let pieces = data.chunks(700);
         let max_piece = pieces.len() - 1;
         let mut frag_num = 1;
         for (i, piece) in pieces.enumerate() {
