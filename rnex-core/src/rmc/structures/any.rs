@@ -13,10 +13,7 @@ impl RmcSerialize for Any {
         self.name.serialize(writer)?;
 
         let u32_len = self.data.len() as u32;
-
         (u32_len + 4).serialize(writer)?;
-        u32_len.serialize(writer)?;
-
         self.data.serialize(writer)?;
 
         Ok(())
@@ -26,11 +23,7 @@ impl RmcSerialize for Any {
 
         // also length ?
         let _len2: u32 = reader.read_struct(IS_BIG_ENDIAN)?;
-        let length: u32 = reader.read_struct(IS_BIG_ENDIAN)?;
-
-        let mut data = vec![0; length as usize];
-
-        reader.read_exact(&mut data)?;
+        let data = Vec::deserialize(reader)?;
 
         Ok(Any { name, data })
     }
