@@ -13,3 +13,10 @@ cfg_if! {
         pub mod user;
     }
 }
+
+cfg_if! {
+    if #[cfg(feature = "datastore")] {
+        pub mod s3presigner;
+        pub mod datastore;
+    }
+}

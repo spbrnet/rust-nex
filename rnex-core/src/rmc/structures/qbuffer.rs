@@ -3,7 +3,7 @@ use bytemuck::bytes_of;
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 use crate::rmc::structures::{Result, RmcSerialize};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct QBuffer(pub Vec<u8>);
 
 impl RmcSerialize for QBuffer{

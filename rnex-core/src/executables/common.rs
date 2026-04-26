@@ -8,13 +8,43 @@ use std::io::Cursor;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::Arc;
 use tokio::net::TcpListener;
-
+use std::sync::LazyLock;
+use std::sync::OnceLock;
+cfg_if! {
+    if #[cfg(feature = "datastore")] {
+        use sqlx::postgres::PgPool;
+    }
+}
 use log::error;
 use std::error::Error;
-
+use std::string::ToString;
+use cfg_if::cfg_if;
 use crate::reggie::UnitPacketRead;
 
 const IP_REQ_SERVICE_URL: &str = "https://ipinfo.io/ip";
+
+cfg_if! {
+    if #[cfg(feature = "datastore")] {
+        pub static RNEX_DATASTORE_DATABASE_URL: LazyLock<String> = LazyLock::new(|| {
+            std::env::var("RNEX_DATASTORE_DATABASE_URL")
+                .expect("RNEX_DATASTORE_DATABASE_URL must be set")
+        });
+
+        pub static DB_POOL: OnceLock<PgPool> = OnceLock::new();
+
+        pub fn get_db() -> &'static PgPool {
+            DB_POOL.get().expect("db_pool not initialized")
+        }
+        pub static RNEX_DATASTORE_S3_ENDPOINT: LazyLock<String> = LazyLock::new(|| {
+            std::env::var("RNEX_DATASTORE_S3_ENDPOINT")
+                .expect("RNEX_DATASTORE_S3_ENDPOINT must be set")
+        });
+        pub static RNEX_DATASTORE_S3_BUCKET: LazyLock<String> = LazyLock::new(|| {
+            std::env::var("RNEX_DATASTORE_S3_BUCKET")
+                .expect("RNEX_DATASTORE_S3_BUCKET must be set")
+        });
+    }
+}
 
 pub fn try_get_ip() -> Result<Ipv4Addr, Box<dyn Error>> {
     let mut req = ureq::get(IP_REQ_SERVICE_URL).call()?;

@@ -23,6 +23,7 @@ use rnex_core::rmc::protocols::matchmake_extension::{
 };
 use rnex_core::rmc::protocols::ranking::{Ranking, RawRanking, RawRankingInfo, RemoteRanking};
 use rnex_core::rmc::protocols::secure::{RawSecure, RawSecureInfo, RemoteSecure, Secure};
+use rnex_core::rmc::protocols::datastore::{DataStore, RawDataStore, RawDataStoreInfo, RemoteDataStore};
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::any::Any;
 use rnex_core::rmc::structures::matchmake::{
@@ -44,18 +45,37 @@ use rnex_core::rmc::structures::qbuffer::QBuffer;
 use rnex_core::rmc::structures::qresult::QResult;
 use rnex_core::rmc::structures::ranking::UploadCompetitionData;
 use std::sync::{Arc, Weak};
+use cfg_if::cfg_if;
+use rnex_core::rmc::protocols::ranking::{CompetitionRankingScoreData, CompetitionRankingGetParam, CompetitionRankingScoreInfo};
+use rnex_core::rmc::structures::ranking::{UploadCompetitionData};
 use tokio::sync::{Mutex, RwLock};
 
-define_rmc_proto!(
-    proto UserProtocol{
-        Secure,
-        MatchmakeExtension,
-        MatchmakeExt,
-        Matchmake,
-        NatTraversal,
-        Ranking
+cfg_if! {
+    if #[cfg(feature = "datastore")] {
+        define_rmc_proto!(
+            proto UserProtocol{
+                Secure,
+                MatchmakeExtension,
+                MatchmakeExt,
+                Matchmake,
+                NatTraversal,
+                Ranking,
+                DataStore
+            }
+        );
+    } else {
+        define_rmc_proto!(
+            proto UserProtocol{
+                Secure,
+                MatchmakeExtension,
+                MatchmakeExt,
+                Matchmake,
+                NatTraversal,
+                Ranking
+            }
+        );
     }
-);
+}
 
 #[rmc_struct(UserProtocol)]
 pub struct User {

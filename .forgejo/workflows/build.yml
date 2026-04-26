@@ -70,3 +70,33 @@ jobs:
           CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
           CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
         run: ./.ci-scripts/make-edition.sh friends
+
+  super-mario-maker:
+    runs-on: debian-trixie
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache container storage
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/lib/containers/storage
+            /run/containers/storage
+            ~/.local/share/containers/storage
+          key: image-cache
+
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
+
+      - name: Login to registry
+        run: podman login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
+
+      - name: Build Friends edition
+        env:
+          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
+          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
+        run: ./.ci-scripts/make-edition.sh super-mario-maker

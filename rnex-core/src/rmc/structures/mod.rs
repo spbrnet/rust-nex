@@ -38,6 +38,7 @@ pub mod ranking;
 pub mod rmc_struct;
 pub mod string;
 pub mod variant;
+pub mod resultsrange;
 
 pub trait RmcSerialize {
     fn serialize(&self, writer: &mut impl Write) -> Result<()>;
