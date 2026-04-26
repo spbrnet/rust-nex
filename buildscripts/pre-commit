@@ -1,0 +1,14 @@
+#!/bin/sh
+
+echo "running cargo check..."
+
+./check-all.sh
+STATUS=$?
+
+if [ $STATUS -ne 0 ]; then
+  echo "cargo check failed, aborting"
+  exit 1
+fi
+
+echo "cargo check passed"
+exit 0
