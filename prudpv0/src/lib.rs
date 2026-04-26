@@ -1,26 +1,13 @@
-cfg_if::cfg_if! {
+use cfg_if::cfg_if;
+cfg_if! {
     if #[cfg(feature = "prudpv0")] {
-        use bytemuck::{Pod, Zeroable};
-        use cfg_if::cfg_if;
-        use log::{error, info, warn};
-        use proxy_common::{ProxyStartupParam, setup_edge_node_connection};
-        use rnex_core::executables::common::{OWN_IP_PRIVATE, OWN_IP_PUBLIC, SERVER_PORT};
-        use rnex_core::prudp::types_flags::TypesFlags;
-        use rnex_core::prudp::types_flags::types::SYN;
-        use rnex_core::prudp::virtual_port::VirtualPort;
-        use rnex_core::reggie::EdgeNodeHolderConnectOption::Register;
-        use rnex_core::reggie::RemoteEdgeNodeHolder;
-        use rnex_core::rmc::protocols::{OnlyRemote, new_rmc_gateway_connection};
-        use rnex_core::rmc::structures::RmcSerialize;
-        use rnex_core::util::SplittableBufferConnection;
+        use log::info;
+        use proxy_common::ProxyStartupParam;
         use std::env;
         use std::net::SocketAddrV4;
-        use std::process::abort;
         use std::sync::{Arc, LazyLock};
-        use tokio::net::UdpSocket;
 
         use crate::crypto::{Crypto, Insecure, Secure};
-        use crate::packet::PRUDPV0Packet;
         use crate::server::Server;
 
         mod crypto;
@@ -44,8 +31,6 @@ cfg_if::cfg_if! {
         //implementations, e.g. secure and insecure(this also includes special cases like friends)
 
         async fn start_proxy<T: Crypto>(param: ProxyStartupParam) {
-            info!("creating cryptography instance");
-            let mut crypto = Arc::new(T::new());
             info!("binding to socket");
 
             let server: Arc<Server<T>> = Arc::new(Server::new(param).await);

@@ -312,7 +312,7 @@ impl Friends for FriendsUser {
 
     async fn delete_persistent_notification(
         &self,
-        notifs: Vec<PersistentNotification>,
+        _notifs: Vec<PersistentNotification>,
     ) -> Result<(), ErrorCode> {
         Ok(())
     }

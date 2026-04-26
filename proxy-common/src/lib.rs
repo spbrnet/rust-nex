@@ -1,12 +1,12 @@
 use log::{error, info};
 use rnex_core::{
     PID,
-    executables::common::{OWN_IP_PUBLIC, try_get_ip},
+    executables::common::try_get_ip,
     prudp::{socket_addr::PRUDPSockAddr, virtual_port::VirtualPort},
     reggie::{RemoteEdgeNodeHolder, UnitPacketWrite},
     rmc::{
         protocols::{
-            OnlyRemote, RemoteDisconnectable, RmcCallable, RmcConnection, RmcPureRemoteObject,
+            RemoteDisconnectable, RmcCallable, RmcConnection, RmcPureRemoteObject,
             new_rmc_gateway_connection,
         },
         structures::RmcSerialize,
@@ -17,7 +17,7 @@ use rnex_core::{
 use std::{
     env::{self, VarError},
     error,
-    net::{AddrParseError, IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
+    net::{AddrParseError, Ipv4Addr, SocketAddr, SocketAddrV4},
     ops::Deref,
     panic,
     str::FromStr,
@@ -75,6 +75,7 @@ const VIRTUAL_PORT_INSECURE: LazyLock<VirtualPort> =
 const VIRTUAL_PORT_SECURE: LazyLock<VirtualPort> =
     LazyLock::new(|| VirtualPort::parse(env!("RNEX_VIRTUAL_PORT_SECURE")).unwrap());
 impl ProxyStartupParam {
+    #[inline(always)]
     pub fn new(prox_ty: ProxyType) -> Result<Self, Error> {
         let port = RNEX_DEFAULT_PORT
             + match prox_ty {
@@ -82,7 +83,7 @@ impl ProxyStartupParam {
                 ProxyType::Secure => 1,
             };
         let self_private = try_get_env("SERVER_IP_PRIVATE")
-            .unwrap_or(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, RNEX_DEFAULT_PORT));
+            .unwrap_or(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port));
         let self_public: SocketAddrV4 = match try_get_env("SERVER_IP_PUBLIC") {
             Ok(v) => v,
             Err(e) => try_get_ip()
@@ -121,6 +122,7 @@ impl<T: RemoteDisconnectable + RmcPureRemoteObject, C: FnOnce() + Send + Sync + 
         Self(T::new(conn), Some(drop_func))
     }
 
+    #[allow(dead_code)]
     pub async fn disconnect(&self) {
         self.0.disconnect().await;
     }

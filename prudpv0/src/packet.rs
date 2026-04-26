@@ -1,11 +1,9 @@
-use std::mem::transmute;
-
 use bytemuck::{Pod, Zeroable, try_from_bytes, try_from_bytes_mut};
-use log::{error, info, warn};
+use log::{info, warn};
 use rnex_core::prudp::{
     types_flags::{
-        self, TypesFlags,
-        flags::{HAS_SIZE, NEED_ACK},
+        TypesFlags,
+        flags::HAS_SIZE,
         types::{CONNECT, DATA, DISCONNECT, PING, SYN},
     },
     virtual_port::VirtualPort,
@@ -165,6 +163,7 @@ impl<T: AsRef<[u8]>> PRUDPV0Packet<T> {
 
 const DEFAULT_SIGNAT: [u8; 4] = [0x12, 0x34, 0x56, 0x78];
 #[inline(always)]
+#[allow(dead_code)]
 const fn get_size_offset(tf: TypesFlags) -> usize {
     size_of::<PRUDPV0Header>()
         + (if tf.get_types() & (SYN | CONNECT) != 0 {

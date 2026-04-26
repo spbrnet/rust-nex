@@ -24,6 +24,7 @@ pub struct SecureInstance {
     pair: EncryptionPair<Rc4<U16>>,
     uid: u32,
     self_signat: [u8; 4],
+    #[allow(dead_code)]
     remote_signat: [u8; 4],
 }
 

@@ -3,8 +3,7 @@ use std::{
     io::{self, Cursor, Read, Write},
 };
 
-use bytemuck::{Pod, Zeroable, bytes_of};
-use futures_util::Stream;
+use bytemuck::{Pod, Zeroable, bytes_of_mut};
 use rnex_core::prudp::types_flags::TypesFlags;
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 
@@ -30,10 +29,10 @@ pub enum PacketSpecificData {
 
 impl PacketSpecificData {
     fn consume(reader: &mut impl Read) -> io::Result<Self> {
-        let mut option_id = 0;
-        reader.read_exact(&mut [option_id])?;
-        let mut size = 0;
-        reader.read_exact(&mut [size])?;
+        let mut option_id = 0u8;
+        reader.read_exact(bytes_of_mut(&mut option_id))?;
+        let mut size = 0u8;
+        reader.read_exact(bytes_of_mut(&mut size))?;
 
         match option_id {
             0 => {
@@ -156,7 +155,7 @@ impl<T: AsRef<[u8]>> LitePacket<T> {
             .get_mut(size_of::<LiteHeader>()..size_of::<LiteHeader>() + len as usize)
     }
 
-    pub fn packet_specific_iter(&self) -> Option<PacketSpecificIter> {
+    pub fn packet_specific_iter<'a>(&'a self) -> Option<PacketSpecificIter<'a>> {
         self.packet_specific_raw()
             .map(Cursor::new)
             .map(PacketSpecificIter)

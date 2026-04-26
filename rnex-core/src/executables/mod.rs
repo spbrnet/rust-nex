@@ -1,3 +1,10 @@
+use cfg_if::cfg_if;
+
 pub mod common;
-pub mod friends_backend;
-pub mod regular_backend;
+cfg_if! {
+    if #[cfg(feature = "friends")]{
+        pub mod friends_backend;
+    } else {
+        pub mod regular_backend;
+    }
+}

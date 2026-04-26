@@ -8,11 +8,11 @@ use rnex_core::rmc::structures::qresult::QResult;
 
 cfg_if! {
     if #[cfg(feature = "nx")]{
-        type LOGIN_EX_RET = (QResult, PID, Vec<u8>, ConnectionData, String, String);
-        type REQUEST_TICKET_RET = (QResult, Vec<u8>, String);
+        type LoginExRet = (QResult, PID, Vec<u8>, ConnectionData, String, String);
+        type RequestTicketRet = (QResult, Vec<u8>, String);
     } else {
-        type LOGIN_EX_RET = (QResult, PID, Vec<u8>, ConnectionData, String);
-        type REQUEST_TICKET_RET = (QResult, Vec<u8>);
+        type LoginExRet = (QResult, PID, Vec<u8>, ConnectionData, String);
+        type RequestTicketRet = (QResult, Vec<u8>);
     }
 }
 
@@ -31,14 +31,14 @@ pub trait Auth {
     /// representation of the `LoginEx` method(for details see the
     /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))
     #[method_id(2)]
-    async fn login_ex(&self, name: String, extra_data: Any) -> Result<LOGIN_EX_RET, ErrorCode>;
+    async fn login_ex(&self, name: String, extra_data: Any) -> Result<LoginExRet, ErrorCode>;
 
     #[method_id(3)]
     async fn request_ticket(
         &self,
         source_pid: PID,
         destination_pid: PID,
-    ) -> Result<REQUEST_TICKET_RET, ErrorCode>;
+    ) -> Result<RequestTicketRet, ErrorCode>;
 
     /// representation of the `RequestTicket` method(for details see the
     /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))

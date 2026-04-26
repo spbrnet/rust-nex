@@ -18,13 +18,13 @@ use rnex_core::PID;
 
 cfg_if! {
     if #[cfg(feature = "friends")]{
-        pub type SESSION_KEY_LENGTH_TY = U16;
+        pub type SessionLengthTy = U16;
     } else {
         use rc4::consts::U32;
-        pub type SESSION_KEY_LENGTH_TY = U32;
+        pub type SessionLengthTy = U32;
     }
 }
-pub const SESSION_KEY_LENGTH: usize = SESSION_KEY_LENGTH_TY::USIZE;
+pub const SESSION_KEY_LENGTH: usize = SessionLengthTy::USIZE;
 
 type Md5Hmac = Hmac<md5::Md5>;
 

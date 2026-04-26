@@ -1,8 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use std::{
-    fmt::{Debug, Formatter},
-    slice,
-};
+use std::fmt::{Debug, Formatter};
 use v_byte_helpers::SwapEndian;
 
 #[repr(transparent)]

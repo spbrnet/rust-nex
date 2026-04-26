@@ -17,7 +17,7 @@ use rnex_core::{
         types_flags::{
             TypesFlags,
             flags::{ACK, NEED_ACK, RELIABLE},
-            types::{CONNECT, DATA, DISCONNECT, SYN},
+            types::{CONNECT, DATA, DISCONNECT, PING, SYN},
         },
         virtual_port::VirtualPort,
     },
@@ -26,20 +26,20 @@ use rnex_core::{
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{
     WebSocketStream,
-    tungstenite::{
-        Bytes, Message, client::IntoClientRequest, http::header::ACCESS_CONTROL_REQUEST_METHOD,
-    },
+    tungstenite::{Bytes, Message},
 };
 
 struct ConnectionState {
     param: Arc<ProxyStartupParam>,
     active: bool,
     websocket: WebSocketStream<TcpStream>,
+    #[allow(dead_code)]
     pid: PID,
     backend_conn: SplittableBufferConnection,
     addr: PRUDPSockAddr,
     incoming_reliable: HashMap<u16, LitePacket<Bytes>>,
     client_reliable_counter: u16,
+    #[allow(dead_code)]
     server_reliable_counter: u16,
 }
 
@@ -71,10 +71,16 @@ impl ConnectionState {
             );
             let data: Bytes = data.into();
             if header.types_flags.get_types() == DISCONNECT {
-                self.websocket.send(Message::Binary(data.clone())).await;
-                self.websocket.send(Message::Binary(data.clone())).await;
+                self.websocket
+                    .send(Message::Binary(data.clone()))
+                    .await
+                    .ok();
+                self.websocket
+                    .send(Message::Binary(data.clone()))
+                    .await
+                    .ok();
             }
-            self.websocket.send(Message::Binary(data)).await;
+            self.websocket.send(Message::Binary(data)).await.ok();
         }
 
         if (header.types_flags.get_flags() & ACK) != 0 {
@@ -111,6 +117,7 @@ impl ConnectionState {
             }
         }
     }
+    #[allow(dead_code)]
     pub async fn process_reliable(&mut self) {
         while let Some(v) = self.incoming_reliable.remove(&self.client_reliable_counter) {
             self.handle_incoming_prudp(v, true).await;
@@ -131,7 +138,7 @@ impl ConnectionState {
                         }
                     }
                 }
-                v = self.backend_conn.recv() => {
+                _ = self.backend_conn.recv() => {
 
                 }
             }
@@ -197,7 +204,7 @@ pub async fn websocket_thread_unconnected<C: Crypto>(
                             ],
                             &[],
                         );
-                        websocket.send(Message::Binary(data.into())).await;
+                        websocket.send(Message::Binary(data.into())).await.ok();
                     }
                     CONNECT => {
                         let Some(supported) = packet.packet_specific_iter() else {
@@ -242,7 +249,7 @@ pub async fn websocket_thread_unconnected<C: Crypto>(
                             ],
                             &data,
                         );
-                        websocket.send(Message::Binary(data.into())).await;
+                        websocket.send(Message::Binary(data.into())).await.ok();
 
                         let addr = PRUDPSockAddr::new(
                             addr,

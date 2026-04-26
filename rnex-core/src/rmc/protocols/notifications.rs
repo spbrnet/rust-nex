@@ -1,4 +1,4 @@
-use macros::{RmcSerialize, method_id, rmc_proto, rmc_struct};
+use macros::{RmcSerialize, method_id, rmc_proto};
 
 use rnex_core::PID;
 

@@ -2,7 +2,7 @@ use macros::{RmcSerialize, method_id, rmc_proto};
 
 use rnex_core::{kerberos::KerberosDateTime, rmc::response::ErrorCode};
 
-use rnex_core::rmc::structures::{data::Data, rmc_struct};
+use rnex_core::rmc::structures::data::Data;
 
 #[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]

@@ -1,32 +1,24 @@
 use std::{
     collections::HashMap,
-    hash::Hash,
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
-    sync::{
-        Arc, LazyLock, Weak,
-        atomic::{AtomicBool, AtomicU32},
-    },
+    net::{SocketAddr, SocketAddrV4},
+    sync::{Arc, Weak},
     time::Duration,
 };
 
 use log::{error, info, warn};
 use proxy_common::{ProxyStartupParam, new_backend_connection};
 use rnex_core::{
-    executables::common::{OWN_IP_PRIVATE, SERVER_PORT},
     prudp::{
         socket_addr::PRUDPSockAddr,
         types_flags::{
-            TypesFlags,
-            flags::{ACK, HAS_SIZE, NEED_ACK, RELIABLE},
+            flags::{ACK, NEED_ACK, RELIABLE},
             types::{CONNECT, DATA, DISCONNECT, PING, SYN},
         },
-        virtual_port::VirtualPort,
     },
-    rnex_proxy_common::ConnectionInitData,
     util::{SendingBufferConnection, SplittableBufferConnection},
 };
 use tokio::{
-    net::{TcpSocket, UdpSocket},
+    net::UdpSocket,
     spawn,
     sync::{Mutex, RwLock},
     time::{Instant, sleep},
@@ -35,8 +27,8 @@ use tokio::{
 use crate::{
     crypto::{Crypto, CryptoInstance},
     packet::{
-        PRUDPV0Header, PRUDPV0Packet, new_connect_packet, new_data_packet, new_disconnect_packet,
-        new_ping_packet, new_syn_packet, precalc_size,
+        PRUDPV0Packet, new_connect_packet, new_data_packet, new_disconnect_packet, new_ping_packet,
+        new_syn_packet,
     },
 };
 
@@ -49,16 +41,14 @@ pub struct InternalConnection<C: CryptoInstance> {
     packet_queue: HashMap<u16, (Instant, PRUDPV0Packet<Vec<u8>>)>,
 }
 pub struct Connection<C: CryptoInstance> {
-    alive: AtomicBool,
     session_id: u8,
     target: SendingBufferConnection,
-    self_signat: [u8; 4],
-    remote_signat: [u8; 4],
     addr: PRUDPSockAddr,
     inner: Mutex<InternalConnection<C>>,
 }
 
 impl<C: CryptoInstance> InternalConnection<C> {
+    #[allow(dead_code)]
     fn next_server_count(&mut self) -> u16 {
         let prev_val = self.server_packet_counter;
         let (val, _) = self.server_packet_counter.overflowing_add(1);
@@ -148,7 +138,8 @@ impl<C: Crypto> Server<C> {
 
                     this.socket
                         .send_to(&data, conn.addr.regular_socket_addr)
-                        .await;
+                        .await
+                        .ok();
 
                     break;
                 }
@@ -192,7 +183,8 @@ impl<C: Crypto> Server<C> {
 
                 self.socket
                     .send_to(&packet, conn.addr.regular_socket_addr)
-                    .await;
+                    .await
+                    .ok();
             }
 
             if (Instant::now() - inner.last_action).as_secs() > 15 {
@@ -210,13 +202,16 @@ impl<C: Crypto> Server<C> {
 
                 self.socket
                     .send_to(&packet, conn.addr.regular_socket_addr)
-                    .await;
+                    .await
+                    .ok();
                 self.socket
                     .send_to(&packet, conn.addr.regular_socket_addr)
-                    .await;
+                    .await
+                    .ok();
                 self.socket
                     .send_to(&packet, conn.addr.regular_socket_addr)
-                    .await;
+                    .await
+                    .ok();
                 drop(inner);
 
                 let mut conns = self.connections.write().await;
@@ -236,7 +231,10 @@ impl<C: Crypto> Server<C> {
         let signat = [signat[0], signat[1], signat[2], signat[3]];
 
         let packet = new_syn_packet(ACK, header.destination, header.source, signat, &self.crypto);
-        self.socket.send_to(&packet, addr.regular_socket_addr).await;
+        self.socket
+            .send_to(&packet, addr.regular_socket_addr)
+            .await
+            .ok();
     }
     async fn handle_connect(self: Arc<Self>, packet: PRUDPV0Packet<Vec<u8>>, addr: PRUDPSockAddr) {
         let Some(data) = packet.payload() else {
@@ -275,11 +273,8 @@ impl<C: Crypto> Server<C> {
 
         let conn = Arc::new(Connection {
             target: buf_conn.duplicate_sender(),
-            remote_signat,
-            self_signat,
             addr,
             session_id: header.session_id,
-            alive: AtomicBool::new(true),
             inner: Mutex::new(InternalConnection {
                 last_action: Instant::now(),
                 crypto_instance: ci,
@@ -320,9 +315,12 @@ impl<C: Crypto> Server<C> {
         );
 
         info!("sending back connection accept");
-        self.socket.send_to(&packet, addr.regular_socket_addr).await;
+        self.socket
+            .send_to(&packet, addr.regular_socket_addr)
+            .await
+            .ok();
     }
-    async fn handle_data(self: Arc<Self>, mut packet: PRUDPV0Packet<Vec<u8>>, addr: PRUDPSockAddr) {
+    async fn handle_data(self: Arc<Self>, packet: PRUDPV0Packet<Vec<u8>>, addr: PRUDPSockAddr) {
         let Some(frag_id) = packet.fragment_id() else {
             warn!("invalid packet from: {:?}", addr);
             return;
@@ -349,7 +347,10 @@ impl<C: Crypto> Server<C> {
             &mut conn.crypto_instance,
             &self.crypto,
         );
-        self.socket.send_to(&ack, addr.regular_socket_addr).await;
+        self.socket
+            .send_to(&ack, addr.regular_socket_addr)
+            .await
+            .ok();
         conn.packet_queue.insert(
             packet.header().unwrap().sequence_id,
             (Instant::now(), packet),
@@ -375,7 +376,7 @@ impl<C: Crypto> Server<C> {
         drop(conn);
     }
 
-    async fn handle_ping(self: Arc<Self>, mut packet: PRUDPV0Packet<Vec<u8>>, addr: PRUDPSockAddr) {
+    async fn handle_ping(self: Arc<Self>, packet: PRUDPV0Packet<Vec<u8>>, addr: PRUDPSockAddr) {
         info!("got ping");
         let header = packet.header().unwrap();
 
@@ -395,11 +396,14 @@ impl<C: Crypto> Server<C> {
         );
         drop(inner);
 
-        self.socket.send_to(&packet, addr.regular_socket_addr).await;
+        self.socket
+            .send_to(&packet, addr.regular_socket_addr)
+            .await
+            .ok();
     }
     async fn handle_disconnect(
         self: Arc<Self>,
-        mut packet: PRUDPV0Packet<Vec<u8>>,
+        packet: PRUDPV0Packet<Vec<u8>>,
         addr: PRUDPSockAddr,
     ) {
         info!("got disconnect");
@@ -425,9 +429,18 @@ impl<C: Crypto> Server<C> {
         conns.remove(&(addr, header.session_id));
         drop(conns);
 
-        self.socket.send_to(&packet, addr.regular_socket_addr).await;
-        self.socket.send_to(&packet, addr.regular_socket_addr).await;
-        self.socket.send_to(&packet, addr.regular_socket_addr).await;
+        self.socket
+            .send_to(&packet, addr.regular_socket_addr)
+            .await
+            .ok();
+        self.socket
+            .send_to(&packet, addr.regular_socket_addr)
+            .await
+            .ok();
+        self.socket
+            .send_to(&packet, addr.regular_socket_addr)
+            .await
+            .ok();
     }
     async fn get_connection(
         &self,

@@ -1,4 +1,4 @@
-use std::{io::Write, rc::Rc};
+use std::io::Write;
 
 use hmac::Mac;
 use md5::{Digest, Md5};
@@ -18,6 +18,7 @@ use crate::crypto::{
 pub struct InsecureInstance {
     pair: EncryptionPair<Rc4<U5>>,
     self_signat: [u8; 4],
+    #[allow(dead_code)]
     remote_signat: [u8; 4],
 }
 
@@ -62,7 +63,7 @@ impl Crypto for Insecure {
 
     fn instantiate(
         &self,
-        packet_data: &[u8],
+        _packet_data: &[u8],
         self_signat: [u8; 4],
         remote_signat: [u8; 4],
     ) -> Option<(Self::Instance, Vec<u8>)> {

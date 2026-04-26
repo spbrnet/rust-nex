@@ -8,15 +8,11 @@ use log::error;
 use tokio::net::TcpListener;
 
 use crate::{
-    executables::common::{OWN_IP_PRIVATE, SERVER_PORT, new_simple_backend},
-    nex::friends_handler::{
-        FriendsGuest, FriendsManager, FriendsUser, RemoteFriendRemote, RemoteFriendsUser,
-    },
+    executables::common::{OWN_IP_PRIVATE, SERVER_PORT},
+    nex::friends_handler::{FriendsGuest, FriendsManager, FriendsUser, RemoteFriendRemote},
     reggie::UnitPacketRead,
     rmc::{
-        protocols::{
-            RmcCallable, RmcPureRemoteObject, friends::RemoteFriends, new_rmc_gateway_connection,
-        },
+        protocols::{RmcPureRemoteObject, new_rmc_gateway_connection},
         structures::RmcSerialize,
     },
     rnex_proxy_common::ConnectionInitData,
@@ -65,8 +61,8 @@ pub async fn start_friends_backend() {
                 })
             });
         } else {
-            new_rmc_gateway_connection(stream.into(), move |r| {
-                Arc::new_cyclic(move |this| FriendsGuest {
+            new_rmc_gateway_connection(stream.into(), move |_| {
+                Arc::new_cyclic(move |_| FriendsGuest {
                     fm,
                     addr: c.prudpsock_addr,
                 })

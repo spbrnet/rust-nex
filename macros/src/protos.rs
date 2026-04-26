@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::token::{Brace, Paren, Semi};
-use syn::{Attribute, LitInt, LitStr, ReturnType, Type};
+use syn::{LitInt, LitStr, ReturnType, Type};
 
 pub struct ProtoMethodData {
     pub id: LitInt,
