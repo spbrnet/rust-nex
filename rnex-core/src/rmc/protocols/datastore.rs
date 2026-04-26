@@ -1,9 +1,9 @@
-use macros::{method_id, rmc_proto, RmcSerialize, rmc_struct};
-use rnex_core::rmc::structures::qbuffer::QBuffer;
-use rnex_core::rmc::response::ErrorCode;
-use rnex_core::rmc::structures::qresult::QResult;
-use rnex_core::kerberos::KerberosDateTime;
+use macros::{RmcSerialize, method_id, rmc_proto};
 use rnex_core::PID;
+use rnex_core::kerberos::KerberosDateTime;
+use rnex_core::rmc::response::ErrorCode;
+use rnex_core::rmc::structures::qbuffer::QBuffer;
+use rnex_core::rmc::structures::qresult::QResult;
 use rnex_core::rmc::structures::resultsrange::ResultsRange;
 
 #[derive(RmcSerialize, Clone, Debug, Default)]
@@ -78,7 +78,7 @@ pub struct RatingInitParam {
     pub range_min: i32,
     pub range_max: i32,
     pub period_hour: i8,
-    pub period_duration: i16
+    pub period_duration: i16,
 }
 
 #[derive(RmcSerialize, Clone)]
@@ -214,27 +214,53 @@ pub struct DataStoreSearchParam {
 }
 
 #[rmc_proto(115)]
-pub trait DataStore{
+pub trait DataStore {
     #[method_id(8)]
     async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode>;
     #[method_id(36)]
-    async fn get_metas_multiple_param(&self, params: Vec<GetMetaParam>) -> Result<(Vec<GetMetaInfo>, Vec<QResult>), ErrorCode>;
+    async fn get_metas_multiple_param(
+        &self,
+        params: Vec<GetMetaParam>,
+    ) -> Result<(Vec<GetMetaInfo>, Vec<QResult>), ErrorCode>;
     #[method_id(24)]
-    async fn prepare_post_object(&self, postparam: PreparePostParam) -> Result<ReqPostInfo, ErrorCode>;
+    async fn prepare_post_object(
+        &self,
+        postparam: PreparePostParam,
+    ) -> Result<ReqPostInfo, ErrorCode>;
     #[method_id(26)]
-    async fn complete_post_object(&self, completeparam: CompletePostParam) -> Result<(), ErrorCode>;
+    async fn complete_post_object(&self, completeparam: CompletePostParam)
+    -> Result<(), ErrorCode>;
     #[method_id(48)]
-    async fn rate_custom_ranking(&self, rankingparam: Vec<RateCustomRankingParam>) -> Result<(), ErrorCode>;
+    async fn rate_custom_ranking(
+        &self,
+        rankingparam: Vec<RateCustomRankingParam>,
+    ) -> Result<(), ErrorCode>;
     #[method_id(61)]
     async fn get_application_config(&self, appid: u32) -> Result<Vec<i32>, ErrorCode>;
     #[method_id(50)]
-    async fn get_custom_ranking_by_data_id(&self, custom_ranking_param: DataStoreGetCustomRankingByDataIDParam) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode>;
+    async fn get_custom_ranking_by_data_id(
+        &self,
+        custom_ranking_param: DataStoreGetCustomRankingByDataIDParam,
+    ) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode>;
     #[method_id(54)]
-    async fn get_buffer_queue(&self, bufferparam: BufferQueueParam) -> Result<Vec<QBuffer>, ErrorCode>;
+    async fn get_buffer_queue(
+        &self,
+        bufferparam: BufferQueueParam,
+    ) -> Result<Vec<QBuffer>, ErrorCode>;
     #[method_id(25)]
-    async fn prepare_get_object(&self, prepare_get_param: DataStorePrepareGetParam) -> Result<DataStoreReqGetInfo, ErrorCode>;
+    async fn prepare_get_object(
+        &self,
+        prepare_get_param: DataStorePrepareGetParam,
+    ) -> Result<DataStoreReqGetInfo, ErrorCode>;
     #[method_id(65)]
-    async fn followings_latest_course_search_object(&self, course_search_param: DataStoreSearchParam, extra_data: Vec<String>) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode>;
+    async fn followings_latest_course_search_object(
+        &self,
+        course_search_param: DataStoreSearchParam,
+        extra_data: Vec<String>,
+    ) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode>;
     #[method_id(74)]
-    async fn get_application_config_string(&self, application_id: u32) -> Result<Vec<String>, ErrorCode>;
+    async fn get_application_config_string(
+        &self,
+        application_id: u32,
+    ) -> Result<Vec<String>, ErrorCode>;
 }

@@ -177,31 +177,40 @@ pub(super) trait AnyInternalConnection:
 #[async_trait]
 impl<T: CryptoHandlerConnectionInstance> AnyInternalConnection for InternalConnection<T> {
     async fn send_data_packet(&mut self, data: Vec<u8>) {
-        let mut packet = PRUDPV1Packet {
-            header: PRUDPV1Header {
-                sequence_id: self.next_server_count(),
-                substream_id: 0,
-                session_id: self.session_id,
-                types_and_flags: TypesFlags::default().types(DATA).flags(RELIABLE | NEED_ACK),
-                destination_port: self.common.socket_addr.virtual_port,
-                source_port: self.server_port,
+        let pieces = data.chunks(600);
+        let max_piece = pieces.len() - 1;
+        let mut piece_num = 1;
+        for (i, piece) in pieces.enumerate() {
+            let mut packet = PRUDPV1Packet {
+                header: PRUDPV1Header {
+                    sequence_id: self.next_server_count(),
+                    substream_id: 0,
+                    session_id: self.session_id,
+                    types_and_flags: TypesFlags::default().types(DATA).flags(RELIABLE | NEED_ACK),
+                    destination_port: self.common.socket_addr.virtual_port,
+                    source_port: self.server_port,
+                    ..Default::default()
+                },
+                payload: piece.to_owned(),
+                options: vec![FragmentId(if i == max_piece { 0 } else { piece_num })],
                 ..Default::default()
-            },
-            payload: data,
-            options: vec![FragmentId(0)],
-            ..Default::default()
-        };
+            };
 
-        self.crypto_handler_instance
-            .encrypt_outgoing(0, &mut packet.payload[..]);
+            self.crypto_handler_instance
+                .encrypt_outgoing(0, &mut packet.payload[..]);
 
-        packet.set_sizes();
+            packet.set_sizes();
 
-        self.crypto_handler_instance.sign_packet(&mut packet);
+            self.crypto_handler_instance.sign_packet(&mut packet);
 
-        self.send_raw_packet(&packet).await;
+            self.send_raw_packet(&packet).await;
 
-        self.unacknowleged_packets.push((Instant::now(), packet));
+            self.unacknowleged_packets.push((Instant::now(), packet));
+
+            sleep(Duration::from_secs(16)).await;
+
+            piece_num += 1;
+        }
     }
 
     async fn close_connection(&mut self) {

@@ -23,7 +23,6 @@ use rnex_core::rmc::protocols::matchmake_extension::{
 };
 use rnex_core::rmc::protocols::ranking::{Ranking, RawRanking, RawRankingInfo, RemoteRanking};
 use rnex_core::rmc::protocols::secure::{RawSecure, RawSecureInfo, RemoteSecure, Secure};
-use rnex_core::rmc::protocols::datastore::{DataStore, RawDataStore, RawDataStoreInfo, RemoteDataStore};
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::any::Any;
 use rnex_core::rmc::structures::matchmake::{
@@ -34,6 +33,7 @@ use std::env;
 use std::str::FromStr;
 
 use crate::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
+use cfg_if::cfg_if;
 use log::{error, info};
 use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
@@ -45,11 +45,11 @@ use rnex_core::rmc::structures::qbuffer::QBuffer;
 use rnex_core::rmc::structures::qresult::QResult;
 use rnex_core::rmc::structures::ranking::UploadCompetitionData;
 use std::sync::{Arc, Weak};
-use cfg_if::cfg_if;
 use tokio::sync::{Mutex, RwLock};
 
 cfg_if! {
     if #[cfg(feature = "datastore")] {
+        use rnex_core::rmc::protocols::datastore::{DataStore, RawDataStore, RawDataStoreInfo, RemoteDataStore};
         define_rmc_proto!(
             proto UserProtocol{
                 Secure,

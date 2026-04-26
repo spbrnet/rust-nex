@@ -8,18 +8,15 @@ use std::io::Cursor;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use std::sync::LazyLock;
-use std::sync::OnceLock;
 cfg_if! {
     if #[cfg(feature = "datastore")] {
         use sqlx::postgres::PgPool;
     }
 }
+use crate::reggie::UnitPacketRead;
+use cfg_if::cfg_if;
 use log::error;
 use std::error::Error;
-use std::string::ToString;
-use cfg_if::cfg_if;
-use crate::reggie::UnitPacketRead;
 
 const IP_REQ_SERVICE_URL: &str = "https://ipinfo.io/ip";
 
