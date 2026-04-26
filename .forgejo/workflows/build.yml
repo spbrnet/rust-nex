@@ -7,7 +7,7 @@ on:
 
 env:
   DOCKER_TLS_CERTDIR: /certs
-  IMAGE_TAG: ${{ github.ref_name }}
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   splatoon:
@@ -33,8 +33,8 @@ jobs:
 
       - name: Build Splatoon edition
         env:
-          CI_REGISTRY_IMAGE: git.spbr.net/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ github.ref_name }}
+          CI_REGISTRY_IMAGE: git.spbr.net/Spacebar/rust-nex
+          CI_COMMIT_SHORT_SHA: ${{ github.sha }}
         run: ./.ci-scripts/make-edition.sh splatoon
 
   friends:
@@ -60,6 +60,6 @@ jobs:
 
       - name: Build Friends edition
         env:
-          CI_REGISTRY_IMAGE: git.spbr.net/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ github.ref_name }}
+          CI_REGISTRY_IMAGE: git.spbr.net/Spacebar/rust-nex
+          CI_COMMIT_SHORT_SHA: ${{ github.sha }}
         run: ./.ci-scripts/make-edition.sh friends
