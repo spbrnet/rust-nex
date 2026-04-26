@@ -29,11 +29,11 @@ jobs:
           key: image-cache
 
       - name: Login to registry
-        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} ${{ secrets.PACKAGE_URL }}
+        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
 
       - name: Build Splatoon edition
         env:
-          CI_REGISTRY_IMAGE: ${{ secrets.PACKAGE_URL }}
+          CI_REGISTRY_IMAGE: git.spbr.net/rust-nex
           CI_COMMIT_SHORT_SHA: ${{ github.ref_name }}
         run: ./.ci-scripts/make-edition.sh splatoon
 
@@ -56,10 +56,10 @@ jobs:
           key: image-cache
 
       - name: Login to registry
-        run: podman login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} ${{ secrets.PACKAGE_URL }}
+        run: podman login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
 
       - name: Build Friends edition
         env:
-          CI_REGISTRY_IMAGE: ${{ secrets.PACKAGE_URL }}/rust-nex
+          CI_REGISTRY_IMAGE: git.spbr.net/rust-nex
           CI_COMMIT_SHORT_SHA: ${{ github.ref_name }}
         run: ./.ci-scripts/make-edition.sh friends
