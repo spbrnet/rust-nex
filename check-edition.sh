@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
-set -e pipefail
+
+set -euo pipefail
 
 if [ -z ${EDITION+x} ]; then
-    EDITION=$1
+    export EDITION=$1
 fi
 
 # comma seperated list of features for the specified version

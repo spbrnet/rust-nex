@@ -1,9 +1,8 @@
 use crate::reggie::{UnitPacketRead, UnitPacketWrite};
 use log::{error, info};
-use std::iter::FilterMap;
 use std::ops::Deref;
 use std::sync::{Arc, Weak};
-use std::{slice, vec};
+use std::vec;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::Notify;
 use tokio::sync::mpsc::{Receiver, Sender, channel};
