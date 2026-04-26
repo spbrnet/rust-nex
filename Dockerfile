@@ -9,6 +9,7 @@ WORKDIR /app
 COPY . .
 
 ARG EDITION
+ARG DATABASE_URL
 
 RUN git submodule update --init --recursive
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 export EDITION=$1
-export BA="--build-arg EDITION=$1"
+export BA="--network=host --build-arg EDITION=$1 --build-arg DATABASE_URL="$DATABASE_URL""
 
 # podman build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/dev-container:latest" --target=dev-container .
 # podman push "$CI_REGISTRY_IMAGE/$EDITION/dev-container:latest"
