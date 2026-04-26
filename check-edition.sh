@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+set -e pipefail
+
 if [ -z ${EDITION+x} ]; then
     EDITION=$1
 fi
