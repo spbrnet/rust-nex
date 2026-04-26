@@ -69,6 +69,7 @@ jobs:
         env:
           CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
           CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
+          DATABASE_URL: ${{ secrets.DATABASE_FRIENDS }}
         run: ./.ci-scripts/make-edition.sh friends
 
   super-mario-maker:
@@ -95,8 +96,9 @@ jobs:
       - name: Login to registry
         run: podman login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
 
-      - name: Build Friends edition
+      - name: Build Super Mario Maker edition
         env:
           CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
           CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
+          DATABASE_URL: ${{ secrets.DATABASE_SMM }}
         run: ./.ci-scripts/make-edition.sh super-mario-maker
