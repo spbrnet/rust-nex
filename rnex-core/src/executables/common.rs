@@ -22,6 +22,7 @@ const IP_REQ_SERVICE_URL: &str = "https://ipinfo.io/ip";
 
 cfg_if! {
     if #[cfg(feature = "datastore")] {
+        use std::sync::{LazyLock, OnceLock};
         pub static RNEX_DATASTORE_DATABASE_URL: LazyLock<String> = LazyLock::new(|| {
             std::env::var("RNEX_DATASTORE_DATABASE_URL")
                 .expect("RNEX_DATASTORE_DATABASE_URL must be set")
