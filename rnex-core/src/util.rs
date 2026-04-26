@@ -1,24 +1,26 @@
-use std::ops::Deref;
-use std::sync::Arc;
-use log::{error, info};
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::sync::Notify;
-use tokio::task;
 use crate::reggie::{UnitPacketRead, UnitPacketWrite};
+use log::{error, info};
+use std::iter::FilterMap;
+use std::ops::Deref;
+use std::sync::{Arc, Weak};
+use std::{slice, vec};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::sync::Notify;
+use tokio::sync::mpsc::{Receiver, Sender, channel};
+use tokio::task;
 
 #[derive(Clone)]
 pub struct SendingBufferConnection(Sender<Vec<u8>>, Arc<Notify>);
 
 pub struct SplittableBufferConnection(SendingBufferConnection, Receiver<Vec<u8>>);
 
-impl AsRef<SendingBufferConnection> for SplittableBufferConnection{
+impl AsRef<SendingBufferConnection> for SplittableBufferConnection {
     fn as_ref(&self) -> &SendingBufferConnection {
         &self.0
     }
 }
 
-impl Deref for SplittableBufferConnection{
+impl Deref for SplittableBufferConnection {
     type Target = SendingBufferConnection;
 
     fn deref(&self) -> &Self::Target {
@@ -26,9 +28,7 @@ impl Deref for SplittableBufferConnection{
     }
 }
 
-
-
-impl<T: Send + Unpin + AsyncWrite + AsyncRead + 'static> From<T> for SplittableBufferConnection{
+impl<T: Send + Unpin + AsyncWrite + AsyncRead + 'static> From<T> for SplittableBufferConnection {
     fn from(value: T) -> Self {
         Self::new(value)
     }
@@ -47,7 +47,6 @@ impl SplittableBufferConnection {
                 let sender = inside_send;
                 let mut recver = inside_recv;
                 let mut stream = stream;
-
 
                 loop {
                     tokio::select! {
@@ -81,7 +80,7 @@ impl SplittableBufferConnection {
                         }
                     }
                 }
-                if let Err(e) = stream.shutdown().await{
+                if let Err(e) = stream.shutdown().await {
                     error!("failed to shut down stream: {}", e);
                 }
             });
@@ -91,11 +90,11 @@ impl SplittableBufferConnection {
     }
 }
 
-impl SendingBufferConnection{
-    pub async fn send(&self, buffer: Vec<u8>) -> Option<()>{
+impl SendingBufferConnection {
+    pub async fn send(&self, buffer: Vec<u8>) -> Option<()> {
         self.0.send(buffer).await.ok()
     }
-    pub fn is_alive(&self) -> bool{
+    pub fn is_alive(&self) -> bool {
         !self.0.is_closed()
     }
     pub async fn disconnect(&self) {
@@ -106,12 +105,34 @@ impl SendingBufferConnection{
     }
 }
 
-impl SplittableBufferConnection{
-    pub async fn recv(&mut self) -> Option<Vec<u8>>{
+impl SplittableBufferConnection {
+    pub async fn recv(&mut self) -> Option<Vec<u8>> {
         self.1.recv().await
     }
 
-    pub fn duplicate_sender(&self) -> SendingBufferConnection{
+    pub fn duplicate_sender(&self) -> SendingBufferConnection {
         self.0.clone()
+    }
+}
+
+struct WeakVec<T>(Vec<Weak<T>>);
+
+impl<T> WeakVec<T> {
+    pub fn new() -> Self {
+        Self(vec![])
+    }
+
+    pub fn from_vec(vec: Vec<Weak<T>>) -> Self {
+        Self(vec)
+    }
+
+    pub fn push(&mut self, val: Weak<T>) {
+        self.0.retain(|v| v.upgrade().is_some());
+
+        self.0.push(val);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = Arc<T>> {
+        self.0.iter().filter_map(|w| w.upgrade())
     }
 }
