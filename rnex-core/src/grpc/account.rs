@@ -103,6 +103,41 @@ impl Client {
         Ok(val.as_bytes().try_into().map_err(|_| SomethingHappened)?)
     }
 
+    pub async fn get_user_level(&mut self, pid: PID) -> Result<i32> {
+        let req = self
+            .do_request(object! {
+                "query": r"query($pid: Int!){
+                    userByPid(pid: $pid){
+                        accountLevel
+                    }
+                }",
+                "variables": {
+                    "pid": pid
+                }
+            })
+            .await?;
+
+        let Some(val) = req
+            .entries()
+            .find(|v| v.0 == "data")
+            .ok_or(SomethingHappened)?
+            .1
+            .entries()
+            .find(|v| v.0 == "userByPid")
+            .ok_or(SomethingHappened)?
+            .1
+            .entries()
+            .find(|v| v.0 == "accountLevel")
+            .ok_or(SomethingHappened)?
+            .1
+            .as_i32()
+        else {
+            return Err(SomethingHappened);
+        };
+
+        Ok(val)
+    }
+
     pub async fn get_pid_from_token(&mut self, token: String) -> Result<PID> {
         let req = self
             .do_request(object! {

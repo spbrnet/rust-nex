@@ -3,6 +3,7 @@
 set -euo pipefail
 
 TMP_FEATURES_TRAILINGCOMMA=$(yq ea ".$EDITION.features" editions.yaml  | sed 's/- //g' | tr '\n' ',')
+echo "tmpfeatures: $TMP_FEATURES_TRAILINGCOMMA"
 export EDITION_FEATURES=${TMP_FEATURES_TRAILINGCOMMA::-1}
 SETTINGS=$(yq ea ".$EDITION.settings" editions.yaml | yq 'keys[]')
 IFS=$'\n'

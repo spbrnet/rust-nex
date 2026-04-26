@@ -1,6 +1,7 @@
 use crate::prudp::router::Router;
 use crate::prudp::secure::Secure;
 use log::error;
+use log::warn;
 use proxy_common::{ProxyStartupParam, RNEX_ACCESS_KEY};
 use rnex_core::executables::common::SECURE_SERVER_ACCOUNT;
 use rnex_core::prudp::virtual_port::VirtualPort;
@@ -33,6 +34,24 @@ pub async fn start(param: ProxyStartupParam) {
         };
 
         task::spawn(async move {
+            let Ok(mut c) = rnex_core::grpc::account::Client::new().await else {
+                error!("failed to initialize gql client");
+                return;
+            };
+
+            let v = match c.get_user_level(conn.user_id).await {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("failed to get user level: {}", e);
+                    return;
+                }
+            };
+
+            if v < 0 {
+                warn!("person with too low account level joined");
+                return;
+            }
+
             let mut stream = match TcpStream::connect(param.forward_destination).await {
                 Ok(v) => v,
                 Err(e) => {
