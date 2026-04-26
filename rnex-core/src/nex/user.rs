@@ -46,8 +46,6 @@ use rnex_core::rmc::structures::qresult::QResult;
 use rnex_core::rmc::structures::ranking::UploadCompetitionData;
 use std::sync::{Arc, Weak};
 use cfg_if::cfg_if;
-use rnex_core::rmc::protocols::ranking::{CompetitionRankingScoreData, CompetitionRankingGetParam, CompetitionRankingScoreInfo};
-use rnex_core::rmc::structures::ranking::{UploadCompetitionData};
 use tokio::sync::{Mutex, RwLock};
 
 cfg_if! {

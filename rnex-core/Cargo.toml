@@ -35,22 +35,19 @@ base64 = "0.22.1"
 sha2 = "0.10.9"
 urlencoding = "2.1.3"
 
-[dependencies.sqlx]
-version = "0.8.6"
-optional = true
-
 [dev-dependencies]
 # criterion = "0.7.0"
 
 [features]
 rmc_struct_header = []
 guest_login = []
-friends = ["guest_login", "dep:sqlx"]
+friends = ["guest_login", "database-support"]
 big_pid = []
 v3-8-15 = ["rmc_struct_header"]
 v4-3-11 = ["v3-8-15"]
 nx = ["big_pid"]
-datastore = ["dep:sqlx", "v3-8-15", "dep:aws-sdk-s3", "dep:aws-config"]
+datastore = ["database-support", "v3-8-15", "dep:aws-sdk-s3", "dep:aws-config"]
+database-support = ["dep:sqlx"]
 
 [[bench]]
 name = "rmc_serialization"
