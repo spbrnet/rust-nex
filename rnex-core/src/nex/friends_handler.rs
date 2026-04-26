@@ -200,7 +200,7 @@ impl Friends for FriendsUser {
 
         println!("acquiring user and current friends locks");
         let users = self.fm.users.read().await;
-        if users.len() >= 100 {
+        if users.iter().filter(|u| u.upgrade().is_some()).count() >= 100 {
             return Err(ErrorCode::RendezVous_ConnectionFailure);
         }
         println!("started summing users");
@@ -331,7 +331,7 @@ impl Secure for FriendsUser {
     ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
         let cid = self.fm.next_cid();
         let users = self.fm.users.read().await;
-        if users.len() >= 100 {
+        if users.iter().filter(|u| u.upgrade().is_some()).count() >= 100 {
             return Err(ErrorCode::RendezVous_ConnectionFailure);
         }
         Ok((
