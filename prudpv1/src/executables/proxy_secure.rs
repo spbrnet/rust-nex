@@ -1,30 +1,20 @@
-use crate::executables::common::{EDGE_NODE_HOLDER, FORWARD_DESTINATION};
 use crate::prudp::router::Router;
 use crate::prudp::secure::Secure;
 use log::error;
-use rnex_core::common::setup;
-use rnex_core::executables::common::{
-    OWN_IP_PRIVATE, OWN_IP_PUBLIC, SECURE_SERVER_ACCOUNT, SERVER_PORT,
-};
+use proxy_common::{ProxyStartupParam, RNEX_ACCESS_KEY};
+use rnex_core::executables::common::SECURE_SERVER_ACCOUNT;
 use rnex_core::prudp::virtual_port::VirtualPort;
-use rnex_core::reggie::EdgeNodeHolderConnectOption::Register;
-use rnex_core::reggie::RemoteEdgeNodeHolder;
 use rnex_core::reggie::UnitPacketRead;
 use rnex_core::reggie::UnitPacketWrite;
-use rnex_core::rmc::protocols::{OnlyRemote, new_rmc_gateway_connection};
 use rnex_core::rmc::structures::RmcSerialize;
 use rnex_core::rnex_proxy_common::ConnectionInitData;
-use rnex_core::util::SplittableBufferConnection;
-use std::net::SocketAddrV4;
-use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::task;
 use tokio::time::sleep;
-use proxy_common::RNEX_ACCESS_KEY;
 
-pub async fn start() {
-    let (router_secure, _) = Router::new(SocketAddrV4::new(*OWN_IP_PRIVATE, *SERVER_PORT))
+pub async fn start(param: ProxyStartupParam) {
+    let (router_secure, _) = Router::new(param.self_private)
         .await
         .expect("unable to start router");
 
@@ -36,8 +26,6 @@ pub async fn start() {
         .await
         .expect("unable to add socket");
 
-    // let conn = socket_secure.connect(auth_sockaddr).await.unwrap();
-
     loop {
         let Some(mut conn) = socket_secure.accept().await else {
             error!("server crashed");
@@ -45,7 +33,7 @@ pub async fn start() {
         };
 
         task::spawn(async move {
-            let mut stream = match TcpStream::connect(*FORWARD_DESTINATION).await {
+            let mut stream = match TcpStream::connect(param.forward_destination).await {
                 Ok(v) => v,
                 Err(e) => {
                     error!("unable to connect: {}", e);

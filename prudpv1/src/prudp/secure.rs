@@ -1,18 +1,13 @@
 use crate::prudp::packet::PRUDPV1Packet;
 use crate::prudp::socket::{CryptoHandler, CryptoHandlerConnectionInstance};
 use hmac::digest::consts::U32;
-use log::error;
 use rc4::cipher::StreamCipherCoreWrapper;
-use rc4::consts::U16;
 use rc4::{KeyInit, Rc4, Rc4Core, StreamCipher};
-use rnex_core::kerberos::{TicketInternalData, derive_key};
 use rnex_core::nex::account::Account;
 use rnex_core::prudp::encryption::EncryptionPair;
 use rnex_core::prudp::ticket::read_secure_connection_data;
 use rnex_core::rmc::structures::RmcSerialize;
-use std::io::Cursor;
 use typenum::U5;
-use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 
 type Rc4U32 = StreamCipherCoreWrapper<Rc4Core<U32>>;
 
@@ -52,6 +47,7 @@ pub struct SecureInstance {
     session_key: [u8; 32],
     streams: Vec<EncryptionPair<Rc4<U32>>>,
     self_signature: [u8; 16],
+    #[allow(dead_code)]
     remote_signature: [u8; 16],
     pid: u32,
 }

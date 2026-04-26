@@ -1,7 +1,6 @@
 use crate::prudp::packet::PRUDPV1Packet;
 use crate::prudp::socket::{CryptoHandler, CryptoHandlerConnectionInstance};
-use once_cell::sync::Lazy;
-use rc4::{Key, KeyInit, Rc4, StreamCipher};
+use rc4::{KeyInit, Rc4, StreamCipher};
 use rnex_core::prudp::encryption::{DEFAULT_KEY, EncryptionPair};
 use typenum::U5;
 
@@ -11,6 +10,7 @@ pub struct UnsecureInstance {
     key: &'static str,
     streams: Vec<EncryptionPair<Rc4<U5>>>,
     self_signature: [u8; 16],
+    #[allow(dead_code)]
     remote_signature: [u8; 16],
 }
 

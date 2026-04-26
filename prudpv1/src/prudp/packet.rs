@@ -14,7 +14,7 @@ use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use rnex_core::prudp::types_flags::TypesFlags;
 use rnex_core::prudp::types_flags::flags::ACK;
 use rnex_core::prudp::virtual_port::VirtualPort;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::io;
 use std::io::{Cursor, Read, Seek, Write};
 use std::net::SocketAddr;

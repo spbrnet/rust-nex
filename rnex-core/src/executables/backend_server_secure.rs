@@ -1,6 +1,5 @@
 use cfg_if::cfg_if;
 use rnex_core::common::setup;
-use rnex_core::executables::friends_backend::start_friends_backend;
 
 #[tokio::main]
 async fn main() {
@@ -8,6 +7,7 @@ async fn main() {
 
     cfg_if! {
         if #[cfg(feature = "friends")]{
+            use rnex_core::executables::friends_backend::start_friends_backend;
             start_friends_backend().await;
         } else {
             use rnex_core::executables::regular_backend;

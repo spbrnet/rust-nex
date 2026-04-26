@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e pipefail
 TMP_FEATURES_TRAILINGCOMMA=$(yq ea ".$EDITION.features" editions.yaml  | sed 's/- //g' | tr '\n' ',')
 export EDITION_FEATURES=${TMP_FEATURES_TRAILINGCOMMA::-1}
 SETTINGS=$(yq ea ".$EDITION.settings" editions.yaml | yq 'keys[]')
