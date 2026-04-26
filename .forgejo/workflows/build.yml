@@ -1,0 +1,65 @@
+name: Build and Test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+env:
+  DOCKER_TLS_CERTDIR: /certs
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  splatoon:
+    runs-on: debian-trixie
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache container storage
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/lib/containers/storage
+            /run/containers/storage
+            ~/.local/share/containers/storage
+          key: image-cache
+
+      - name: Login to registry
+        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
+
+      - name: Build Splatoon edition
+        env:
+          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
+          CI_COMMIT_SHORT_SHA: ${{ github.sha }}
+        run: ./.ci-scripts/make-edition.sh splatoon
+
+  friends:
+    runs-on: debian-trixie
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache container storage
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/lib/containers/storage
+            /run/containers/storage
+            ~/.local/share/containers/storage
+          key: image-cache
+
+      - name: Login to registry
+        run: podman login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
+
+      - name: Build Friends edition
+        env:
+          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
+          CI_COMMIT_SHORT_SHA: ${{ github.sha }}
+        run: ./.ci-scripts/make-edition.sh friends
