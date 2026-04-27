@@ -102,6 +102,9 @@ impl Secure for User {
         let mut users = self.matchmake_manager.users.write().await;
         users.insert(cid, self.this.clone());
         drop(users);
+        let mut users = self.matchmake_manager.users_by_pid.write().await;
+        users.insert(self.pid, self.this.clone());
+        drop(users);
 
         let stations = get_station_urls(&station_urls, self.ip, self.pid, cid).await?;
 
@@ -444,7 +447,7 @@ impl MatchmakeExtension for User {
         println!("attempt to reach: {}", recpipent);
         let Some(user) = self
             .matchmake_manager
-            .users
+            .users_by_pid
             .read()
             .await
             .get(&recpipent)

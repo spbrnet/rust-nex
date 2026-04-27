@@ -11,6 +11,7 @@ pub async fn start_regular_backend() {
         //gid_counter: AtomicU32::new(1),
         sessions: Default::default(),
         users: Default::default(),
+        users_by_pid: Default::default(),
         rv_cid_counter: AtomicU32::new(1),
     });
 
