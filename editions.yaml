@@ -1,4 +1,4 @@
-wiiu-chat:
+wii-u-chat:
   include-in-checkall: true
   features:
     - prudpv1
