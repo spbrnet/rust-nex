@@ -692,14 +692,13 @@ impl Ranking for User {
 
         let info = CompetitionRankingScoreInfo {
             fest_id,
-            score_data: score_data.clone(),
+            score_data,
             unk: 0,
             team_wins: wins,
             team_votes,
         };
 
-        println!("info: {:?}", info);
-        println!("score data: {:?}", score_data);
+        println!("range: {:?}", param.range);
 
         Ok(vec![info])
     }
