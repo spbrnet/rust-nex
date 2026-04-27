@@ -698,6 +698,9 @@ impl Ranking for User {
             team_votes,
         };
 
+        println!("info: {:?}", info);
+        println!("score data: {:?}", score_data);
+
         Ok(vec![info])
     }
 
