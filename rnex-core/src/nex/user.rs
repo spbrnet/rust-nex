@@ -657,6 +657,11 @@ impl Ranking for User {
 
         let url_results = format!("{}?splatfest_id={}", endpoint_results, fest_id);
         let response_results = ureq::get(&url_results).call();
+        let offset = param.range.offset as usize;
+        let size = param.range.size as usize;
+
+        let start = offset.min(results.len());
+        let end = (start + size).min(results.len());
 
         let results: Vec<CompetitionPostResults> = match response_results {
             Ok(mut res) => res.body_mut().read_json().map_err(|e| {
@@ -678,7 +683,7 @@ impl Ranking for User {
             };
         }
 
-        let score_data: Vec<CompetitionRankingScoreData> = results
+        let score_data: Vec<CompetitionRankingScoreData> = results[start..end]
             .iter()
             .map(|r| CompetitionRankingScoreData {
                 unk: 1,
