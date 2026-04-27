@@ -451,7 +451,7 @@ impl MatchmakeExtension for User {
         else {
             return Err(ErrorCode::Core_InvalidArgument);
         };
-        println!("notif update ty: {}");
+        println!("notif update ty: {}", ty);
         match ty {
             REQUEST_JOIN_GATHERING => {
                 user.remote
