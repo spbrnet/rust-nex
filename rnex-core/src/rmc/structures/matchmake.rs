@@ -1,3 +1,4 @@
+use cfg_if::cfg_if;
 use macros::RmcSerialize;
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::rmc::structures::variant::Variant;
@@ -27,29 +28,49 @@ pub struct MatchmakeParam {
     pub params: Vec<(String, Variant)>,
 }
 
-// rmc structure
-#[derive(RmcSerialize, Debug, Clone, Default)]
-#[rmc_struct(3)]
-pub struct MatchmakeSession {
-    //inherits from
-    #[extends]
-    pub gathering: Gathering,
+cfg_if! {
+    if #[cfg(feature = "v3-5-0")]{
+        #[derive(RmcSerialize, Debug, Clone, Default)]
+        #[rmc_struct(3)]
+        pub struct MatchmakeSession {
+            //inherits from
+            #[extends]
+            pub gathering: Gathering,
 
-    pub gamemode: u32,
-    pub attributes: Vec<u32>,
-    pub open_participation: bool,
-    pub matchmake_system_type: u32,
-    pub application_buffer: Vec<u8>,
-    pub participation_count: u32,
-    pub progress_score: u8,
-    pub session_key: Vec<u8>,
-    pub option0: u32,
-    pub matchmake_param: MatchmakeParam,
-    pub datetime: KerberosDateTime,
-    pub user_password: String,
-    pub refer_gid: u32,
-    pub user_password_enabled: bool,
-    pub system_password_enabled: bool,
+            pub gamemode: u32,
+            pub attributes: Vec<u32>,
+            pub open_participation: bool,
+            pub matchmake_system_type: u32,
+            pub application_buffer: Vec<u8>,
+            pub participation_count: u32,
+            pub progress_score: u8,
+            pub session_key: Vec<u8>,
+            pub option0: u32,
+            pub matchmake_param: MatchmakeParam,
+            pub datetime: KerberosDateTime,
+            pub user_password: String,
+            pub refer_gid: u32,
+            pub user_password_enabled: bool,
+            pub system_password_enabled: bool,
+        }
+    } else {
+        #[derive(RmcSerialize, Debug, Clone, Default)]
+        #[rmc_struct(0)]
+        pub struct MatchmakeSession {
+            //inherits from
+            #[extends]
+            pub gathering: Gathering,
+
+            pub gamemode: u32,
+            pub attributes: Vec<u32>,
+            pub open_participation: bool,
+            pub matchmake_system_type: u32,
+            pub application_buffer: Vec<u8>,
+            pub participation_count: u32,
+            pub progress_score: u8,
+            pub session_key: Vec<u8>,
+        }
+    }
 }
 
 #[derive(RmcSerialize, Debug, Clone)]

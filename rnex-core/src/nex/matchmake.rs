@@ -1,12 +1,12 @@
-use crate::nex::user::User;
-use crate::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
 use log::info;
 use rand::random;
 use rnex_core::PID;
 use rnex_core::kerberos::KerberosDateTime;
+use rnex_core::nex::user::User;
 use rnex_core::rmc::protocols::notifications::notification_types::{
     HOST_CHANGED, OWNERSHIP_CHANGED,
 };
+use rnex_core::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::response::ErrorCode::{Core_InvalidArgument, RendezVous_SessionVoid};
 use rnex_core::rmc::structures::matchmake::gathering_flags::PERSISTENT_GATHERING;
@@ -155,28 +155,47 @@ impl ExtendedMatchmakeSession {
             return Default::default();
         };
 
-        let mm_session = MatchmakeSession {
-            gathering: Gathering {
-                self_gid: gid,
-                owner_pid: host.pid,
-                host_pid: host.pid,
-                ..session.gathering.clone()
-            },
-            datetime: KerberosDateTime::now(),
-            session_key: (0..32).map(|_| random()).collect(),
-            matchmake_param: MatchmakeParam {
-                params: vec![
-                    ("@SR".to_owned(), Variant::Bool(true)),
-                    ("@GIR".to_owned(), Variant::SInt64(3)),
-                ],
-            },
-            system_password_enabled: false,
-            ..session
-        };
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "v3-5-0")]{
+                let mm_session = MatchmakeSession {
+                    gathering: Gathering {
+                        self_gid: gid,
+                        owner_pid: host.pid,
+                        host_pid: host.pid,
+                        ..session.gathering.clone()
+                    },
+                    datetime: KerberosDateTime::now(),
+                    session_key: (0..32).map(|_| random()).collect(),
+                    matchmake_param: MatchmakeParam {
+                        params: vec![
+                            ("@SR".to_owned(), Variant::Bool(true)),
+                            ("@GIR".to_owned(), Variant::SInt64(3)),
+                        ],
+                    },
+                    system_password_enabled: false,
+                    ..session
+                };
 
-        Self {
-            session: mm_session,
-            connected_players: Default::default(),
+                return Self {
+                    session: mm_session,
+                    connected_players: Default::default(),
+                }
+            } else {
+                let mm_session = MatchmakeSession {
+                    gathering: Gathering {
+                        self_gid: gid,
+                        owner_pid: host.pid,
+                        host_pid: host.pid,
+                        ..session.gathering.clone()
+                    },
+                    session_key: (0..32).map(|_| random()).collect(),
+                    ..session
+                };
+                return Self {
+                    session: mm_session,
+                    connected_players: Default::default(),
+                }
+            }
         }
     }
 
@@ -212,6 +231,7 @@ impl ExtendedMatchmakeSession {
                     param_1: self.session.gathering.self_gid as PID,
                     param_2: other_pid,
                     str_param: "".into(),
+                    #[cfg(feature = "v3-5-0")]
                     param_3: 0,
                 })
                 .await;
@@ -244,6 +264,7 @@ impl ExtendedMatchmakeSession {
                         param_1: self.session.gathering.self_gid as PID,
                         param_2: *pid,
                         str_param: join_msg.clone(),
+                        #[cfg(feature = "v3-5-0")]
                         param_3: self.connected_players.len() as _,
                     })
                     .await;
@@ -266,6 +287,7 @@ impl ExtendedMatchmakeSession {
                         param_1: self.session.gathering.self_gid as PID,
                         param_2: new_conn_pid,
                         str_param: join_msg.clone(),
+                        #[cfg(feature = "v3-5-0")]
                         param_3: self.connected_players.len() as _,
                     })
                     .await;
@@ -318,15 +340,19 @@ impl ExtendedMatchmakeSession {
             }
         }
 
-        if search_criteria.exclude_system_password_set {
-            if self.session.system_password_enabled {
-                return Ok(false);
-            }
-        }
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "v3-5-0")]{
+                if search_criteria.exclude_system_password_set {
+                    if self.session.system_password_enabled {
+                        return Ok(false);
+                    }
+                }
 
-        if search_criteria.exclude_user_password_set {
-            if self.session.user_password_enabled {
-                return Ok(false);
+                if search_criteria.exclude_user_password_set {
+                    if self.session.user_password_enabled {
+                        return Ok(false);
+                    }
+                }
             }
         }
 

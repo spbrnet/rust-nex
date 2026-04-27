@@ -1,25 +1,28 @@
-use crate::define_rmc_proto;
-use crate::nex::common::get_station_urls;
-use crate::nex::matchmake::{ExtendedMatchmakeSession, MatchmakeManager};
-use crate::nex::remote_console::RemoteConsole;
-use crate::rmc::protocols::matchmake::{
-    Matchmake, RawMatchmake, RawMatchmakeInfo, RemoteMatchmake,
-};
-use crate::rmc::protocols::nat_traversal::{
-    NatTraversal, RawNatTraversal, RawNatTraversalInfo, RemoteNatTraversal,
-    RemoteNatTraversalConsole,
-};
 use rnex_core::PID;
+use rnex_core::define_rmc_proto;
 use rnex_core::kerberos::KerberosDateTime;
+use rnex_core::nex::common::get_station_urls;
+use rnex_core::nex::matchmake::{ExtendedMatchmakeSession, MatchmakeManager};
+use rnex_core::nex::remote_console::RemoteConsole;
 use rnex_core::prudp::station_url::StationUrl;
 use rnex_core::prudp::station_url::UrlOptions::{
     Address, NatFiltering, NatMapping, Port, RVConnectionID,
+};
+use rnex_core::rmc::protocols::matchmake::{
+    Matchmake, RawMatchmake, RawMatchmakeInfo, RemoteMatchmake,
 };
 use rnex_core::rmc::protocols::matchmake_ext::{
     MatchmakeExt, RawMatchmakeExt, RawMatchmakeExtInfo, RemoteMatchmakeExt,
 };
 use rnex_core::rmc::protocols::matchmake_extension::{
     MatchmakeExtension, RawMatchmakeExtension, RawMatchmakeExtensionInfo, RemoteMatchmakeExtension,
+};
+use rnex_core::rmc::protocols::nat_traversal::{
+    NatTraversal, RawNatTraversal, RawNatTraversalInfo, RemoteNatTraversal,
+    RemoteNatTraversalConsole,
+};
+use rnex_core::rmc::protocols::notifications::notification_types::{
+    END_GATHERING, REQUEST_JOIN_GATHERING,
 };
 use rnex_core::rmc::protocols::ranking::{Ranking, RawRanking, RawRankingInfo, RemoteRanking};
 use rnex_core::rmc::protocols::secure::{RawSecure, RawSecureInfo, RemoteSecure, Secure};
@@ -32,11 +35,13 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::str::FromStr;
 
-use crate::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
 use cfg_if::cfg_if;
 use log::{error, info};
 use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
+use rnex_core::rmc::protocols::notifications::{
+    self, Notification, NotificationEvent, RemoteNotification,
+};
 use rnex_core::rmc::protocols::ranking::{
     CompetitionRankingGetParam, CompetitionRankingScoreData, CompetitionRankingScoreInfo,
 };
@@ -248,6 +253,8 @@ impl MatchmakeExtension for User {
             .await?;
 
         let mut session = session.lock().await;
+
+        #[cfg(feature = "v3-5-0")]
         if join_session_param.user_password != session.session.user_password {
             return Err(ErrorCode::RendezVous_InvalidPassword);
         }
@@ -396,6 +403,101 @@ impl MatchmakeExtension for User {
 
         Ok(())
     }
+
+    async fn create_matchmake_session(
+        &self,
+        gathering: Any,
+        message: String,
+    ) -> Result<(u32, Vec<u8>), ErrorCode> {
+        let Some(Ok(session)): Option<Result<MatchmakeSession, _>> = gathering.try_get() else {
+            return Err(ErrorCode::Core_InvalidArgument);
+        };
+
+        let session = self
+            .create_matchmake_session_with_param(CreateMatchmakeSessionParam {
+                matchmake_session: session,
+                additional_participants: vec![],
+                gid_for_participation_check: 0,
+                create_matchmake_session_option: 0,
+                join_message: message,
+                participation_count: 1,
+            })
+            .await?;
+
+        Ok((session.gathering.self_gid, session.session_key))
+    }
+
+    async fn get_friend_notification_data(
+        &self,
+        ty: i32,
+    ) -> Result<Vec<NotificationEvent>, ErrorCode> {
+        Ok(vec![])
+    }
+    async fn update_notification_data(
+        &self,
+        ty: u32,
+        param_1: u32,
+        param_2: u32,
+        str_param: String,
+    ) -> Result<(), ErrorCode> {
+        let recpipent = param_2;
+        let Some(user) = self
+            .matchmake_manager
+            .users
+            .read()
+            .await
+            .get(&recpipent)
+            .and_then(|v| v.upgrade())
+        else {
+            return Err(ErrorCode::Core_InvalidArgument);
+        };
+        match ty {
+            REQUEST_JOIN_GATHERING => {
+                user.remote
+                    .process_notification_event(NotificationEvent {
+                        pid_source: self.pid,
+                        notif_type: REQUEST_JOIN_GATHERING * 1000,
+                        param_1,
+                        param_2,
+                        #[cfg(feature = "v3-5-0")]
+                        param_3: 0,
+                        str_param,
+                    })
+                    .await;
+            }
+            END_GATHERING => {
+                user.remote
+                    .process_notification_event(NotificationEvent {
+                        pid_source: self.pid,
+                        notif_type: END_GATHERING * 1000,
+                        param_1,
+                        param_2,
+                        #[cfg(feature = "v3-5-0")]
+                        param_3: 0,
+                        str_param,
+                    })
+                    .await;
+            }
+            _ => {
+                return Err(ErrorCode::Core_InvalidArgument);
+            }
+        }
+        Ok(())
+    }
+
+    async fn join_matchmake_session_ex(
+        &self,
+        gid: u32,
+        message: String,
+        dont_care_block_list: bool,
+        participation_count: u16,
+    ) -> Result<Vec<u8>, ErrorCode> {
+        let sess = self.matchmake_manager.get_session(gid).await?;
+        let mut sess = sess.lock().await;
+        sess.add_players(&[self.this.clone()], message).await;
+
+        Ok(sess.session.session_key.clone())
+    }
 }
 
 impl Matchmake for User {
@@ -448,6 +550,7 @@ impl Matchmake for User {
                     pid_source: self.pid,
                     param_1: gid as PID,
                     param_2: self.pid,
+                    #[cfg(feature = "v3-5-0")]
                     param_3: 0,
                     str_param: "".to_string(),
                 })
@@ -469,6 +572,7 @@ impl Matchmake for User {
                         pid_source: self.pid,
                         param_1: gid as PID,
                         param_2: self.pid,
+                        #[cfg(feature = "v3-5-0")]
                         param_3: 0,
                         str_param: "".to_string(),
                     })
@@ -504,6 +608,7 @@ impl Matchmake for User {
                     pid_source: self.pid,
                     param_1: gid as PID,
                     param_2: *candidate as PID,
+                    #[cfg(feature = "v3-5-0")]
                     param_3: 0,
                     str_param: "".to_string(),
                 })
