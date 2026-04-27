@@ -692,7 +692,7 @@ impl Ranking for User {
 
         let info = CompetitionRankingScoreInfo {
             fest_id,
-            score_data,
+            score_data: score_data.clone(),
             unk: 0,
             team_wins: wins,
             team_votes,
