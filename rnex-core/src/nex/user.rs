@@ -441,6 +441,7 @@ impl MatchmakeExtension for User {
         str_param: String,
     ) -> Result<(), ErrorCode> {
         let recpipent = param_2;
+        println!("attempt to reach: {}", recpipent);
         let Some(user) = self
             .matchmake_manager
             .users
@@ -451,7 +452,6 @@ impl MatchmakeExtension for User {
         else {
             return Err(ErrorCode::Core_InvalidArgument);
         };
-        println!("notif update ty: {}", ty);
         match ty {
             REQUEST_JOIN_GATHERING => {
                 user.remote
