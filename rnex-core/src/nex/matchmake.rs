@@ -232,7 +232,7 @@ impl ExtendedMatchmakeSession {
                     param_1: self.session.gathering.self_gid as PID,
                     param_2: other_pid,
                     str_param: "".into(),
-                    #[cfg(feature = "v3-5-0")]
+                    #[cfg(feature = "third-notif-param")]
                     param_3: 0,
                 })
                 .await;
@@ -265,7 +265,7 @@ impl ExtendedMatchmakeSession {
                         param_1: self.session.gathering.self_gid as PID,
                         param_2: *pid,
                         str_param: join_msg.clone(),
-                        #[cfg(feature = "v3-5-0")]
+                        #[cfg(feature = "third-notif-param")]
                         param_3: self.connected_players.len() as _,
                     })
                     .await;
@@ -288,7 +288,7 @@ impl ExtendedMatchmakeSession {
                         param_1: self.session.gathering.self_gid as PID,
                         param_2: new_conn_pid,
                         str_param: join_msg.clone(),
-                        #[cfg(feature = "v3-5-0")]
+                        #[cfg(feature = "third-notif-param")]
                         param_3: self.connected_players.len() as _,
                     })
                     .await;

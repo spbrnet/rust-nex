@@ -10,17 +10,17 @@ pub mod notification_types {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "v3-5-0")]{
-#[derive(RmcSerialize, Debug, Default, Clone)]
-#[rmc_struct(0)]
-pub struct NotificationEvent {
-    pub pid_source: PID,
-    pub notif_type: u32,
-    pub param_1: PID,
-    pub param_2: PID,
-    pub str_param: String,
-    pub param_3: PID,
-}
+    if #[cfg(feature = "third-notif-param")]{
+        #[derive(RmcSerialize, Debug, Default, Clone)]
+        #[rmc_struct(0)]
+        pub struct NotificationEvent {
+            pub pid_source: PID,
+            pub notif_type: u32,
+            pub param_1: PID,
+            pub param_2: PID,
+            pub str_param: String,
+            pub param_3: PID,
+        }
     } else {
         #[derive(RmcSerialize, Debug, Default, Clone)]
         #[rmc_struct(0)]

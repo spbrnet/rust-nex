@@ -463,7 +463,7 @@ impl MatchmakeExtension for User {
                         notif_type: REQUEST_JOIN_GATHERING * 1000,
                         param_1,
                         param_2,
-                        #[cfg(feature = "v3-5-0")]
+                        #[cfg(feature = "third-notif-param")]
                         param_3: 0,
                         str_param,
                     })
@@ -476,7 +476,7 @@ impl MatchmakeExtension for User {
                         notif_type: END_GATHERING * 1000,
                         param_1,
                         param_2,
-                        #[cfg(feature = "v3-5-0")]
+                        #[cfg(feature = "third-notif-param")]
                         param_3: 0,
                         str_param,
                     })
@@ -554,7 +554,7 @@ impl Matchmake for User {
                     pid_source: self.pid,
                     param_1: gid as PID,
                     param_2: self.pid,
-                    #[cfg(feature = "v3-5-0")]
+                    #[cfg(feature = "third-notif-param")]
                     param_3: 0,
                     str_param: "".to_string(),
                 })
@@ -576,7 +576,7 @@ impl Matchmake for User {
                         pid_source: self.pid,
                         param_1: gid as PID,
                         param_2: self.pid,
-                        #[cfg(feature = "v3-5-0")]
+                        #[cfg(feature = "third-notif-param")]
                         param_3: 0,
                         str_param: "".to_string(),
                     })
@@ -612,7 +612,7 @@ impl Matchmake for User {
                     pid_source: self.pid,
                     param_1: gid as PID,
                     param_2: *candidate as PID,
-                    #[cfg(feature = "v3-5-0")]
+                    #[cfg(feature = "third-notif-param")]
                     param_3: 0,
                     str_param: "".to_string(),
                 })
