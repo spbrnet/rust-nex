@@ -412,6 +412,7 @@ impl MatchmakeExtension for User {
         gathering: Any,
         message: String,
     ) -> Result<(u32, Vec<u8>), ErrorCode> {
+        info!("gathering: {:?}", gathering);
         let Some(Ok(session)): Option<Result<MatchmakeSession, _>> = gathering.try_get() else {
             return Err(ErrorCode::Core_InvalidArgument);
         };

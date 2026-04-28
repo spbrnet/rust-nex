@@ -2,6 +2,7 @@
 
 pub mod account_management;
 pub mod auth;
+pub mod datastore;
 pub mod friends;
 pub mod matchmake;
 pub mod matchmake_ext;
@@ -11,7 +12,6 @@ pub mod nintendo_notification;
 pub mod notifications;
 pub mod ranking;
 pub mod secure;
-pub mod datastore;
 
 use crate::result::ResultExtension;
 use crate::rmc::message::RMCMessage;
@@ -20,6 +20,7 @@ use crate::rmc::response::{ErrorCode, RMCResponse, RMCResponseResult};
 use crate::rmc::structures;
 use crate::rmc::structures::RmcSerialize;
 use crate::util::{SendingBufferConnection, SplittableBufferConnection};
+use futures::FutureExt;
 use log::{error, info};
 use std::collections::HashMap;
 use std::future::Future;
