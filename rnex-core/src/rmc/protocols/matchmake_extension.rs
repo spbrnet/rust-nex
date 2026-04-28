@@ -6,6 +6,7 @@ use rnex_core::rmc::structures::matchmake::{
 
 use crate::rmc::protocols::notifications::NotificationEvent;
 use crate::rmc::structures::any::Any;
+use crate::rmc::structures::matchmake::MatchmakeSessionSearchCriteria;
 
 #[rmc_proto(109)]
 pub trait MatchmakeExtension {
@@ -35,6 +36,13 @@ pub trait MatchmakeExtension {
         &self,
         ty: i32,
     ) -> Result<Vec<NotificationEvent>, ErrorCode>;
+    #[method_id(15)]
+    async fn auto_matchmake_with_search_criteria_postpone(
+        &self,
+        criteria: Vec<MatchmakeSessionSearchCriteria>,
+        gathering: Any,
+        join_msg: String,
+    ) -> Result<Any, ErrorCode>;
 
     #[method_id(30)]
     async fn join_matchmake_session_ex(

@@ -30,7 +30,7 @@ pub struct MatchmakeParam {
 
 cfg_if! {
     if #[cfg(feature = "v3-5-0")]{
-        #[derive(RmcSerialize, Debug, Clone, Default)]
+        #[derive(RmcSerialize, Debug, Clone, Default, PartialEq)]
         #[rmc_struct(3)]
         pub struct MatchmakeSession {
             //inherits from

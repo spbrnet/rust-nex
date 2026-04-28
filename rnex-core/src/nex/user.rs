@@ -11,9 +11,6 @@ use rnex_core::prudp::station_url::UrlOptions::{
 use rnex_core::rmc::protocols::matchmake::{
     Matchmake, RawMatchmake, RawMatchmakeInfo, RemoteMatchmake,
 };
-use rnex_core::rmc::protocols::util::{
-    Utility, RawUtility, RawUtilityInfo, RemoteUtility,
-};
 use rnex_core::rmc::protocols::matchmake_ext::{
     MatchmakeExt, RawMatchmakeExt, RawMatchmakeExtInfo, RemoteMatchmakeExt,
 };
@@ -29,6 +26,7 @@ use rnex_core::rmc::protocols::notifications::notification_types::{
 };
 use rnex_core::rmc::protocols::ranking::{Ranking, RawRanking, RawRankingInfo, RemoteRanking};
 use rnex_core::rmc::protocols::secure::{RawSecure, RawSecureInfo, RemoteSecure, Secure};
+use rnex_core::rmc::protocols::util::{RawUtility, RawUtilityInfo, RemoteUtility, Utility};
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::any::Any;
 use rnex_core::rmc::structures::matchmake::{
@@ -513,6 +511,36 @@ impl MatchmakeExtension for User {
 
         Ok(sess.session.session_key.clone())
     }
+
+    async fn auto_matchmake_with_search_criteria_postpone(
+        &self,
+        criteria: Vec<crate::rmc::structures::matchmake::MatchmakeSessionSearchCriteria>,
+        gathering: Any,
+        join_message: String,
+    ) -> Result<Any, ErrorCode> {
+        let session: MatchmakeSession = gathering
+            .try_get()
+            .map(|v| v.ok())
+            .flatten()
+            .ok_or(ErrorCode::Core_InvalidArgument)?;
+
+        let session = self
+            .auto_matchmake_with_param_postpone(AutoMatchmakeParam {
+                matchmake_session: session,
+                additional_participants: vec![],
+                gid_for_participation_check: 0,
+                auto_matchmake_option: 0,
+                join_message,
+                participation_count: 0,
+                search_criteria: criteria,
+                target_gids: vec![],
+            })
+            .await?;
+
+        let any = Any::new(&session).map_err(|_| ErrorCode::Core_SystemError)?;
+
+        Ok(any)
+    }
 }
 
 impl Matchmake for User {
@@ -772,9 +800,9 @@ fn fetch_team_votes(fest_id: u32) -> Result<Vec<u32>, ErrorCode> {
     })
 }
 
-impl Utility for User{
-    async fn acquire_nex_unique_id(&self) -> Result<u64, ErrorCode>{
-        return Ok(rand::random())
+impl Utility for User {
+    async fn acquire_nex_unique_id(&self) -> Result<u64, ErrorCode> {
+        return Ok(rand::random());
     }
 }
 
