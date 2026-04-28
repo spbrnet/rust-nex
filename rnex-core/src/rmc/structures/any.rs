@@ -12,32 +12,29 @@ pub struct Any {
 impl RmcSerialize for Any {
     fn serialize(&self, writer: &mut impl Write) -> Result<()> {
         self.name.serialize(writer)?;
-
-        let u32_len = self.data.len() as u32;
+        let u32_len = self.data.len() as u32 - 1;
         (u32_len + 4).serialize(writer)?;
-        self.data.serialize(writer)?;
+        u32_len.serialize(writer)?;
+        writer.write_all(&self.data)?;
 
         Ok(())
     }
     fn deserialize(reader: &mut impl Read) -> Result<Self> {
         let name = String::deserialize(reader)?;
 
-        let data = Vec::deserialize(reader)?;
-        let mut cursor = Cursor::new(&data);
-        // also length ?
+        let size = u32::deserialize(reader)? as usize + 1;
+        let mut buf = vec![0; size];
+        reader.read_exact(&mut buf[..])?;
+        let mut cursor = Cursor::new(&buf);
         let len2: u32 = cursor.read_struct(IS_BIG_ENDIAN)?;
 
-        if len2 as usize != data.len().overflowing_sub(4).0 {
-            warn!(
-                "mismatched sizes on any: {} vs {}",
-                data.len().overflowing_sub(4).0,
-                len2
-            );
+        if len2 as usize + 1 != size {
+            warn!("mismatched sizes on any: {} vs {}", size, len2 + 1);
         }
 
         Ok(Any {
             name,
-            data: (&data[4..]).to_owned(),
+            data: (&buf[4..]).to_owned(),
         })
     }
 }
@@ -59,7 +56,10 @@ impl Any {
 
 #[cfg(test)]
 mod test {
+    use std::io::Cursor;
+
     use crate::rmc::structures::{
+        RmcSerialize,
         any::Any,
         matchmake::{Gathering, MatchmakeSession},
     };
@@ -89,9 +89,13 @@ mod test {
             session_key: [].into(),
         };
 
-        let any = Any::new(&sess).unwrap();
+        let any = Any::new(&sess).unwrap().to_data().unwrap();
 
-        let sess2: MatchmakeSession = any.try_get().unwrap().unwrap();
+        let sess2: MatchmakeSession = Any::deserialize(&mut Cursor::new(any))
+            .unwrap()
+            .try_get()
+            .unwrap()
+            .unwrap();
 
         assert_eq!(sess, sess2);
     }
