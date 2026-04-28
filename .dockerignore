@@ -8,3 +8,5 @@ README.md
 .gitignore
 LICENSE
 .devcontainer.json
+.ci-scripts/make-edition.sh
+.forgejo/workflows/build.yml
