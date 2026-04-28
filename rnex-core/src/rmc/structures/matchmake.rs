@@ -6,7 +6,7 @@ use rnex_core::rmc::structures::variant::Variant;
 use rnex_core::PID;
 
 // rmc structure
-#[derive(RmcSerialize, Debug, Clone, Default)]
+#[derive(RmcSerialize, Debug, Clone, Default, PartialEq)]
 #[rmc_struct(0)]
 pub struct Gathering {
     pub self_gid: u32,
@@ -54,7 +54,7 @@ cfg_if! {
             pub system_password_enabled: bool,
         }
     } else {
-        #[derive(RmcSerialize, Debug, Clone, Default)]
+        #[derive(RmcSerialize, Debug, Clone, Default, PartialEq)]
         #[rmc_struct(0)]
         pub struct MatchmakeSession {
             //inherits from
