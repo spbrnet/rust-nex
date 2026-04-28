@@ -115,9 +115,13 @@ fn read_bounds_string<T: FromStr>(str: &str) -> Option<(T, T)> {
 }
 
 fn check_bounds_str<T: FromStr + PartialOrd>(compare: T, str: &str) -> Option<bool> {
-    let bounds: (T, T) = read_bounds_string(str)?;
-
-    Some(bounds.0 <= compare && compare <= bounds.1)
+    if let Some(bounds) = read_bounds_string::<T>(str) {
+        return Some(bounds.0 <= compare && compare <= bounds.1);
+    }
+    if let Ok(val) = T::from_str(str) {
+        return Some(val == compare);
+    }
+    None
 }
 
 pub async fn broadcast_notification<T: AsRef<User>>(
