@@ -10,6 +10,17 @@ wii-u-chat:
     RNEX_VIRTUAL_PORT_SECURE: "1:10"
     RNEX_DEFAULT_PORT: 10000
     RNEX_ACCESS_KEY: "e7a47214"
+fast-racing-neo:
+  include-in-checkall: true
+  features:
+    - prudpv1
+    - v3-8-15
+  settings:
+    AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.9.x.200x build:3_9_19_2005_0"
+    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
+    RNEX_VIRTUAL_PORT_SECURE: "1:10"
+    RNEX_DEFAULT_PORT: 10000
+    RNEX_ACCESS_KEY: "811aa39f"
 splatoon:
   include-in-checkall: true
   features:
