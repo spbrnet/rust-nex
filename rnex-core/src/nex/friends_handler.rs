@@ -320,6 +320,26 @@ impl Friends for FriendsUser {
     async fn check_setting_status(&self) -> Result<u8, ErrorCode> {
         Ok(0xFF)
     }
+    
+    async fn update_preference(&self, preference: PrincipalPreference) -> Result<(),ErrorCode>  {
+        info!("user updated preference: {:?}", preference);
+        let any_presence: Any = Any::new(&preference).expect("out of memory");
+
+        let users = self.fm.users.read().await;
+        for u in users.deref().iter().filter_map(|u| u.upgrade()) {
+            info!("sending preference update");
+            u.remote
+                .process_nintendo_notification_event_2(NintendoNotificationEvent {
+                    event_type: 23,
+                    sender: self.pid,
+                    data: any_presence.clone(),
+                })
+                .await;
+        }
+        drop(users);
+        
+        Ok(())
+    }
 }
 
 type HMacMd5 = hmac::Hmac<md5::Md5>;

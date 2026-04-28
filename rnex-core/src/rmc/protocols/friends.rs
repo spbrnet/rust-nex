@@ -67,7 +67,7 @@ pub struct NintendoPresenceV2 {
     pub unk6: u8,
     pub unk7: u8,
 }
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Clone, Debug)]
 #[rmc_struct(0)]
 pub struct PrincipalPreference {
     #[extends]
@@ -171,6 +171,8 @@ pub trait Friends {
     >;
     #[method_id(13)]
     async fn update_presence(&self, presence: NintendoPresenceV2) -> Result<(), ErrorCode>;
+    #[method_id(16)]
+    async fn update_preference(&self, preference: PrincipalPreference) -> Result<(), ErrorCode>;
     #[method_id(18)]
     async fn delete_persistent_notification(
         &self,
