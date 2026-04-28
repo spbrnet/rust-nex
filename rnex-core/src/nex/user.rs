@@ -54,6 +54,7 @@ use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::rmc::structures::Error;
+use crate::rmc::structures::matchmake::MatchmakeSessionSearchCriteria;
 
 cfg_if! {
     if #[cfg(feature = "datastore")] {
@@ -514,7 +515,7 @@ impl MatchmakeExtension for User {
 
     async fn auto_matchmake_with_search_criteria_postpone(
         &self,
-        criteria: Vec<crate::rmc::structures::matchmake::MatchmakeSessionSearchCriteria>,
+        criteria: Vec<MatchmakeSessionSearchCriteria>,
         gathering: Any,
         join_message: String,
     ) -> Result<Any, ErrorCode> {
@@ -523,6 +524,8 @@ impl MatchmakeExtension for User {
             .map(|v| v.ok())
             .flatten()
             .ok_or(ErrorCode::Core_InvalidArgument)?;
+
+        println!("{:?}", criteria);
 
         let session = self
             .auto_matchmake_with_param_postpone(AutoMatchmakeParam {
