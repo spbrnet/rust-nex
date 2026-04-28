@@ -42,7 +42,8 @@ pub trait MatchmakeExtension {
         gid: u32,
         message: String,
         dont_care_block_list: bool,
-        participation_count: u16,
+        // this is to cheat support for v3-3-0
+        //participation_count: u16,
     ) -> Result<Vec<u8>, ErrorCode>;
 
     #[method_id(8)]

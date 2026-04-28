@@ -500,7 +500,7 @@ impl MatchmakeExtension for User {
         gid: u32,
         message: String,
         dont_care_block_list: bool,
-        participation_count: u16,
+        //participation_count: u16,
     ) -> Result<Vec<u8>, ErrorCode> {
         let sess = self.matchmake_manager.get_session(gid).await?;
         let mut sess = sess.lock().await;
