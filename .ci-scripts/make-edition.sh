@@ -4,6 +4,7 @@ export EDITION=$1
 export BA="--network=host --build-arg EDITION=$1 --build-arg DATABASE_URL="$DATABASE_URL""
 source /etc/environment
 : "${RNEX_CONTAINER_PLATFORM:=podman}"
+export BUILDKIT_PROGRESS=plain
 
 # $RNEX_CONTAINER_PLATFORM build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/dev-container:latest" --target=dev-container .
 # $RNEX_CONTAINER_PLATFORM push "$CI_REGISTRY_IMAGE/$EDITION/dev-container:latest"
