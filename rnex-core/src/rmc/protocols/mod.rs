@@ -12,6 +12,7 @@ pub mod nintendo_notification;
 pub mod notifications;
 pub mod ranking;
 pub mod secure;
+pub mod util;
 
 use crate::result::ResultExtension;
 use crate::rmc::message::RMCMessage;

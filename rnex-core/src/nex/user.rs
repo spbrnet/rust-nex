@@ -11,6 +11,9 @@ use rnex_core::prudp::station_url::UrlOptions::{
 use rnex_core::rmc::protocols::matchmake::{
     Matchmake, RawMatchmake, RawMatchmakeInfo, RemoteMatchmake,
 };
+use rnex_core::rmc::protocols::util::{
+    Utility, RawUtility, RawUtilityInfo, RemoteUtility,
+};
 use rnex_core::rmc::protocols::matchmake_ext::{
     MatchmakeExt, RawMatchmakeExt, RawMatchmakeExtInfo, RemoteMatchmakeExt,
 };
@@ -65,6 +68,7 @@ cfg_if! {
                 Matchmake,
                 NatTraversal,
                 Ranking,
+                Utility,
                 DataStore
             }
         );
@@ -76,6 +80,7 @@ cfg_if! {
                 MatchmakeExt,
                 Matchmake,
                 NatTraversal,
+                Utility,
                 Ranking
             }
         );
@@ -765,6 +770,12 @@ fn fetch_team_votes(fest_id: u32) -> Result<Vec<u32>, ErrorCode> {
         error!("failed to parse votes: {:?}", e);
         ErrorCode::RendezVous_InvalidConfiguration
     })
+}
+
+impl Utility for User{
+    async fn acquire_nex_unique_id(&self) -> Result<u64, ErrorCode>{
+        return Ok(rand::random())
+    }
 }
 
 impl Ranking for User {
