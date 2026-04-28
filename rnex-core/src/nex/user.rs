@@ -180,11 +180,14 @@ impl MatchmakeExtension for User {
     }
 
     async fn update_progress_score(&self, gid: u32, progress: u8) -> Result<(), ErrorCode> {
-        let session = self.matchmake_manager.get_session(gid).await?;
+        #[cfg(feature = "v3-5-0")]
+        {
+            let session = self.matchmake_manager.get_session(gid).await?;
 
-        let mut session = session.lock().await;
+            let mut session = session.lock().await;
 
-        session.session.progress_score = progress;
+            session.session.progress_score = progress;
+        }
 
         Ok(())
     }

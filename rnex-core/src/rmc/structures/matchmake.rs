@@ -67,7 +67,6 @@ cfg_if! {
             pub matchmake_system_type: u32,
             pub application_buffer: Vec<u8>,
             pub participation_count: u32,
-            pub progress_score: u8,
             pub session_key: Vec<u8>,
         }
     }

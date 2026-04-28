@@ -1,4 +1,3 @@
-use log::{info, warn};
 use rnex_core::rmc::structures::{Result, RmcSerialize};
 use std::io::{Cursor, Read, Write};
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
@@ -12,32 +11,21 @@ pub struct Any {
 impl RmcSerialize for Any {
     fn serialize(&self, writer: &mut impl Write) -> Result<()> {
         self.name.serialize(writer)?;
-        let u32_len = self.data.len() as u32 - 1;
+
+        let u32_len = self.data.len() as u32;
         (u32_len + 4).serialize(writer)?;
-        u32_len.serialize(writer)?;
-        writer.write_all(&self.data)?;
+        self.data.serialize(writer)?;
 
         Ok(())
     }
     fn deserialize(reader: &mut impl Read) -> Result<Self> {
         let name = String::deserialize(reader)?;
 
-        let size = u32::deserialize(reader)? as usize + 1;
-        let mut buf = vec![0; size];
-        reader.read_exact(&mut buf[..])?;
-        let mut cursor = Cursor::new(&buf);
-        let len2: u32 = cursor.read_struct(IS_BIG_ENDIAN)?;
+        // also length ?
+        let _len2: u32 = reader.read_struct(IS_BIG_ENDIAN)?;
+        let data = Vec::deserialize(reader)?;
 
-        if len2 as usize + 3 != size {
-            warn!("mismatched sizes on any: {} vs {}", size, len2 + 1);
-        }
-
-        info!("any data: {}", hex::encode(&buf));
-
-        Ok(Any {
-            name,
-            data: (&buf[4..]).to_owned(),
-        })
+        Ok(Any { name, data })
     }
 }
 
@@ -58,8 +46,6 @@ impl Any {
 
 #[cfg(test)]
 mod test {
-    use std::io::Cursor;
-
     use crate::rmc::structures::{
         RmcSerialize,
         any::Any,
@@ -68,6 +54,21 @@ mod test {
 
     #[test]
     fn test() {
+        let any = Any {
+            name: "MatchmakeSession".into(),
+            data: [
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 98, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0,
+                0, 0, 0, 0, 0, 20, 0, 68, 111, 111, 114, 115, 32, 70, 114, 105, 101, 110, 100, 32,
+                73, 110, 118, 105, 116, 101, 0, 0, 0, 0, 0, 6, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 1, 2, 3, 0,
+                0, 0, 0, 0, 0, 0, 0, 0,
+            ]
+            .into(),
+        };
+
+        println!("{}", hex::encode(&any.data));
+
+        let _: MatchmakeSession = any.try_get().unwrap().unwrap();
         let sess = MatchmakeSession {
             gathering: Gathering {
                 self_gid: 0,
@@ -87,18 +88,15 @@ mod test {
             matchmake_system_type: 2,
             application_buffer: [1, 2, 3].into(),
             participation_count: 0,
+            #[cfg(feature = "v3-5-0")]
             progress_score: 0,
             session_key: [].into(),
         };
 
-        let any = Any::new(&sess).unwrap().to_data().unwrap();
+        let any = Any::new(&sess).unwrap();
 
-        let sess2: MatchmakeSession = Any::deserialize(&mut Cursor::new(any))
-            .unwrap()
-            .try_get()
-            .unwrap()
-            .unwrap();
+        let sess2: MatchmakeSession = any.try_get().unwrap().unwrap();
 
-        assert_eq!(sess, sess2);
+        assert_eq!(sess, sess2)
     }
 }
