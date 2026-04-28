@@ -52,6 +52,8 @@ use rnex_core::rmc::structures::ranking::UploadCompetitionData;
 use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
 
+use crate::rmc::structures::Error;
+
 cfg_if! {
     if #[cfg(feature = "datastore")] {
         use rnex_core::rmc::protocols::datastore::{DataStore, RawDataStore, RawDataStoreInfo, RemoteDataStore};
@@ -509,6 +511,15 @@ impl MatchmakeExtension for User {
 }
 
 impl Matchmake for User {
+    async fn find_by_single_id(&self, gid: u32) -> Result<(bool, Any), ErrorCode> {
+        let s = self.matchmake_manager.get_session(gid).await?;
+        let s = s.lock().await;
+        Ok((
+            true,
+            Any::new(&s.session).map_err(|_| ErrorCode::Custom_Unknown)?,
+        ))
+    }
+
     async fn unregister_gathering(&self, _gid: u32) -> Result<bool, ErrorCode> {
         Ok(true)
     }
