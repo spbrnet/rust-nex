@@ -6,7 +6,7 @@ use crate::rmc::response::ErrorCode::Core_Exception;
 use crate::rmc::structures::qresult::ERROR_MASK;
 use crate::util::SendingBufferConnection;
 use bytemuck::bytes_of;
-use log::error;
+use log::{error, warn};
 use std::io;
 use std::io::{Read, Seek, Write};
 use std::mem::transmute;
@@ -157,10 +157,13 @@ pub async fn send_result(
             method_id,
             data: v,
         },
-        Err(e) => RMCResponseResult::Error {
-            call_id,
-            error_code: e.into(),
-        },
+        Err(e) => {
+            warn!("error occurred during call: {:?}", e);
+            RMCResponseResult::Error {
+                call_id,
+                error_code: e.into(),
+            }
+        }
     };
 
     let response = RMCResponse {
