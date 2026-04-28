@@ -1,20 +1,15 @@
 #!/usr/bin/env bash
-
 export EDITION=$1
-export BA="--network=host --build-arg EDITION=$1 --build-arg DATABASE_URL="$DATABASE_URL""
 source /etc/environment
 : "${RNEX_CONTAINER_PLATFORM:=podman}"
-export BUILDKIT_PROGRESS=plain
 
-# $RNEX_CONTAINER_PLATFORM build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/dev-container:latest" --target=dev-container .
-# $RNEX_CONTAINER_PLATFORM push "$CI_REGISTRY_IMAGE/$EDITION/dev-container:latest"
-$RNEX_CONTAINER_PLATFORM build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/node-holder:$CI_COMMIT_SHORT_SHA" --target=node-holder .
-$RNEX_CONTAINER_PLATFORM build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/proxy-secure:$CI_COMMIT_SHORT_SHA" --target=proxy-secure .
-$RNEX_CONTAINER_PLATFORM build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/proxy-insecure:$CI_COMMIT_SHORT_SHA" --target=proxy-insecure .
-$RNEX_CONTAINER_PLATFORM build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/backend-auth:$CI_COMMIT_SHORT_SHA" --target=backend-auth .
-$RNEX_CONTAINER_PLATFORM build $BA -t "$CI_REGISTRY_IMAGE/$EDITION/backend-secure:$CI_COMMIT_SHORT_SHA" --target=backend-secure .
-$RNEX_CONTAINER_PLATFORM push "$CI_REGISTRY_IMAGE/$EDITION/node-holder:$CI_COMMIT_SHORT_SHA"
-$RNEX_CONTAINER_PLATFORM push "$CI_REGISTRY_IMAGE/$EDITION/proxy-secure:$CI_COMMIT_SHORT_SHA"
-$RNEX_CONTAINER_PLATFORM push "$CI_REGISTRY_IMAGE/$EDITION/proxy-insecure:$CI_COMMIT_SHORT_SHA"
-$RNEX_CONTAINER_PLATFORM push "$CI_REGISTRY_IMAGE/$EDITION/backend-auth:$CI_COMMIT_SHORT_SHA"
-$RNEX_CONTAINER_PLATFORM push "$CI_REGISTRY_IMAGE/$EDITION/backend-secure:$CI_COMMIT_SHORT_SHA"
+for TARGET in node-holder proxy-secure proxy-insecure backend-auth backend-secure; do
+    $RNEX_CONTAINER_PLATFORM build \
+        --network=host \
+        --build-arg EDITION="$EDITION" \
+        --build-arg DATABASE_URL="$DATABASE_URL" \
+        -t "$CI_REGISTRY_IMAGE/$EDITION/$TARGET:$CI_COMMIT_SHORT_SHA" \
+        --target="$TARGET" .
+    
+    $RNEX_CONTAINER_PLATFORM push "$CI_REGISTRY_IMAGE/$EDITION/$TARGET:$CI_COMMIT_SHORT_SHA"
+done
