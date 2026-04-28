@@ -22,7 +22,7 @@ pub struct Gathering {
 }
 
 // rmc structure
-#[derive(RmcSerialize, Debug, Clone, Default)]
+#[derive(RmcSerialize, Debug, Clone, Default, PartialEq)]
 #[rmc_struct(0)]
 pub struct MatchmakeParam {
     pub params: Vec<(String, Variant)>,

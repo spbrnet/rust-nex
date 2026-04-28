@@ -3,7 +3,7 @@ use rnex_core::rmc::structures;
 use rnex_core::rmc::structures::{Result, RmcSerialize};
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum Variant {
     #[default]
     None,
