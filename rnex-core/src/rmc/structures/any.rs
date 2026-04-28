@@ -1,4 +1,4 @@
-use log::warn;
+use log::{info, warn};
 use rnex_core::rmc::structures::{Result, RmcSerialize};
 use std::io::{Cursor, Read, Write};
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
@@ -28,9 +28,11 @@ impl RmcSerialize for Any {
         let mut cursor = Cursor::new(&buf);
         let len2: u32 = cursor.read_struct(IS_BIG_ENDIAN)?;
 
-        if len2 as usize + 1 != size {
+        if len2 as usize + 3 != size {
             warn!("mismatched sizes on any: {} vs {}", size, len2 + 1);
         }
+
+        info!("any data: {}", hex::encode(&buf));
 
         Ok(Any {
             name,

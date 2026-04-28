@@ -129,7 +129,7 @@ impl AuthHandler {
         };
 
         let Ok(passwd) = client.get_nex_password(pid).await else {
-            warn!("unable to get nex password");
+            warn!("unable to get nex password for pid: {}:", pid);
             return Err(ErrorCode::Core_Exception);
         };
 
