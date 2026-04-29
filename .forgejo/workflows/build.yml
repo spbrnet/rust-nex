@@ -11,6 +11,66 @@ env:
   SHORT_SHA: ${{ github.sha }}
 
 jobs:
+  splatoon-testfire:
+    runs-on: debian-trixie
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache container storage
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/lib/containers/storage
+            /run/containers/storage
+            ~/.local/share/containers/storage
+          key: image-cache
+
+      - name: Login to registry
+        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
+
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
+
+      - name: Build Splatoon Testfire edition
+        env:
+          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
+          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
+        run: ./.ci-scripts/make-edition.sh splatoon-testfire
+
+  fast-racing-neo:
+    runs-on: debian-trixie
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache container storage
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/lib/containers/storage
+            /run/containers/storage
+            ~/.local/share/containers/storage
+          key: image-cache
+
+      - name: Login to registry
+        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
+
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
+
+      - name: Build Fast Racing NEO edition
+        env:
+          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
+          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
+        run: ./.ci-scripts/make-edition.sh fast-racing-neo
+
   wii-u-chat:
     runs-on: debian-trixie
 
