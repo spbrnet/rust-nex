@@ -1,4 +1,6 @@
-# Splatoon NEX Server in Rust
+# Rust NEX monorepo
+
+This repo contains the code for all game servers using RNEX.
 
 ## Credits:
 - Pretendo team for their reverse engineering efforts 
