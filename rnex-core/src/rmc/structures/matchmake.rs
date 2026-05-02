@@ -121,20 +121,40 @@ pub struct MatchmakeBlockListParam {
     option_flag: u32,
 }
 
-#[derive(RmcSerialize, Debug, Clone)]
-#[rmc_struct(0)]
-pub struct JoinMatchmakeSessionParam {
-    pub gid: u32,
-    pub additional_participants: Vec<PID>,
-    pub gid_for_participation_check: u32,
-    pub join_matchmake_session_open: u32,
-    pub join_matchmake_session_behavior: u8,
-    pub user_password: String,
-    pub system_password: String,
-    pub join_message: String,
-    pub participation_count: u16,
-    //pub extra_participant: u16,
-    //pub block_list_param: MatchmakeBlockListParam
+cfg_if! {
+    if #[cfg(feature = "v3-10-22")] {
+        #[derive(RmcSerialize, Debug, Clone)]
+        #[rmc_struct(1)]
+        pub struct JoinMatchmakeSessionParam {
+            pub gid: u32,
+            pub additional_participants: Vec<PID>,
+            pub gid_for_participation_check: u32,
+            pub join_matchmake_session_open: u32,
+            pub join_matchmake_session_behavior: u8,
+            pub user_password: String,
+            pub system_password: String,
+            pub join_message: String,
+            pub participation_count: u16,
+            pub extra_participant: u16,
+            //pub block_list_param: MatchmakeBlockListParam
+        }
+    } else {
+        #[derive(RmcSerialize, Debug, Clone)]
+        #[rmc_struct(0)]
+        pub struct JoinMatchmakeSessionParam {
+            pub gid: u32,
+            pub additional_participants: Vec<PID>,
+            pub gid_for_participation_check: u32,
+            pub join_matchmake_session_open: u32,
+            pub join_matchmake_session_behavior: u8,
+            pub user_password: String,
+            pub system_password: String,
+            pub join_message: String,
+            pub participation_count: u16,
+            //pub extra_participant: u16,
+            //pub block_list_param: MatchmakeBlockListParam
+        }
+    }
 }
 
 pub mod gathering_flags {

@@ -3,7 +3,7 @@ minecraft-wiiu:
   features:
     - prudpv1
     - third-notif-param
-    - v3-8-15
+    - v3-10-22
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.10.x.200x build:3_10_22_2006_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
