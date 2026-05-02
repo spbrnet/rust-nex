@@ -1,3 +1,15 @@
+minecraft-wiiu:
+  include-in-checkall: true
+  features:
+    - prudpv1
+    - third-notif-param
+    - v3-8-15
+  settings:
+    AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.10.x.200x build:3_10_22_2006_0"
+    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
+    RNEX_VIRTUAL_PORT_SECURE: "1:10"
+    RNEX_DEFAULT_PORT: 13000
+    RNEX_ACCESS_KEY: "f1b61c8e"
 wii-u-chat:
   include-in-checkall: true
   features:
