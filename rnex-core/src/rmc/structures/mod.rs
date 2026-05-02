@@ -13,6 +13,7 @@ pub enum Error {
     Utf8(#[from] FromUtf8Error),
     #[error("unexpected value: {0}")]
     UnexpectedValue(u64),
+    #[cfg(feature = "rmc_struct_header")]
     #[error("version mismatch: {0}")]
     VersionMismatch(u8),
     #[error("an error occurred reading the station url")]
