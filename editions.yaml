@@ -1,3 +1,15 @@
+wii-sports-club:
+  include-in-checkall: true
+  features:
+    - prudpv1
+    - third-notif-param
+    - v3-8-15
+  settings:
+    AUTH_REPORT_VERSION: "branch:origin/project/appsp build:3_4_24_4_0"
+    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
+    RNEX_VIRTUAL_PORT_SECURE: "1:10"
+    RNEX_DEFAULT_PORT: 10000
+    RNEX_ACCESS_KEY: "4d324052"
 puyopuyo:
   include-in-checkall: true
   features:
@@ -22,6 +34,18 @@ minecraft-wiiu:
     RNEX_VIRTUAL_PORT_SECURE: "1:10"
     RNEX_DEFAULT_PORT: 13000
     RNEX_ACCESS_KEY: "f1b61c8e"
+mario-tennis:
+  include-in-checkall: true
+  features:
+    - prudpv1
+    - third-notif-param
+    - v3-8-15
+  settings:
+    AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.9.x.200x build:3_9_19_2005_0"
+    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
+    RNEX_VIRTUAL_PORT_SECURE: "1:10"
+    RNEX_DEFAULT_PORT: 10000
+    RNEX_ACCESS_KEY: "c69b92a0"
 wii-u-chat:
   include-in-checkall: true
   features:
