@@ -210,6 +210,7 @@ pub async fn new_backend_connection(
 mod test {
     use crate::{VIRTUAL_PORT_INSECURE, VIRTUAL_PORT_SECURE};
 
+    #[test]
     fn test_virtual_port_correct() {
         println!("{:?}", VIRTUAL_PORT_INSECURE);
         println!("{:?}", VIRTUAL_PORT_SECURE);

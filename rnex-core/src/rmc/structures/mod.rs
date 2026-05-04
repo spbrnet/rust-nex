@@ -20,6 +20,8 @@ pub enum Error {
     StationUrlInvalid,
     #[error("error formatting text: {0}")]
     FormatError(#[from] fmt::Error),
+    #[error("uncategorized rmc error occurred: {0}")]
+    Other(Box<dyn std::error::Error + Send + Sync>),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -36,10 +38,11 @@ pub mod primitives;
 pub mod qbuffer;
 pub mod qresult;
 pub mod ranking;
+pub mod resultsrange;
 pub mod rmc_struct;
 pub mod string;
+pub mod string_set;
 pub mod variant;
-pub mod resultsrange;
 
 pub trait RmcSerialize {
     fn serialize(&self, writer: &mut impl Write) -> Result<()>;
@@ -66,6 +69,9 @@ pub trait RmcSerialize {
     }
     fn name() -> &'static str {
         "NoNameSpecified"
+    }
+    fn version() -> Option<u8> {
+        None
     }
 }
 

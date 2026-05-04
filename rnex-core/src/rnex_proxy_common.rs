@@ -12,7 +12,7 @@ pub struct ConnectionInitData {
 mod test {
     use std::{
         io::Cursor,
-        net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
+        net::{Ipv4Addr, SocketAddr, SocketAddrV4},
     };
 
     use crate::{

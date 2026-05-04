@@ -447,7 +447,7 @@ mod test {
 
         let bytes = &bytes[0x6..];
 
-        let header_data: [u8; 8] = bytes.try_into().unwrap();
+        let _: [u8; 8] = bytes.try_into().unwrap();
     }
 
     #[test]

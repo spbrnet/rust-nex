@@ -40,9 +40,7 @@ use cfg_if::cfg_if;
 use log::{error, info};
 use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
-use rnex_core::rmc::protocols::notifications::{
-    self, Notification, NotificationEvent, RemoteNotification,
-};
+use rnex_core::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
 use rnex_core::rmc::protocols::ranking::{
     CompetitionRankingGetParam, CompetitionRankingScoreData, CompetitionRankingScoreInfo,
 };
@@ -53,7 +51,6 @@ use rnex_core::rmc::structures::ranking::UploadCompetitionData;
 use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
 
-use crate::rmc::structures::Error;
 use crate::rmc::structures::matchmake::MatchmakeSessionSearchCriteria;
 
 cfg_if! {
@@ -185,15 +182,13 @@ impl MatchmakeExtension for User {
         Ok(Vec::new())
     }
 
+    #[cfg(feature = "v3-5-0")]
     async fn update_progress_score(&self, gid: u32, progress: u8) -> Result<(), ErrorCode> {
-        #[cfg(feature = "v3-5-0")]
-        {
-            let session = self.matchmake_manager.get_session(gid).await?;
+        let session = self.matchmake_manager.get_session(gid).await?;
 
-            let mut session = session.lock().await;
+        let mut session = session.lock().await;
 
-            session.session.progress_score = progress;
-        }
+        session.session.progress_score = progress;
 
         Ok(())
     }
@@ -442,7 +437,7 @@ impl MatchmakeExtension for User {
 
     async fn get_friend_notification_data(
         &self,
-        ty: i32,
+        _ty: i32,
     ) -> Result<Vec<NotificationEvent>, ErrorCode> {
         Ok(vec![])
     }
@@ -503,7 +498,7 @@ impl MatchmakeExtension for User {
         &self,
         gid: u32,
         message: String,
-        dont_care_block_list: bool,
+        _dont_care_block_list: bool,
         //participation_count: u16,
     ) -> Result<Vec<u8>, ErrorCode> {
         let sess = self.matchmake_manager.get_session(gid).await?;

@@ -66,6 +66,7 @@ pub trait MatchmakeExtension {
     async fn get_playing_session(&self, pids: Vec<u32>) -> Result<Vec<()>, ErrorCode>;
 
     #[method_id(34)]
+    #[cfg(feature = "v3-5-0")]
     async fn update_progress_score(&self, gid: u32, progress: u8) -> Result<(), ErrorCode>;
     #[method_id(38)]
     async fn create_matchmake_session_with_param(

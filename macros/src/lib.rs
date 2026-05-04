@@ -1,400 +1,27 @@
+#![allow(dead_code)]
 mod protos;
+mod rmc_struct;
+mod util;
 
 extern crate proc_macro;
 
-use crate::protos::{ProtoMethodData, RmcProtocolData};
+use crate::protos::{ProtoInputParams, RmcProtocolData};
+use crate::rmc_struct::{rmc_serialize_enum, rmc_serialize_struct};
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, Literal, Span};
-use quote::{quote, TokenStreamExt};
-use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
+use proc_macro2::Ident;
+use quote::quote;
 use syn::spanned::Spanned;
-use syn::{
-    parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Fields, FnArg, Lit, LitInt,
-    LitStr, Pat, Token, TraitItem,
-};
-
-struct ProtoInputParams {
-    proto_num: LitInt,
-    properties: Option<(Token![,], Punctuated<Ident, Token![,]>)>,
-}
-
-impl Parse for ProtoInputParams {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let proto_num = input.parse()?;
-
-        if let Some(seperator) = input.parse()? {
-            let mut punctuated = Punctuated::new();
-            loop {
-                punctuated.push_value(input.parse()?);
-                if let Some(punct) = input.parse()? {
-                    punctuated.push_punct(punct);
-                } else {
-                    return Ok(Self {
-                        proto_num,
-                        properties: Some((seperator, punctuated)),
-                    });
-                }
-            }
-        } else {
-            Ok(Self {
-                proto_num,
-                properties: None,
-            })
-        }
-    }
-}
-
-fn gen_serialize_data_struct(
-    s: DataStruct,
-    struct_attr: Option<&Attribute>,
-) -> (
-    proc_macro2::TokenStream,
-    proc_macro2::TokenStream,
-    proc_macro2::TokenStream,
-) {
-    let serialize_base_content = {
-        let mut serialize_content = quote! {};
-
-        for f in &s.fields {
-            if f.attrs.iter().any(|a| {
-                a.path().segments.len() == 1
-                    && a.path()
-                        .segments
-                        .first()
-                        .is_some_and(|p| p.ident.to_string() == "extends")
-            }) {
-                continue;
-            }
-            let ident = f.ident.as_ref().unwrap();
-
-            serialize_content.append_all(quote! {
-                rnex_core::rmc::structures::RmcSerialize::serialize(&self.#ident, writer)?;
-            })
-        }
-
-        quote! {
-            #serialize_content
-
-            Ok(())
-        }
-    };
-
-    let struct_ctor = {
-        let mut structure_content = quote! {};
-        for f in &s.fields {
-            let ident = f.ident.as_ref().unwrap();
-
-            structure_content.append_all(quote! {#ident, });
-        }
-
-        quote! {
-            Ok(Self{
-                #structure_content
-            })
-        }
-    };
-
-    let deserialize_base_content = {
-        let mut deserialize_content = quote! {};
-
-        for f in &s.fields {
-            if f.attrs.iter().any(|a| {
-                a.path().segments.len() == 1
-                    && a.path()
-                        .segments
-                        .first()
-                        .is_some_and(|p| p.ident.to_string() == "extends")
-            }) {
-                continue;
-            }
-
-            let ident = f.ident.as_ref().unwrap();
-            let ty = &f.ty;
-
-            deserialize_content.append_all(quote! {
-                let #ident = <#ty> :: deserialize(reader)?;
-            })
-        }
-
-        quote! {
-            #deserialize_content
-            #struct_ctor
-        }
-    };
-
-    let write_size = {
-        let mut size_content = quote! { 0 };
-
-        for f in &s.fields {
-            let ident = f.ident.as_ref().unwrap();
-
-            size_content.append_all(quote! {
-                + rnex_core::rmc::structures::RmcSerialize::serialize_write_size(&self.#ident)?
-            })
-        }
-
-        size_content
-    };
-    let write_size = if let Some(_) = struct_attr {
-        quote! { #write_size + if rnex_core::config::FEATURE_HAS_STRUCT_HEADER{ 5 } else { 0 } }
-    } else {
-        write_size
-    };
-
-    // generate base with extends stuff
-
-    let serialize_base_content = if let Some(attr) = struct_attr {
-        let version: Literal = attr.parse_args().expect("has to be a literal");
-
-        let pre_inner = if let Some(f) = s.fields.iter().find(|f| {
-            f.attrs.iter().any(|a| {
-                a.path().segments.len() == 1
-                    && a.path()
-                        .segments
-                        .first()
-                        .is_some_and(|p| p.ident.to_string() == "extends")
-            })
-        }) {
-            let ident = f.ident.as_ref().unwrap();
-            quote! {
-                self.#ident.serialize(writer)?;
-            }
-        } else {
-            quote! {}
-        };
-
-        quote! {
-            #pre_inner
-            rnex_core::rmc::structures::rmc_struct::write_struct(
-                writer,
-                #version,
-                rnex_core::rmc::structures::helpers::len_of_write(
-                    |writer|{
-                        #serialize_base_content
-                    }
-                ),
-                |writer|{
-                    #serialize_base_content
-                }
-            )?;
-
-            Ok(())
-        }
-    } else {
-        serialize_base_content
-    };
-
-    let deserialize_base_content = if let Some(attr) = struct_attr {
-        let version: Literal = attr.parse_args().expect("has to be a literal");
-
-        let pre_inner = if let Some(f) = s.fields.iter().find(|f| {
-            f.attrs.iter().any(|a| {
-                a.path().segments.len() == 1
-                    && a.path()
-                        .segments
-                        .first()
-                        .is_some_and(|p| p.ident.to_string() == "extends")
-            })
-        }) {
-            let ident = f.ident.as_ref().unwrap();
-            let ty = &f.ty;
-            quote! {
-                let #ident = <#ty> :: deserialize(reader)?;
-            }
-        } else {
-            quote! {}
-        };
-
-        quote! {
-            #pre_inner
-            Ok(rnex_core::rmc::structures::rmc_struct::read_struct(reader, #version, move |mut reader|{
-                #deserialize_base_content
-            })?)
-        }
-    } else {
-        deserialize_base_content
-    };
-
-    let write_size = quote! {
-        fn serialize_write_size(&self) -> rnex_core::rmc::structures::Result<u32>{
-            Ok(#write_size)
-        }
-    };
-
-    (serialize_base_content, deserialize_base_content, write_size)
-}
+use syn::{parse_macro_input, Data, DeriveInput, Lit, LitStr};
 
 #[proc_macro_derive(RmcSerialize, attributes(extends, rmc_struct))]
 pub fn rmc_serialize(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
 
-    let struct_attr = derive_input.attrs.iter().find(|a| {
-        a.path().segments.len() == 1
-            && a.path()
-                .segments
-                .first()
-                .is_some_and(|p| p.ident.to_string() == "rmc_struct")
-    });
-    let repr_attr = derive_input.attrs.iter().find(|a| {
-        a.path().segments.len() == 1
-            && a.path()
-                .segments
-                .first()
-                .is_some_and(|p| p.ident.to_string() == "repr")
-    });
-
-    /*let Data::Struct(s) = derive_input.data else {
-        panic!("rmc struct type MUST be a struct");
-    };*/
-
-    let (serialize_base_content, deserialize_base_content, write_size) = match derive_input.data {
-        Data::Struct(s) => gen_serialize_data_struct(s, struct_attr),
-        Data::Enum(e) => {
-            let Some(repr_attr) = repr_attr else {
-                panic!("missing repr attribute");
-            };
-
-            let ty: Ident = repr_attr.parse_args().unwrap();
-
-            let mut inner_match_de = quote! {};
-            let mut inner_match_se = quote! {};
-            //let mut inner_match_len = quote!{};
-
-            for variant in e.variants {
-                let Some((_, val)) = variant.discriminant else {
-                    panic!("missing discriminant");
-                };
-
-                let field_data_de = match &variant.fields {
-                    Fields::Named(v) => {
-                        let mut base = quote! {};
-                        for field in v.named.iter() {
-                            let ty = &field.ty;
-                            let name = &field.ident;
-
-                            base.append_all(quote!{
-                                #name: <#ty as rnex_core::rmc::structures::RmcSerialize>::deserialize(reader)?,
-                            });
-                        }
-
-                        quote! {{#base}}
-                    }
-                    Fields::Unnamed(n) => {
-                        let mut base = quote! {};
-
-                        for field in n.unnamed.iter() {
-                            let ty = &field.ty;
-
-                            base.append_all(quote!{
-                                <#ty as rnex_core::rmc::structures::RmcSerialize>::deserialize(reader)?,
-                            });
-                        }
-
-                        quote! {(#base)}
-                    }
-                    Fields::Unit => {
-                        quote! {}
-                    }
-                };
-
-                let mut se_with_fields = quote! {
-                    <#ty as rnex_core::rmc::structures::RmcSerialize>::serialize(&#val, writer)?;
-                };
-
-                match &variant.fields {
-                    Fields::Named(v) => {
-                        for field in v.named.iter() {
-                            let ty = &field.ty;
-                            let name = &field.ident;
-
-                            se_with_fields.append_all(quote!{
-                                <#ty as rnex_core::rmc::structures::RmcSerialize>::serialize(#name ,writer)?;
-                            });
-                        }
-                    }
-                    Fields::Unnamed(n) => {
-                        for (i, field) in n.unnamed.iter().enumerate() {
-                            let ty = &field.ty;
-
-                            let ident = Ident::new(&format!("val_{}", i), Span::call_site());
-
-                            se_with_fields.append_all(quote!{
-                                <#ty as rnex_core::rmc::structures::RmcSerialize>::serialize(#ident, writer)?;
-                            });
-                        }
-                    }
-                    Fields::Unit => {}
-                };
-
-                let field_match_se = match &variant.fields {
-                    Fields::Named(v) => {
-                        let mut base = quote! {};
-
-                        for field in v.named.iter() {
-                            let name = &field.ident;
-
-                            base.append_all(quote! {
-                                #name,
-                            });
-                        }
-
-                        quote! {{#base}}
-                    }
-                    Fields::Unnamed(n) => {
-                        let mut base = quote! {};
-
-                        for (i, _field) in n.unnamed.iter().enumerate() {
-                            let ident = Ident::new(&format!("val_{}", i), Span::call_site());
-
-                            base.append_all(quote! {
-                                #ident,
-                            });
-                        }
-
-                        quote! {(#base)}
-                    }
-                    Fields::Unit => {
-                        quote! {}
-                    }
-                };
-
-                let name = variant.ident;
-
-                inner_match_de.append_all(quote! {
-                    #val => Self::#name #field_data_de,
-                });
-
-                inner_match_se.append_all(quote! {
-                    Self::#name #field_match_se => {
-                        #se_with_fields
-                    },
-                });
-            }
-
-            let serialize_base_content = quote! {
-                match self{
-                    #inner_match_se
-                };
-
-
-
-                Ok(())
-            };
-
-            let deserialize_base_content = quote! {
-                let val: Self = match <#ty as rnex_core::rmc::structures::RmcSerialize>::deserialize(reader)?{
-                    #inner_match_de
-                    v => return Err(rnex_core::rmc::structures::Error::UnexpectedValue(v as _))
-                };
-
-                Ok(val)
-            };
-
-            (serialize_base_content, deserialize_base_content, quote! {})
-        }
+    let (serialize, deserialize, write_size, version) = match &derive_input.data {
+        Data::Struct(s) => rmc_serialize_struct(s, &derive_input),
+        Data::Enum(e) => rmc_serialize_enum(e, &derive_input),
         Data::Union(_) => {
-            unimplemented!()
+            unimplemented!("serialize a union is not allowed");
         }
     };
 
@@ -406,18 +33,40 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
     ));
     let ident = derive_input.ident;
 
+    let write_size = if let Some(v) = write_size {
+        quote! {
+            fn serialize_write_size(&self) -> rnex_core::rmc::structures::Result<u32>{
+                #v
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let version = if let Some(v) = version {
+        quote! {
+            fn version() -> Option<u8>{
+                #v
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     let tokens = quote! {
         impl rnex_core::rmc::structures::RmcSerialize for #ident{
             #[inline(always)]
             fn serialize(&self, writer: &mut impl ::std::io::Write) -> rnex_core::rmc::structures::Result<()>{
-                #serialize_base_content
+                #serialize
             }
             #[inline(always)]
             fn deserialize(reader: &mut impl ::std::io::Read) -> rnex_core::rmc::structures::Result<Self>{
-                #deserialize_base_content
+                #deserialize
             }
 
             #write_size
+
+            #version
 
             fn name() -> &'static str{
                 #str_name
@@ -455,71 +104,9 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn rmc_proto(attr: TokenStream, input: TokenStream) -> TokenStream {
     let params = parse_macro_input!(attr as ProtoInputParams);
-
-    let ProtoInputParams {
-        proto_num,
-        properties,
-    } = params;
-
-    let no_return_data =
-        properties.is_some_and(|p| p.1.iter().any(|i| i.to_string() == "NoReturn"));
-
     let input = parse_macro_input!(input as syn::ItemTrait);
 
-    // gigantic ass struct initializer (to summarize this gets all of the data)
-    let raw_data = RmcProtocolData {
-        has_returns: !no_return_data,
-        name: input.ident.clone(),
-        id: proto_num,
-        methods: input
-            .items
-            .iter()
-            .filter_map(|v| match v {
-                TraitItem::Fn(v) => Some(v),
-                _ => None,
-            })
-            .map(|func| {
-                let Some(attr) = func.attrs.iter().find(|a| {
-                    a.path()
-                        .segments
-                        .last()
-                        .is_some_and(|s| s.ident.to_string() == "method_id")
-                }) else {
-                    panic!("every function inside of an rmc protocol must have a method id");
-                };
-
-                let Ok(id): Result<LitInt, _> = attr.parse_args() else {
-                    panic!("todo: put a propper error message here");
-                };
-
-                let funcs = func
-                    .sig
-                    .inputs
-                    .iter()
-                    .skip(1)
-                    .map(|f| {
-                        let FnArg::Typed(t) = f else {
-                            panic!("what");
-                        };
-                        let Pat::Ident(i) = &*t.pat else {
-                            panic!(
-                                "unable to handle non identifier patterns as parameter bindings"
-                            );
-                        };
-
-                        (i.ident.clone(), t.ty.as_ref().clone())
-                    })
-                    .collect();
-
-                ProtoMethodData {
-                    id,
-                    name: func.sig.ident.clone(),
-                    parameters: funcs,
-                    ret_val: func.sig.output.clone(),
-                }
-            })
-            .collect(),
-    };
+    let raw_data = RmcProtocolData::new(params, &input);
 
     quote! {
         #input

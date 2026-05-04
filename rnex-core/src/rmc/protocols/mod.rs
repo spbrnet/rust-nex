@@ -21,7 +21,6 @@ use crate::rmc::response::{ErrorCode, RMCResponse, RMCResponseResult};
 use crate::rmc::structures;
 use crate::rmc::structures::RmcSerialize;
 use crate::util::{SendingBufferConnection, SplittableBufferConnection};
-use futures::FutureExt;
 use log::{error, info};
 use std::collections::HashMap;
 use std::future::Future;

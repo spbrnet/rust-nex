@@ -1,11 +1,6 @@
-use macros::{RmcSerialize, method_id, rmc_proto};
+use macros::{method_id, rmc_proto};
 
-use rnex_core::{
-    PID,
-    rmc::{response::ErrorCode, structures::any::Any},
-};
-
-use crate::{kerberos::KerberosDateTime, rmc::protocols::friends::NNAInfo};
+use rnex_core::rmc::response::ErrorCode;
 
 #[rmc_proto(110)]
 pub trait Utility {

@@ -1,12 +1,48 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
-use syn::token::{Brace, Paren, Semi};
-use syn::{LitInt, LitStr, ReturnType, Type};
+use syn::{
+    parse::{Parse, ParseStream},
+    punctuated::Punctuated,
+    Attribute, FnArg, ItemTrait, LitInt, LitStr, Meta, Pat, ReturnType, Token, TraitItem, Type,
+};
 
+use crate::util::fold_tokenable;
+
+pub struct ProtoInputParams {
+    proto_num: LitInt,
+    properties: Option<(Token![,], Punctuated<Ident, Token![,]>)>,
+}
+
+impl Parse for ProtoInputParams {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let proto_num = input.parse()?;
+
+        if let Some(seperator) = input.parse()? {
+            let mut punctuated = Punctuated::new();
+            loop {
+                punctuated.push_value(input.parse()?);
+                if let Some(punct) = input.parse()? {
+                    punctuated.push_punct(punct);
+                } else {
+                    return Ok(Self {
+                        proto_num,
+                        properties: Some((seperator, punctuated)),
+                    });
+                }
+            }
+        } else {
+            Ok(Self {
+                proto_num,
+                properties: None,
+            })
+        }
+    }
+}
 pub struct ProtoMethodData {
     pub id: LitInt,
     pub name: Ident,
-    pub parameters: Vec<(Ident, Type)>,
+    pub attributes: Vec<Attribute>,
+    pub parameters: Vec<(Ident, Type, Vec<Attribute>)>,
     pub ret_val: ReturnType,
 }
 
@@ -23,108 +59,222 @@ pub struct RmcProtocolData {
 }
 
 impl RmcProtocolData {
-    fn generate_raw_trait(&self, tokens: &mut TokenStream) {
+    pub fn new(params: ProtoInputParams, input: &ItemTrait) -> Self {
+        let ProtoInputParams {
+            proto_num,
+            properties,
+        } = params;
+
+        let no_return_data =
+            properties.is_some_and(|p| p.1.iter().any(|i| i.to_string() == "NoReturn"));
+
+        // gigantic ass struct initializer (to summarize this gets all of the data)
+        RmcProtocolData {
+            has_returns: !no_return_data,
+            name: input.ident.clone(),
+            id: proto_num,
+            methods: input
+                .items
+                .iter()
+                .filter_map(|v| match v {
+                    TraitItem::Fn(v) => Some(v),
+                    _ => None,
+                })
+                .map(|func| {
+                    let Some(attr) = func.attrs.iter().find(|a| {
+                        a.path()
+                            .segments
+                            .last()
+                            .is_some_and(|s| s.ident.to_string() == "method_id")
+                    }) else {
+                        panic!("every function inside of an rmc protocol must have a method id");
+                    };
+
+                    let Ok(id): Result<LitInt, _> = attr.parse_args() else {
+                        panic!("todo: put a propper error message here");
+                    };
+
+                    let funcs = func
+                        .sig
+                        .inputs
+                        .iter()
+                        .skip(1)
+                        .map(|f| {
+                            let FnArg::Typed(t) = f else {
+                                panic!("what");
+                            };
+                            let Pat::Ident(i) = &*t.pat else {
+                                panic!(
+                                    "unable to handle non identifier patterns as parameter bindings"
+                                );
+                            };
+
+                            (i.ident.clone(), t.ty.as_ref().clone(), t.attrs.clone())
+                        })
+                        .collect();
+
+                    ProtoMethodData {
+                        id,
+                        name: func.sig.ident.clone(),
+                        parameters: funcs,
+                        ret_val: func.sig.output.clone(),
+                        attributes: func
+                            .attrs
+                            .iter()
+                            .filter(|a| match &a.meta {
+                                Meta::NameValue(v) => {
+                                    if let Some(i) = v.path.get_ident() {
+                                        i.to_string() != "doc"
+                                    } else {
+                                        true
+                                    }
+                                }
+                                Meta::List(l) => {
+                                    if let Some(seg) = l.path.segments.last() {
+                                        seg.ident.to_string() != "method_id"
+                                    } else {
+                                        true
+                                    }
+                                }
+                                _ => true,
+                            })
+                            .cloned()
+                            .collect(),
+                    }
+                })
+                .collect(),
+        }
+    }
+
+    fn generate_raw_trait(&self) -> TokenStream {
         let Self {
             has_returns,
             name,
             id,
             methods,
         } = self;
+        let generate_raw_method = |method: &ProtoMethodData| -> TokenStream {
+            let ProtoMethodData {
+                name,
+                parameters,
+                attributes,
+                ..
+            } = method;
 
-        // this gives us the name which the identifier of the corresponding Raw trait
-        let raw_name = Ident::new(&format!("Raw{}", name), name.span());
+            let attribs = fold_tokenable(attributes.iter());
 
-        // boilerplate tokens which all raw traits need
-        quote! {
-            #[doc(hidden)]
-            #[allow(unused_must_use)]
-            pub trait #raw_name: #name
-        }
-        .to_tokens(tokens);
+            let raw_name = Ident::new(&format!("raw_{}", name), name.span());
 
-        // generate the body of the raw protocol trait
-        Brace::default().surround(tokens, |tokens|{
-            //generate each raw method
-            for method in methods{
-                let ProtoMethodData {
-                    name,
-                    parameters,
-                    ..
-                } = method;
+            let optional_return = if self.has_returns {
+                quote! {
+                    -> ::core::result::Result<Vec<u8>, ::rnex_core::rmc::response::ErrorCode>
+                }
+            } else {
+                quote! {}
+            }
+            .into_token_stream();
 
-                let raw_name = Ident::new(&format!("raw_{}", name), name.span());
-                quote!{
-                    #[inline(always)]
-                    async fn #raw_name
-                }.to_tokens(tokens);
-
-                Paren::default().surround(tokens, |tokens|{
-                    quote!{ &self, data: ::std::vec::Vec<u8> }.to_tokens(tokens);
-                });
-
-                if self.has_returns {
+            let deser_params =
+                fold_tokenable(parameters.iter().map(|(param_name, param_type, attribs)| {
+                    let error_msg = LitStr::new(
+                        &format!("an error occurred whilest deserializing {}", param_name),
+                        Span::call_site(),
+                    );
+                    let return_from_deser_error = if self.has_returns {
+                        quote! {
+                            return Err(::rnex_core::rmc::response::ErrorCode::Core_InvalidArgument);
+                        }
+                    } else {
+                        quote! {
+                            return;
+                        }
+                    };
+                    let attribs = fold_tokenable(attribs.iter());
                     quote! {
-                        -> ::core::result::Result<Vec<u8>, ErrorCode>
-                    }.to_tokens(tokens);
+                        #attribs
+                        let Ok(#param_name) =
+                            <#param_type as rnex_core::rmc::structures::RmcSerialize>::deserialize(
+                            &mut cursor
+                        ) else{
+                            log::error!(#error_msg);
+                            #return_from_deser_error
+                        };
+                    }
+                }));
+
+            let call_params = fold_tokenable(parameters.iter().map(|(param_name, _, attribs)| {
+                let attribs = fold_tokenable(attribs.iter());
+                quote! {
+                    #attribs
+                    #param_name,
+                }
+            }));
+
+            let optional_method_return = if *has_returns {
+                quote! {
+                    let retval = retval?;
+                    let mut vec = Vec::new();
+                    rnex_core::rmc::structures::RmcSerialize::serialize(&retval, &mut vec).ok();
+                    Ok(vec)
+                }
+            } else {
+                quote! {}
+            };
+
+            quote! {
+                #[inline(always)]
+                #attribs
+                async fn #raw_name (&self, data: ::std::vec::Vec<u8>) #optional_return{
+                    let mut cursor = ::std::io::Cursor::new(data);
+                    #deser_params
+                    let retval = self.#name(#call_params).await;
+                    #optional_method_return
                 }
 
-                Brace::default().surround(tokens, |tokens|{
-                    quote! { let mut cursor = ::std::io::Cursor::new(data); }.to_tokens(tokens);
-
-                    for (param_name, param_type) in parameters{
-                        quote!{
-                            let Ok(#param_name) =
-                                <#param_type as rnex_core::rmc::structures::RmcSerialize>::deserialize(
-                                &mut cursor
-                            ) else
-                        }.to_tokens(tokens);
-
-                        let error_msg = LitStr::new(&format!("an error occurred whilest deserializing {}", param_name), Span::call_site());
-
-                        if self.has_returns {
-                            quote! {
-                                {
-                                    log::error!(#error_msg);
-                                    return Err(rnex_core::rmc::response::ErrorCode::Core_InvalidArgument);
-                                };
-                            }.to_tokens(tokens)
-                        } else {
-                            quote! {
-                                {
-                                    log::error!(#error_msg);
-                                    return;
-                                };
-                            }.to_tokens(tokens)
-                        }
-
-                    }
-
-                    quote!{
-                        let retval = self.#name
-                    }.to_tokens(tokens);
-
-                    Paren::default().surround(tokens, |tokens|{
-                        for (paren_name, _) in parameters{
-                            quote!{#paren_name,}.to_tokens(tokens);
-                        }
-                    });
-
-                    quote!{
-                        .await;
-                    }.to_tokens(tokens);
-
-                    if *has_returns{
-                        quote!{
-                            let retval = retval?;
-                            let mut vec = Vec::new();
-                            rnex_core::rmc::structures::RmcSerialize::serialize(&retval, &mut vec).ok();
-                            Ok(vec)
-                        }.to_tokens(tokens);
-                    }
-                })
             }
+        };
 
-            quote!{
+        let generate_rmc_call_proto = || {
+            let method_entries = fold_tokenable(methods.iter().map(|m| {
+                let ProtoMethodData {
+                    id,
+                    name,
+                    attributes,
+                    ..
+                } = m;
+
+                let attribs = fold_tokenable(attributes.iter());
+                let raw_name = Ident::new(&format!("raw_{}", name), name.span());
+
+                quote! {
+                    #attribs
+                    #id => self.#raw_name(data).await,
+                }
+            }));
+
+            let optional_notimpl_return = if self.has_returns {
+                quote! {
+                    Err(rnex_core::rmc::response::ErrorCode::Core_NotImplemented)
+                }
+            } else {
+                quote! {}
+            };
+
+            let optional_result_sendback = if *has_returns {
+                quote! {
+                    rnex_core::rmc::response::send_result(
+                        remote_response_connection,
+                        ret,
+                        #id,
+                        method_id,
+                        call_id,
+                    ).await
+                }
+            } else {
+                quote! {}
+            };
+
+            quote! {
                 #[inline(always)]
                 async fn rmc_call_proto(
                     &self,
@@ -132,71 +282,38 @@ impl RmcProtocolData {
                     method_id: u32,
                     call_id: u32,
                     data: Vec<u8>,
-                )
-            }.to_tokens(tokens);
-
-            Brace::default().surround(tokens, |tokens|{
-                quote! {
-                    let ret = match method_id
-                }.to_tokens(tokens);
-
-                Brace::default().surround(tokens, |tokens|{
-                    for method in methods{
-                        let ProtoMethodData{
-                            id,
-                            name,
-                            ..
-                        } = method;
-
-                        let raw_name = Ident::new(&format!("raw_{}", name), name.span());
-
-
-                        quote!{
-                            #id => self.#raw_name(data).await,
-                        }.to_tokens(tokens);
-                    }
-                    quote!{
-                        v =>
-                    }.to_tokens(tokens);
-
-
-
-                    Brace::default().surround(tokens, |tokens|{
-                        quote!{
+                ){
+                    let ret = match method_id{
+                        #method_entries
+                        v => {
                             log::error!("(protocol {})unimplemented method id called on protocol: {}", #id, v);
-                        }.to_tokens(tokens);
-                        if self.has_returns {
-                            quote! {
-                                Err(rnex_core::rmc::response::ErrorCode::Core_NotImplemented)
-                            }.to_tokens(tokens);
+                            #optional_notimpl_return
                         }
-                    });
-
-                });
-
-                Semi::default().to_tokens(tokens);
-
-                if *has_returns{
-                    quote!{
-                        rnex_core::rmc::response::send_result(
-                            remote_response_connection,
-                            ret,
-                            #id,
-                            method_id,
-                            call_id,
-                        ).await
-                    }.to_tokens(tokens);
+                    };
+                    #optional_result_sendback
                 }
-            });
-        });
+            }
+        };
 
+        // this gives us the name which the identifier of the corresponding Raw trait
+        let raw_name = Ident::new(&format!("Raw{}", name), name.span());
+        let proto_raw_methods = fold_tokenable(self.methods.iter().map(|m| generate_raw_method(m)));
+        let rmc_call_proto = generate_rmc_call_proto();
+
+        // boilerplate tokens which all raw traits need
         quote! {
+            #[doc(hidden)]
+            #[allow(unused_must_use)]
+            pub trait #raw_name: #name{
+                #proto_raw_methods
+                #rmc_call_proto
+            }
             impl<T: #name> #raw_name for T{}
         }
-        .to_tokens(tokens);
+        .to_token_stream()
     }
 
-    fn generate_raw_remote_trait(&self, tokens: &mut TokenStream) {
+    fn generate_raw_remote_trait(&self) -> TokenStream {
         let Self {
             has_returns,
             name,
@@ -207,101 +324,92 @@ impl RmcProtocolData {
 
         // this gives us the name which the identifier of the corresponding Raw trait
         let remote_name = Ident::new(&format!("Remote{}", name), name.span());
+        let generate_remote_method = |m: &ProtoMethodData| -> TokenStream {
+            let ProtoMethodData {
+                name,
+                parameters,
+                ret_val,
+                attributes,
+                id: method_id,
+            } = m;
 
-        // boilerplate tokens which all raw traits need
+            let params = fold_tokenable(parameters.iter().map(|(ident, ty, attr)| {
+                let attrs = fold_tokenable(attr.iter());
+                quote! { #attrs #ident: #ty, }
+            }));
+
+            let optional_questionmark_operator = if self.has_returns {
+                quote! {
+                    ?
+                }
+            } else {
+                quote! {}
+            };
+
+            let param_serialize = fold_tokenable(parameters.iter().map(|(name, ty, attrs)|{
+                let attrs = fold_tokenable(attrs.iter());
+                quote!{
+                    #attrs
+                    rnex_core::result::ResultExtension::display_err_or_some(
+                        <#ty as rnex_core::rmc::structures::RmcSerialize>::serialize(
+                            &#name,
+                            &mut cursor
+                        )
+                    ).ok_or(rnex_core::rmc::response::ErrorCode::Core_InvalidArgument)#optional_questionmark_operator ;
+                }
+            }));
+
+            let make_call = if *has_returns {
+                quote! {
+                    rnex_core::result::ResultExtension::display_err_or_some(
+                        rmc_conn.make_raw_call(&message).await
+                    ).ok_or(rnex_core::rmc::response::ErrorCode::Core_Exception)
+                }
+            } else {
+                quote! {
+                    rnex_core::result::ResultExtension::display_err_or_some(
+                        rmc_conn.make_raw_call_no_response(&message).await
+                    );
+                }
+            };
+
+            let attribs = fold_tokenable(attributes.iter());
+
+            quote! {
+                #attribs
+                async fn #name(&self, #params) #ret_val{
+                    let mut send_data = ::std::vec::Vec::new();
+                    let mut cursor = ::std::io::Cursor::new(&mut send_data);
+                    #param_serialize
+
+                    let call_id = rand::random();
+
+                    let message = rnex_core::rmc::message::RMCMessage{
+                        call_id,
+                        method_id: #method_id,
+                        protocol_id: #proto_id,
+                        rest_of_data: send_data
+                    };
+
+                    let rmc_conn = <Self as rnex_core::rmc::protocols::HasRmcConnection>::get_connection(self);
+
+                    #make_call
+                }
+            }
+        };
+
+        let remote_methods = fold_tokenable(methods.iter().map(|m| generate_remote_method(m)));
+
         quote! {
             #[doc(hidden)]
             #[allow(unused_must_use)]
-            pub trait #remote_name: rnex_core::rmc::protocols::HasRmcConnection
-        }
-        .to_tokens(tokens);
-
-        // generate the body of the raw protocol trait
-        Brace::default().surround(tokens, |tokens|{
-            //generate each raw method
-            for method in methods{
-                let ProtoMethodData {
-                    name,
-                    parameters,
-                    ret_val,
-                    id: method_id,
-                    ..
-                } = method;
-
-                quote!{
-                    async fn #name
-                }.to_tokens(tokens);
-
-                Paren::default().surround(tokens, |tokens|{
-                    quote!{ &self, }.to_tokens(tokens);
-                    for (param_ident, param_type) in parameters{
-                        quote!{ #param_ident: #param_type, }.to_tokens(tokens);
-                    }
-                });
-
-                quote!{
-                    #ret_val
-                }.to_tokens(tokens);
-
-                Brace::default().surround(tokens, |tokens|{
-                    quote! {
-                        let mut send_data = Vec::new();
-                        let mut cursor = ::std::io::Cursor::new(&mut send_data);
-                    }.to_tokens(tokens);
-
-                    for (param_name, param_type) in parameters{
-                        quote!{
-                            rnex_core::result::ResultExtension::display_err_or_some(
-                                <#param_type as rnex_core::rmc::structures::RmcSerialize>::serialize(
-                                    &#param_name,
-                                    &mut cursor
-                                )
-                            ).ok_or(rnex_core::rmc::response::ErrorCode::Core_InvalidArgument)
-                        }.to_tokens(tokens);
-                        if self.has_returns {
-                            quote! {
-                                ?;
-                            }.to_tokens(tokens)
-                        } else {
-                            quote! {
-                                ;
-                            }.to_tokens(tokens)
-                        }
-                    }
-
-                    quote!{
-                        let call_id = rand::random();
-
-                        let message = rnex_core::rmc::message::RMCMessage{
-                            call_id,
-                            method_id: #method_id,
-                            protocol_id: #proto_id,
-                            rest_of_data: send_data
-                        };
-
-                        let rmc_conn = <Self as rnex_core::rmc::protocols::HasRmcConnection>::get_connection(self);
-                    }.to_tokens(tokens);
-
-                    if *has_returns{
-                        quote!{
-                            rnex_core::result::ResultExtension::display_err_or_some(
-                                rmc_conn.make_raw_call(&message).await
-                            ).ok_or(rnex_core::rmc::response::ErrorCode::Core_Exception)
-                        }.to_tokens(tokens);
-                    } else {
-                        quote!{
-                            rnex_core::result::ResultExtension::display_err_or_some(
-                                rmc_conn.make_raw_call_no_response(&message).await
-                            );
-                        }.to_tokens(tokens);
-                    }
-
-                })
+            pub trait #remote_name: rnex_core::rmc::protocols::HasRmcConnection{
+                #remote_methods
             }
-        });
+        }
     }
 
-    fn generate_raw_info(&self, tokens: &mut TokenStream) {
+    fn generate_raw_info(&self) -> TokenStream {
         let Self { name, id, .. } = self;
 
         let raw_info_name = Ident::new(&format!("Raw{}Info", name), Span::call_site());
@@ -314,14 +422,13 @@ impl RmcProtocolData {
                 pub const PROTOCOL_ID: u16 = #id;
             }
         }
-        .to_tokens(tokens);
     }
 }
 
 impl ToTokens for RmcProtocolData {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        self.generate_raw_trait(tokens);
-        self.generate_raw_info(tokens);
-        self.generate_raw_remote_trait(tokens);
+        self.generate_raw_trait().to_tokens(tokens);
+        self.generate_raw_info().to_tokens(tokens);
+        self.generate_raw_remote_trait().to_tokens(tokens);
     }
 }
