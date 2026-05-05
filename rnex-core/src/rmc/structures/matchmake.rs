@@ -5,6 +5,8 @@ use rnex_core::rmc::structures::variant::Variant;
 
 use rnex_core::PID;
 
+use crate::rmc::structures::string_set::StringSet;
+
 // rmc structure
 #[derive(RmcSerialize, Debug, Clone, Default, PartialEq)]
 #[rmc_struct(0)]
@@ -75,7 +77,7 @@ cfg_if! {
 #[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(3)]
 pub struct MatchmakeSessionSearchCriteria {
-    pub attribs: Vec<String>,
+    pub attribs: Vec<StringSet<u32>>,
     pub game_mode: String,
     pub minimum_participants: String,
     pub maximum_participants: String,

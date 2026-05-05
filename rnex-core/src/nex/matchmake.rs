@@ -399,31 +399,28 @@ impl ExtendedMatchmakeSession {
 
         #[cfg(feature = "splatoon")]
         {
-            if search_criteria
-                .attribs
-                .get(0)
-                .map(|str| str.parse().ok())
-                .flatten()
-                != self.session.attributes.get(0).map(|v| *v)
-            {
+            if search_criteria.attribs.get(0).is_some_and(|s| {
+                self.session
+                    .attributes
+                    .get(0)
+                    .is_some_and(|a| s.0.contains(a))
+            }) {
                 return Ok(false);
             }
-            if search_criteria
-                .attribs
-                .get(2)
-                .map(|str| str.parse().ok())
-                .flatten()
-                != self.session.attributes.get(2).map(|v| *v)
-            {
+            if search_criteria.attribs.get(2).is_some_and(|s| {
+                self.session
+                    .attributes
+                    .get(2)
+                    .is_some_and(|a| s.0.contains(a))
+            }) {
                 return Ok(false);
             }
-            if search_criteria
-                .attribs
-                .get(3)
-                .map(|str| str.parse().ok())
-                .flatten()
-                != self.session.attributes.get(3).map(|v| *v)
-            {
+            if search_criteria.attribs.get(3).is_some_and(|s| {
+                self.session
+                    .attributes
+                    .get(3)
+                    .is_some_and(|a| s.0.contains(a))
+            }) {
                 return Ok(false);
             }
         }
