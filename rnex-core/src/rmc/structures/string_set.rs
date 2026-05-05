@@ -36,13 +36,18 @@ where
     type Err = Box<dyn std::error::Error + Send + Sync>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self(s.split("|").map(T::from_str).try_fold(
-            HashSet::new(),
-            |mut a, b| -> Result<HashSet<T>, Self::Err> {
-                a.insert(b.map_err(Box::new)?);
-                Ok(a)
-            },
-        )?))
+        Ok(Self(
+            s.split("|")
+                .filter(|v| !v.is_empty())
+                .map(T::from_str)
+                .try_fold(
+                    HashSet::new(),
+                    |mut a, b| -> Result<HashSet<T>, Self::Err> {
+                        a.insert(b.map_err(Box::new)?);
+                        Ok(a)
+                    },
+                )?,
+        ))
     }
 }
 
@@ -82,5 +87,9 @@ mod test {
                 panic!("sets arent equivalent");
             }
         }
+
+        let _: StringSet<u32> = StringSet::from_str("").unwrap();
+
+        let _: StringSet<u32> = StringSet::from_str("10").unwrap();
     }
 }
