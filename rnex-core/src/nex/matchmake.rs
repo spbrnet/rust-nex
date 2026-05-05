@@ -121,6 +121,9 @@ fn check_bounds_str<T: FromStr + PartialOrd>(compare: T, str: &str) -> Option<bo
     if let Ok(val) = T::from_str(str) {
         return Some(val == compare);
     }
+    if str.is_empty() {
+        return Some(true);
+    }
     None
 }
 
