@@ -2,8 +2,8 @@ use std::{collections::HashSet, hash::Hash, str::FromStr, string::ToString};
 
 use rnex_core::rmc::structures::RmcSerialize;
 
-#[derive(Debug)]
-struct StringSet<T: FromStr + ToString + Eq>(HashSet<T>)
+#[derive(Debug, Clone)]
+pub struct StringSet<T: FromStr + ToString + Eq>(pub HashSet<T>)
 where
     <T as FromStr>::Err: std::error::Error + Send + Sync + 'static;
 
