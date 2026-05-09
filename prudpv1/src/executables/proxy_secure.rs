@@ -75,16 +75,16 @@ pub async fn start(param: ProxyStartupParam) {
                 return;
             };
 
-            loop {
+            'a: loop {
                 tokio::select! {
                     data = conn.recv() => {
                         let Some(data) = data else {
-                            return;
+                            break 'a;
                         };
 
                         if let Err(e) = stream.send_buffer(&data[..]).await{
                             error!("error sending data to backend: {}", e);
-                            return;
+                            break 'a;
                         }
                     },
                     data = stream.read_buffer() => {
@@ -92,12 +92,12 @@ pub async fn start(param: ProxyStartupParam) {
                             Ok(d) => d,
                             Err(e) => {
                                 error!("error reveiving data from backend: {}", e);
-                                return;
+                                break 'a;
                             }
                         };
 
                         if conn.send(data).await == None{
-                            return;
+                            break 'a;
                         }
                     },
                     _ = sleep(Duration::from_secs(10)) => {
@@ -105,6 +105,7 @@ pub async fn start(param: ProxyStartupParam) {
                     }
                 }
             }
+            conn.close_connection().await;
         });
     }
 }
