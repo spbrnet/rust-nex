@@ -313,15 +313,18 @@ impl ExtendedMatchmakeSession {
 
     #[inline]
     pub fn is_reachable(&self) -> bool {
-        (if self.session.gathering.flags & PERSISTENT_GATHERING != 0 {
-            if self.has_active_players() {
-                true
+        self.get_active_players()
+            .iter()
+            .any(|v| v.pid == self.session.gathering.host_pid)
+            && (if self.session.gathering.flags & PERSISTENT_GATHERING != 0 {
+                if self.has_active_players() {
+                    true
+                } else {
+                    self.session.open_participation
+                }
             } else {
-                self.session.open_participation
-            }
-        } else {
-            self.has_active_players()
-        }) & self.has_active_players()
+                self.has_active_players()
+            }) & self.has_active_players()
     }
     #[inline]
     pub fn is_joinable(&self) -> bool {
