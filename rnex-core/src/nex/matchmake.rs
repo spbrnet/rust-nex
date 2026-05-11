@@ -128,7 +128,7 @@ fn check_bounds_str<T: FromStr + PartialOrd>(compare: T, str: &str) -> Option<bo
 }
 
 pub async fn broadcast_notification<T: AsRef<User>>(
-    players: &[T],
+    players: impl Iterator<Item = T>,
     notification_event: &NotificationEvent,
 ) {
     for player in players {
@@ -142,16 +142,13 @@ pub async fn broadcast_notification<T: AsRef<User>>(
 
 impl ExtendedMatchmakeSession {
     #[inline(always)]
-    pub fn get_active_players(&self) -> Vec<Arc<User>> {
-        self.connected_players
-            .iter()
-            .filter_map(|u| u.upgrade())
-            .collect()
+    pub fn get_active_players(&self) -> impl Iterator<Item = Arc<User>> {
+        self.connected_players.iter().filter_map(|u| u.upgrade())
     }
 
     #[inline(always)]
     pub async fn broadcast_notification(&self, notification_event: &NotificationEvent) {
-        broadcast_notification(&self.get_active_players(), notification_event).await;
+        broadcast_notification(self.get_active_players(), notification_event).await;
     }
 
     pub async fn from_matchmake_session(
@@ -314,7 +311,6 @@ impl ExtendedMatchmakeSession {
     #[inline]
     pub fn is_reachable(&self) -> bool {
         self.get_active_players()
-            .iter()
             .any(|v| v.pid == self.session.gathering.host_pid)
             && (if self.session.gathering.flags & PERSISTENT_GATHERING != 0 {
                 if self.has_active_players() {
