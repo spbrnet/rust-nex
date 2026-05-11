@@ -1,6 +1,6 @@
 # Spacebar Code of Conduct
 
-This repository serves as the official primary residence for the Spacebar Code of Conduct. These regulations extend to the entire Spacebar network, our official Discord community, and all Git repositories. By choosing to interact with our community, you are entering into a social contract designed to protect the integrity of the project and the well-being of its members.
+This file serves as the official primary residence for the Spacebar Code of Conduct. These regulations extend to the entire Spacebar network, our official Discord community, and all Git repositories. By choosing to interact with our community, you are entering into a social contract designed to protect the integrity of the project and the well-being of its members.
 
 If you intend to contribute code, participate in community discussions, or experience any element of the Spacebar ecosystem, you must strictly abide by the standards and expectations set forth in this Covenant. We believe that a healthy community is built on mutual respect and shared responsibility. Our goal is to foster a space that is welcoming, inclusive, and free from harassment for everyone, regardless of their background or level of experience. Failure to adhere to these principles may result in removal from the network, as we prioritize maintaining a safe and productive environment for all participants.
 
