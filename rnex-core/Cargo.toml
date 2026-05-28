@@ -25,7 +25,7 @@ paste = "1.0.15"
 typenum = "1.18.0"
 json = "0.12.4"
 anyhow = "1.0.100"
-ureq = { version = "3.1.4", features = [ "json" ] }
+ureq = { version = "3.3.0", features = [ "json" ] }
 serde = { version = "1.0.228", features = [ "derive" ] }
 serde_json = "1.0.149"
 sqlx = { version = "0.8.6", optional = true, features = ["postgres", "runtime-tokio", "chrono", "time"] }
