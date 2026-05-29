@@ -1,10 +1,11 @@
-use std::fs;
-use std::fs::File;
 use chrono::{Local, SecondsFormat};
 use log::LevelFilter;
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode, WriteLogger};
+use std::fs;
+use std::fs::File;
 
-pub fn setup(){
+pub fn setup() {
+    println!("setting up logger and dotenv");
     CombinedLogger::init(vec![
         TermLogger::new(
             LevelFilter::Info,
@@ -25,7 +26,7 @@ pub fn setup(){
             }
         }),
     ])
-        .unwrap();
+    .unwrap();
 
     /*ctrlc::set_handler(||{
         FORCE_EXIT.call_once_force(|_|{
