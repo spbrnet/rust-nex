@@ -5,8 +5,8 @@ use rnex_core::rmc::structures::RmcSerialize;
 use rnex_core::rnex_proxy_common::ConnectionInitData;
 use std::env;
 use std::fmt::Display;
-use std::io::Cursor;
-use std::net::{Ipv4Addr, SocketAddrV4};
+use std::io::{Cursor, Read, Write};
+use std::net::{Ipv4Addr, SocketAddrV4, TcpStream};
 use std::sync::Arc;
 use tokio::net::TcpListener;
 cfg_if! {
@@ -19,12 +19,7 @@ use cfg_if::cfg_if;
 use log::error;
 use std::error::Error;
 
-const IP_REQ_SERVICE_URLS: &[&str] = &[
-    "https://ipinfo.io/ip",
-    "https://api.ipify.org",
-    "http://ipinfo.io/ip",
-    "http://api.ipify.org",
-];
+const IP_REQ_SERVICE_URLS: &[(&str, &str)] = &[("ipinfo.io:80", "/ip"), ("api.ipify.org:80", "/")];
 
 cfg_if! {
     if #[cfg(feature = "datastore")] {
@@ -54,7 +49,7 @@ pub fn try_to_log<R, E: Display>(fun: impl FnOnce() -> Result<R, E>) -> Option<R
     match fun() {
         Ok(v) => Some(v),
         Err(e) => {
-            error!("{}", e);
+            println!("{}", e);
             None
         }
     }
@@ -62,9 +57,29 @@ pub fn try_to_log<R, E: Display>(fun: impl FnOnce() -> Result<R, E>) -> Option<R
 
 pub fn try_get_ip() -> Option<Ipv4Addr> {
     for url in IP_REQ_SERVICE_URLS {
+        println!("trying to get ip via: {:?}", url);
         if let Some(v) = try_to_log::<_, Box<dyn Error>>(|| {
-            let mut req = ureq::get(*url).call()?;
-            Ok(req.body_mut().read_to_string()?.parse()?)
+            let mut stream = TcpStream::connect(url.0)?;
+            stream.write_all(
+                format!(
+                    r#"GET {} HTTP/1.0
+Host: {}
+User-Agent: RNEX
+Accept: */*
+
+"#,
+                    url.1, url.0
+                )
+                .as_str()
+                .as_bytes(),
+            )?;
+            let mut data = vec![];
+            stream.read_to_end(&mut data)?;
+            let string = String::from_utf8(data)?;
+            let (_, ip) = string
+                .split_once("\r\n\r\n")
+                .ok_or("unable to get ip from response")?;
+            Ok(ip.parse()?)
         }) {
             return Some(v);
         }
@@ -139,10 +154,12 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::executables::common::try_get_ip;
+    use std::net::ToSocketAddrs;
+
+    use crate::executables::common::{IP_REQ_SERVICE_URLS, try_get_ip};
 
     #[test]
     fn get_ip() {
-        try_get_ip().unwrap();
+        println!("{}", try_get_ip().unwrap());
     }
 }
