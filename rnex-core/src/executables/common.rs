@@ -19,7 +19,15 @@ use cfg_if::cfg_if;
 use log::error;
 use std::error::Error;
 
-const IP_REQ_SERVICE_URLS: &[(&str, &str)] = &[("ipinfo.io:80", "/ip"), ("api.ipify.org:80", "/")];
+const IP_REQ_SERVICE_URLS: &[(&str, &str, &str)] = &[
+    ("ipinfo.io:80", "ipinfo.io", "/ip"),
+    ("api.ipify.org:80", "api.ipify.org", "/"),
+    // preresolved
+    ("34.117.59.81:80", "ipinfo.io", "/ip"),
+    ("104.26.13.205:80", "api.ipify.org", "/"),
+    ("172.67.74.152:80", "api.ipify.org", "/"),
+    ("104.26.12.205:80", "api.ipify.org", "/"),
+];
 
 cfg_if! {
     if #[cfg(feature = "datastore")] {
@@ -68,7 +76,7 @@ User-Agent: RNEX
 Accept: */*
 
 "#,
-                    url.1, url.0
+                    url.2, url.1
                 )
                 .as_str()
                 .as_bytes(),
