@@ -40,9 +40,9 @@ pub enum Error {
     #[error("error parsing ip address environment variable \"{0}\": {1}")]
     AddrParse(&'static str, AddrParseError),
     #[error(
-        "error error getting public ip address: \n\tattempted to read from env var \"SERVER_IP_PUBLIC\" and got: {0} \n\tattempted to request from internet and failed with: {1}"
+        "error error getting public ip address: \n\tattempted to read from env var \"SERVER_IP_PUBLIC\" and got: {0}\n\tfor other attempts check logs"
     )]
-    PubAddrGetErr(Box<Self>, Box<dyn error::Error>),
+    PubAddrGetErr(Box<Self>),
 }
 impl Into<Error> for (&'static str, AddrParseError) {
     fn into(self) -> Error {
@@ -88,7 +88,7 @@ impl ProxyStartupParam {
             Ok(v) => v,
             Err(e) => try_get_ip()
                 .map(|v| SocketAddrV4::new(v, self_private.port()))
-                .map_err(move |v| Error::PubAddrGetErr(Box::new(e), v))?,
+                .ok_or(Error::PubAddrGetErr(Box::new(e)))?,
         };
 
         Ok(Self {

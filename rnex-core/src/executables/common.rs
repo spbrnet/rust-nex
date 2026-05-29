@@ -4,6 +4,7 @@ use rnex_core::rmc::protocols::{RmcCallable, RmcConnection, new_rmc_gateway_conn
 use rnex_core::rmc::structures::RmcSerialize;
 use rnex_core::rnex_proxy_common::ConnectionInitData;
 use std::env;
+use std::fmt::Display;
 use std::io::Cursor;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::Arc;
@@ -18,7 +19,12 @@ use cfg_if::cfg_if;
 use log::error;
 use std::error::Error;
 
-const IP_REQ_SERVICE_URL: &str = "https://ipinfo.io/ip";
+const IP_REQ_SERVICE_URLS: &[&str] = &[
+    "https://ipinfo.io/ip",
+    "https://api.ipify.org",
+    "http://ipinfo.io/ip",
+    "http://api.ipify.org",
+];
 
 cfg_if! {
     if #[cfg(feature = "datastore")] {
@@ -44,10 +50,26 @@ cfg_if! {
     }
 }
 
-pub fn try_get_ip() -> Result<Ipv4Addr, Box<dyn Error>> {
-    let mut req = ureq::get(IP_REQ_SERVICE_URL).call()?;
+pub fn try_to_log<R, E: Display>(fun: impl FnOnce() -> Result<R, E>) -> Option<R> {
+    match fun() {
+        Ok(v) => Some(v),
+        Err(e) => {
+            error!("{}", e);
+            None
+        }
+    }
+}
 
-    Ok(req.body_mut().read_to_string()?.parse()?)
+pub fn try_get_ip() -> Option<Ipv4Addr> {
+    for url in IP_REQ_SERVICE_URLS {
+        if let Some(v) = try_to_log::<_, Box<dyn Error>>(|| {
+            let mut req = ureq::get(*url).call()?;
+            Ok(req.body_mut().read_to_string()?.parse()?)
+        }) {
+            return Some(v);
+        }
+    }
+    None
 }
 
 pub static OWN_IP_PRIVATE: Lazy<Ipv4Addr> = Lazy::new(|| {
@@ -120,7 +142,7 @@ mod test {
     use crate::executables::common::try_get_ip;
 
     #[test]
-    fn test() {
+    fn get_ip() {
         try_get_ip().unwrap();
     }
 }
