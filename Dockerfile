@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
-    ./test-edition.sh && ./build-edition.sh && \
+    RNEX_STATIC=1 ./test-edition.sh && RNEX_STATIC=1 ./build-edition.sh && \
     mkdir -p /app/dist && \
     cp /app/target/x86_64-unknown-linux-musl/release/edge_node_holder_server /app/dist/ && \
     cp /app/target/x86_64-unknown-linux-musl/release/proxy_insecure /app/dist/ && \

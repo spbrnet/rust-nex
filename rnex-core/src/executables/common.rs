@@ -114,3 +114,13 @@ where
         new_rmc_gateway_connection(stream.into(), move |r| fun_ref(user_connection_data, r));
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::executables::common::try_get_ip;
+
+    #[test]
+    fn test() {
+        try_get_ip().unwrap();
+    }
+}
