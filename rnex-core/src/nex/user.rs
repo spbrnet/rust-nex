@@ -37,7 +37,7 @@ use std::env;
 use std::str::FromStr;
 
 use cfg_if::cfg_if;
-use log::{error, info};
+use log::{error, info, warn};
 use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use rnex_core::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
@@ -134,6 +134,8 @@ impl Secure for User {
 
     async fn replace_url(&self, target_url: StationUrl, dest: StationUrl) -> Result<(), ErrorCode> {
         let mut lock = self.station_url.write().await;
+        info!("target URL: {:?}", target_url);
+        info!("dest URL: {:?}", dest);
 
         let Some(target_addr) = target_url.options.iter().find(|v| matches!(v, Address(_))) else {
             return Err(ErrorCode::Core_InvalidArgument);
