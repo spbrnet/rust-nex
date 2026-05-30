@@ -37,7 +37,7 @@ use std::env;
 use std::str::FromStr;
 
 use cfg_if::cfg_if;
-use log::{error, info};
+use log::{error, info, warn};
 use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use rnex_core::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
@@ -100,7 +100,7 @@ impl Secure for User {
     ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
         let cid = self.matchmake_manager.next_cid();
 
-        println!("{:?}", station_urls);
+        // println!("{:?}", station_urls);
 
         let mut users = self.matchmake_manager.users.write().await;
         users.insert(cid, self.this.clone());
@@ -135,11 +135,15 @@ impl Secure for User {
     async fn replace_url(&self, target_url: StationUrl, dest: StationUrl) -> Result<(), ErrorCode> {
         let mut lock = self.station_url.write().await;
 
+        info!("debug: target URL is {:?}", target_url);
+
         let Some(target_addr) = target_url.options.iter().find(|v| matches!(v, Address(_))) else {
+            warn!("address doesnt match");
             return Err(ErrorCode::Core_InvalidArgument);
         };
 
         let Some(target_port) = target_url.options.iter().find(|v| matches!(v, Port(_))) else {
+            warn!("port doesnt match");
             return Err(ErrorCode::Core_InvalidArgument);
         };
 
@@ -147,6 +151,7 @@ impl Secure for User {
             url.options.iter().any(|o| o == target_addr)
                 && url.options.iter().any(|o| o == target_port)
         }) else {
+            warn!("the third one failed");
             return Err(ErrorCode::Core_InvalidArgument);
         };
         *replacement_target = dest;
@@ -197,7 +202,7 @@ impl MatchmakeExtension for User {
         &self,
         create_session_param: CreateMatchmakeSessionParam,
     ) -> Result<MatchmakeSession, ErrorCode> {
-        println!("{:?}", create_session_param);
+        // println!("{:?}", create_session_param);
 
         let gid = self.matchmake_manager.next_gid();
 
@@ -311,7 +316,7 @@ impl MatchmakeExtension for User {
         &self,
         param: AutoMatchmakeParam,
     ) -> Result<MatchmakeSession, ErrorCode> {
-        println!("{:?}", param);
+        // println!("{:?}", param);
 
         let mut joining_players = vec![self.this.clone()];
 
@@ -340,9 +345,10 @@ impl MatchmakeExtension for User {
         for session in sessions.values() {
             let mut session = session.lock().await;
 
-            println!("checking session!");
+            // println!("checking session!");
 
             if !session.is_joinable() {
+                warn!("session was not joinable, skipping");
                 continue;
             }
 
@@ -355,6 +361,7 @@ impl MatchmakeExtension for User {
             }
 
             if bool_matched_criteria {
+                info!("{:?}", session);
                 session
                     .add_players(&joining_players, param.join_message)
                     .await;
@@ -365,7 +372,8 @@ impl MatchmakeExtension for User {
 
         drop(sessions);
 
-        println!("making new session!");
+        // println!("making new session!");
+        info!("making new session");
 
         let AutoMatchmakeParam {
             join_message,
@@ -569,7 +577,7 @@ impl Matchmake for User {
             .ok_or(ErrorCode::RendezVous_SessionClosed)?
             .await;
 
-        println!("{:?}", urls);
+        info!("getstationurls URLs: {:?}", urls);
 
         if urls.is_empty() {
             return Err(ErrorCode::RendezVous_NotParticipatedGathering);
