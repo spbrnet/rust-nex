@@ -149,7 +149,9 @@ impl Secure for User {
             url.options.iter().any(|o| o == target_addr)
                 && url.options.iter().any(|o| o == target_port)
         }) else {
-            return Err(ErrorCode::Core_InvalidArgument);
+            //return Err(ErrorCode::Core_InvalidArgument);
+            //probably internal ip
+            return Ok(());
         };
         *replacement_target = dest;
 

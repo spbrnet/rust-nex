@@ -409,7 +409,7 @@ impl ExtendedMatchmakeSession {
             }) {
                 return Ok(false);
             }
-            if !search_criteria.attribs.get(2).is_some_and(|s: w| {
+            if !search_criteria.attribs.get(2).is_some_and(|s| {
                 self.session
                     .attributes
                     .get(2)
