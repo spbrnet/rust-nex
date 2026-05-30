@@ -1,5 +1,5 @@
 {
     "rust-analyzer.cargo.features": [
-        "v3-8-15", "splatoon", "prudpv1"
+        "friends"
     ]
 }
