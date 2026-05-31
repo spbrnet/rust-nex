@@ -327,7 +327,7 @@ impl ExtendedMatchmakeSession {
         #[cfg(not(feature = "splatoon"))]
         let is_open = self.session.open_participation;
         #[cfg(feature = "splatoon")]
-        let is_open = if self.session.gamemode == 11 {
+        let is_open = if self.session.gamemode == 12 {
             true
         } else {
             self.session.open_participation
