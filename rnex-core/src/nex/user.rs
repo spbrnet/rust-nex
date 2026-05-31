@@ -342,12 +342,10 @@ impl MatchmakeExtension for User {
         let sessions = self.matchmake_manager.sessions.read().await;
         for session in sessions.values() {
             let mut session = session.lock().await;
-
-            println!("checking session!");
-
             if !session.is_joinable() {
                 continue;
             }
+            println!("checking session!");
 
             let mut bool_matched_criteria = false;
 

@@ -95,8 +95,8 @@ impl MatchmakeManager {
             while let Some(this) = this.upgrade() {
                 this.garbage_collect().await;
 
-                // every 30 minutes
-                sleep(Duration::from_secs(60 * 30)).await;
+                // every 5 minutes
+                sleep(Duration::from_secs(60 * 5)).await;
             }
         });
     }
@@ -300,12 +300,12 @@ impl ExtendedMatchmakeSession {
         }
     }
 
-    pub fn has_active_players(&self) -> bool {
+    pub fn has_min_active_players(&self) -> bool {
         self.connected_players
             .iter()
             .filter(|v| v.upgrade().is_some())
             .count()
-            != 0
+            >= self.session.gathering.minimum_participants as _
     }
 
     #[inline]
@@ -313,14 +313,14 @@ impl ExtendedMatchmakeSession {
         self.get_active_players()
             .any(|v| v.pid == self.session.gathering.host_pid)
             && (if self.session.gathering.flags & PERSISTENT_GATHERING != 0 {
-                if self.has_active_players() {
+                if self.has_min_active_players() {
                     true
                 } else {
                     self.session.open_participation
                 }
             } else {
-                self.has_active_players()
-            }) & self.has_active_players()
+                self.has_min_active_players()
+            }) & self.has_min_active_players()
     }
     #[inline]
     pub fn is_joinable(&self) -> bool {
