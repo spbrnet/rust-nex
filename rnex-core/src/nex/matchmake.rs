@@ -324,7 +324,15 @@ impl ExtendedMatchmakeSession {
     }
     #[inline]
     pub fn is_joinable(&self) -> bool {
-        self.is_reachable() && self.session.open_participation
+        #[cfg(not(feature = "splatoon"))]
+        let is_open = self.session.open_participation;
+        #[cfg(feature = "splatoon")]
+        let is_open = if self.session.gamemode == 11 {
+            true
+        } else {
+            self.session.open_participation
+        };
+        self.is_reachable() && is_open
     }
 
     pub fn matches_criteria(
