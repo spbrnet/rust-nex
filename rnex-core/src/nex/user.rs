@@ -37,7 +37,7 @@ use std::env;
 use std::str::FromStr;
 
 use cfg_if::cfg_if;
-use log::{error, info, warn};
+use log::{error, info};
 use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use rnex_core::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};

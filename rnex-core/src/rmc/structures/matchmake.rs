@@ -1,6 +1,5 @@
 use cfg_if::cfg_if;
 use macros::RmcSerialize;
-use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::rmc::structures::variant::Variant;
 
 use rnex_core::PID;
@@ -32,6 +31,7 @@ pub struct MatchmakeParam {
 
 cfg_if! {
     if #[cfg(feature = "v3-5-0")]{
+        use rnex_core::kerberos::KerberosDateTime;
         #[derive(RmcSerialize, Debug, Clone, Default, PartialEq)]
         #[rmc_struct(3)]
         pub struct MatchmakeSession {

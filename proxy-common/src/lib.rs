@@ -16,7 +16,6 @@ use rnex_core::{
 };
 use std::{
     env::{self, VarError},
-    error,
     net::{AddrParseError, Ipv4Addr, SocketAddr, SocketAddrV4},
     ops::Deref,
     panic,
