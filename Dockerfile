@@ -22,7 +22,7 @@ RUN --mount=type=cache,id=${EDITION}-registry,target=/usr/local/cargo/registry \
 
 COPY . .
 RUN --mount=type=cache,id=${EDITION}-registry,target=/usr/local/cargo/registry \
-    --mount=type=cache,,id=${EDITION}-target,target=/app/target \
+    --mount=type=cache,id=${EDITION}-target,target=/app/target \
     RNEX_STATIC=1 ./test-edition.sh && RNEX_STATIC=1 ./build-edition.sh && \
     mkdir -p /app/dist && \
     cp /app/target/x86_64-unknown-linux-musl/release/edge_node_holder_server /app/dist/ && \
