@@ -10,7 +10,9 @@ use macros::rmc_struct;
 use rnex_core::rmc::protocols::account_management::{
     AccountManagement, RawAccountManagement, RawAccountManagementInfo, RemoteAccountManagement,
 };
-use rnex_core::rmc::protocols::friends::{Friends, RawFriends, RawFriendsInfo, RemoteFriends};
+use rnex_core::rmc::protocols::friends_wiiu::{
+    FriendsWiiU, RawFriendsWiiU, RawFriendsWiiUInfo, RemoteFriendsWiiU,
+};
 use rnex_core::rmc::protocols::nintendo_notification::{
     NintendoNotification, RawNintendoNotification, RawNintendoNotificationInfo,
     RemoteNintendoNotification,
@@ -22,9 +24,9 @@ use rnex_core::{
     nex::common::get_station_urls,
     prudp::{socket_addr::PRUDPSockAddr, station_url::StationUrl},
     rmc::{
-        protocols::friends::{
+        protocols::friends_wiiu::{
             BlacklistedPrincipal, Comment, FriendInfo, FriendRequest, NNAInfo, NintendoPresenceV2,
-            PersistentNotification, PrincipalPreference,
+            PersistentNotification, PrincipalPreference, PrincipalRequestBlockSetting,
         },
         response::ErrorCode,
         structures::{any::Any, qresult::QResult},
@@ -34,7 +36,7 @@ use std::sync::atomic::Ordering::Relaxed;
 use tokio::spawn;
 use tokio::sync::RwLock;
 
-use rnex_core::rmc::protocols::friends::{GameKey, MiiV2, PrincipalBasicInfo};
+use rnex_core::rmc::protocols::friends_wiiu::{GameKey, MiiV2, PrincipalBasicInfo};
 
 use rnex_core::PID;
 
@@ -47,7 +49,7 @@ use rnex_core::rmc::structures::data::Data;
 define_rmc_proto!(
     proto FriendsUser{
         Secure,
-        Friends
+        FriendsWiiU
     }
 );
 define_rmc_proto!(
@@ -112,7 +114,7 @@ pub fn friend_info_from_user(data: &UserData) -> FriendInfo {
     }
 }
 
-impl Friends for FriendsUser {
+impl FriendsWiiU for FriendsUser {
     async fn update_and_get_all_information(
         &self,
         info: NNAInfo,
@@ -320,8 +322,8 @@ impl Friends for FriendsUser {
     async fn check_setting_status(&self) -> Result<u8, ErrorCode> {
         Ok(0xFF)
     }
-    
-    async fn update_preference(&self, preference: PrincipalPreference) -> Result<(),ErrorCode>  {
+
+    async fn update_preference(&self, preference: PrincipalPreference) -> Result<(), ErrorCode> {
         info!("user updated preference: {:?}", preference);
         let any_presence: Any = Any::new(&preference).expect("out of memory");
 
@@ -337,8 +339,86 @@ impl Friends for FriendsUser {
                 .await;
         }
         drop(users);
-        
+
         Ok(())
+    }
+
+    async fn add_friend(&self, friend: PID) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
+        todo!()
+    }
+
+    async fn add_friend_by_name(
+        &self,
+        name: String,
+    ) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
+        todo!()
+    }
+
+    async fn remove_friend(&self, friend: PID) -> Result<(), ErrorCode> {
+        todo!()
+    }
+
+    async fn add_friend_request(
+        &self,
+        friend: PID,
+        unk1: u8,
+        message: String,
+        unk2: u8,
+        unk3: String,
+        game_key: GameKey,
+        unk4: KerberosDateTime,
+    ) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
+        todo!()
+    }
+
+    async fn cancel_friend_request(&self, id: u64) -> Result<(), ErrorCode> {
+        todo!()
+    }
+
+    async fn accept_friend_request(&self, id: u64) -> Result<FriendInfo, ErrorCode> {
+        todo!()
+    }
+
+    async fn delete_friend_request(&self, id: u64) -> Result<(), ErrorCode> {
+        todo!()
+    }
+
+    async fn deny_friend_request(&self, id: u64) -> Result<BlacklistedPrincipal, ErrorCode> {
+        todo!()
+    }
+
+    async fn mark_friend_requests_as_received(&self, ids: Vec<u64>) -> Result<(), ErrorCode> {
+        todo!()
+    }
+
+    async fn add_blacklist(
+        &self,
+        principal: BlacklistedPrincipal,
+    ) -> Result<BlacklistedPrincipal, ErrorCode> {
+        todo!()
+    }
+
+    async fn remove_blacklist(&self, id: PID) -> Result<(), ErrorCode> {
+        todo!()
+    }
+
+    async fn update_mii(&self, presence: MiiV2) -> Result<KerberosDateTime, ErrorCode> {
+        todo!()
+    }
+
+    async fn update_comment(&self, presence: Comment) -> Result<KerberosDateTime, ErrorCode> {
+        todo!()
+    }
+
+    async fn get_basic_info(&self, pids: Vec<PID>) -> Result<Vec<PrincipalBasicInfo>, ErrorCode> {
+        todo!()
+    }
+
+    async fn get_request_block_settings(
+        &self,
+        unk: Vec<u32>,
+    ) -> Result<Vec<PrincipalRequestBlockSetting>, ErrorCode> {
+        todo!()
     }
 }
 

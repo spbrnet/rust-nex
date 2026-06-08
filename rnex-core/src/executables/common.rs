@@ -1,23 +1,18 @@
+use crate::reggie::UnitPacketRead;
+use cfg_if::cfg_if;
+use log::error;
 use once_cell::sync::Lazy;
 use rnex_core::nex::account::Account;
 use rnex_core::rmc::protocols::{RmcCallable, RmcConnection, new_rmc_gateway_connection};
 use rnex_core::rmc::structures::RmcSerialize;
 use rnex_core::rnex_proxy_common::ConnectionInitData;
 use std::env;
+use std::error::Error;
 use std::fmt::Display;
 use std::io::{Cursor, Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpStream};
 use std::sync::Arc;
 use tokio::net::TcpListener;
-cfg_if! {
-    if #[cfg(feature = "datastore")] {
-        use sqlx::postgres::PgPool;
-    }
-}
-use crate::reggie::UnitPacketRead;
-use cfg_if::cfg_if;
-use log::error;
-use std::error::Error;
 
 const IP_REQ_SERVICE_URLS: &[(&str, &str, &str)] = &[
     ("ipinfo.io:80", "ipinfo.io", "/ip"),
@@ -30,11 +25,12 @@ const IP_REQ_SERVICE_URLS: &[(&str, &str, &str)] = &[
 ];
 
 cfg_if! {
-    if #[cfg(feature = "datastore")] {
+    if #[cfg(feature = "database-support")] {
         use std::sync::{LazyLock, OnceLock};
-        pub static RNEX_DATASTORE_DATABASE_URL: LazyLock<String> = LazyLock::new(|| {
-            std::env::var("RNEX_DATASTORE_DATABASE_URL")
-                .expect("RNEX_DATASTORE_DATABASE_URL must be set")
+        use sqlx::postgres::PgPool;
+        pub static RNEX_DATABASE_URL: LazyLock<String> = LazyLock::new(|| {
+            std::env::var("RNEX_DATABASE_URL")
+                .expect("RNEX_DATABASE_URL must be set")
         });
 
         pub static DB_POOL: OnceLock<PgPool> = OnceLock::new();
@@ -42,6 +38,10 @@ cfg_if! {
         pub fn get_db() -> &'static PgPool {
             DB_POOL.get().expect("db_pool not initialized")
         }
+    }
+}
+cfg_if! {
+    if #[cfg(feature = "datastore")]{
         pub static RNEX_DATASTORE_S3_ENDPOINT: LazyLock<String> = LazyLock::new(|| {
             std::env::var("RNEX_DATASTORE_S3_ENDPOINT")
                 .expect("RNEX_DATASTORE_S3_ENDPOINT must be set")
