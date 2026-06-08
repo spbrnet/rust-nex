@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package meta;
+
+import "google/protobuf/empty.proto";
+
+message BuildInfo {
+  string version = 1;
+  string edition = 2;
+  string feature_set = 3;
+  string build_hash = 4;
+}
+
+message ApiFeature {
+  string name = 1;
+  int32 version = 2;
+  bool needs_admin = 3;
+}
+
+message ApiFeatures {
+  repeated ApiFeature api_features = 1;
+}
+
+service ServerMetaService {
+  rpc GetBuildInfo(google.protobuf.Empty) returns (BuildInfo);
+  rpc GetApiFeatures(google.protobuf.Empty) returns (ApiFeatures);
+}

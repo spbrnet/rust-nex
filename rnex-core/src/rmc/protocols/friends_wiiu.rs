@@ -148,7 +148,7 @@ pub struct PersistentNotification {
 }
 
 #[rmc_proto(102)]
-pub trait Friends {
+pub trait FriendsWiiU {
     #[method_id(1)]
     async fn update_and_get_all_information(
         &self,

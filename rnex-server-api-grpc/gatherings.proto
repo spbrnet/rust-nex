@@ -1,0 +1,54 @@
+syntax = "proto3";
+// NOTE: NEVER give out gids to the general public, people can and will be
+// able to join random mkatches which they arent supposed to join via them
+//
+// As an alternative use a unique hash of the Gid
+
+import "google/protobuf/empty.proto";
+
+package gatherings;
+
+message MatchmakeParam{
+
+}
+
+message KerberosDateTime{
+    uint32 raw = 1;
+}
+
+message Gathering{
+    repeated uint64 players = 1;
+    uint32 self_gid = 2;
+    uint64 owner_pid = 3;
+    uint64 host_pid = 4;
+    uint32 minimum_participants = 5;
+    uint32 maximum_participants = 6;
+    uint32 participant_policy = 7;
+    uint32 policy_argument = 8;
+    uint32 flags = 9;
+    uint32 state = 10;
+    string description = 11;
+    uint32 gamemode = 12;
+    repeated uint32 attributes = 13;
+    bool open_participation = 14;
+    uint32 matchmake_system_type = 15;
+    bytes application_buffer = 16;
+    uint32 participation_count = 17;
+    bytes session_key = 18;
+    optional uint32 progress_score = 19;
+    optional uint32 option0 = 20;
+    optional MatchmakeParam matchmake_param = 21;
+    optional KerberosDateTime datetime = 22;
+    optional string user_password = 23;
+    optional uint32 refer_gid = 24;
+    optional bool user_password_enabled = 25;
+    optional bool system_password_enabled = 26;
+}
+
+message Gatherings{
+    repeated Gathering gatherings = 1;
+}
+
+service GatheringInfoService{
+    rpc GetGatherings(google.protobuf.Empty) returns (Gatherings);
+}
