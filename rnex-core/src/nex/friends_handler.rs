@@ -32,6 +32,7 @@ use rnex_core::{
         structures::{any::Any, qresult::QResult},
     },
 };
+use sqlx::query;
 use std::sync::atomic::Ordering::Relaxed;
 use tokio::spawn;
 use tokio::sync::RwLock;
@@ -45,6 +46,8 @@ use rnex_core::rmc::protocols::nintendo_notification::NintendoNotificationEvent;
 use rnex_core::rmc::structures::RmcSerialize;
 
 use rnex_core::rmc::structures::data::Data;
+
+use crate::executables::common::get_db;
 
 define_rmc_proto!(
     proto FriendsUser{
@@ -117,7 +120,8 @@ impl FriendsWiiU for FriendsUser {
         ),
         ErrorCode,
     > {
-        todo!()
+        // let query = query!("select ", self.pid).fetch_all(get_db()).await;
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn add_friend(&self, friend: PID) -> Result<(FriendRequest, FriendInfo), ErrorCode> {

@@ -2,6 +2,7 @@ use hmac::Mac;
 use md5::{Digest, Md5};
 use rc4::{KeyInit, Rc4, StreamCipher};
 use rnex_core::{
+    PID,
     executables::common::SECURE_SERVER_ACCOUNT,
     nex::account::Account,
     prudp::{
@@ -22,7 +23,7 @@ use crate::crypto::{
 
 pub struct SecureInstance {
     pair: EncryptionPair<Rc4<U16>>,
-    uid: u32,
+    uid: PID,
     self_signat: [u8; 4],
     #[allow(dead_code)]
     remote_signat: [u8; 4],
@@ -35,7 +36,7 @@ impl CryptoInstance for SecureInstance {
     fn encrypt_outgoing(&mut self, data: &mut [u8]) {
         self.pair.send.apply_keystream(data);
     }
-    fn get_user_id(&self) -> u32 {
+    fn get_user_id(&self) -> PID {
         self.uid
     }
     fn generate_signature(&self, types_flags: TypesFlags, data: &[u8]) -> [u8; 4] {

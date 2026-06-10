@@ -23,7 +23,7 @@ pub struct MiiV2 {
 pub struct PrincipalBasicInfo {
     #[extends]
     pub data: Data,
-    pub pid: u32,
+    pub pid: PID,
     pub nnid: String,
     pub mii: MiiV2,
     pub unk: u8,

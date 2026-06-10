@@ -26,7 +26,7 @@ pub struct MatchmakeManager {
     pub sessions: RwLock<HashMap<u32, Arc<Mutex<ExtendedMatchmakeSession>>>>,
     pub rv_cid_counter: AtomicU32,
     pub users: RwLock<HashMap<u32, Weak<User>>>,
-    pub users_by_pid: RwLock<HashMap<u32, Weak<User>>>,
+    pub users_by_pid: RwLock<HashMap<PID, Weak<User>>>,
 }
 
 impl MatchmakeManager {

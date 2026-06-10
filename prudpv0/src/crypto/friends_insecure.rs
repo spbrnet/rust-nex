@@ -3,9 +3,12 @@ use std::io::Write;
 use hmac::Mac;
 use md5::{Digest, Md5};
 use rc4::{KeyInit, Rc4, StreamCipher};
-use rnex_core::prudp::{
-    encryption::{DEFAULT_KEY, EncryptionPair},
-    types_flags::{TypesFlags, types::DATA},
+use rnex_core::{
+    PID,
+    prudp::{
+        encryption::{DEFAULT_KEY, EncryptionPair},
+        types_flags::{TypesFlags, types::DATA},
+    },
 };
 use typenum::U5;
 
@@ -29,7 +32,7 @@ impl CryptoInstance for InsecureInstance {
     fn encrypt_outgoing(&mut self, data: &mut [u8]) {
         self.pair.send.apply_keystream(data);
     }
-    fn get_user_id(&self) -> u32 {
+    fn get_user_id(&self) -> PID {
         0
     }
     fn generate_signature(&self, types_flags: TypesFlags, data: &[u8]) -> [u8; 4] {
