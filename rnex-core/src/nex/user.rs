@@ -356,6 +356,7 @@ impl MatchmakeExtension for User {
             }
 
             if bool_matched_criteria {
+                println!("matched session: {:?}", session);
                 session
                     .add_players(&joining_players, param.join_message)
                     .await;

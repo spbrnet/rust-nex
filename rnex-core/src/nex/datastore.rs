@@ -1,4 +1,5 @@
 use crate::nex::user::User;
+use rnex_core::PID;
 use rnex_core::executables::common::{
     RNEX_DATASTORE_S3_BUCKET, RNEX_DATASTORE_S3_ENDPOINT, get_db,
 };
@@ -322,8 +323,8 @@ async fn get_buffer_queues_by_data_id_and_slot(
 }
 
 fn verify_object_permission(
-    owner_id: u32,
-    viewer_id: u32,
+    owner_id: PID,
+    viewer_id: PID,
     permission: &Permission,
 ) -> Result<(), ErrorCode> {
     if owner_id == viewer_id {
