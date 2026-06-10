@@ -38,7 +38,7 @@ fn map_row_to_meta_info(
 ) -> GetMetaInfo {
     GetMetaInfo {
         dataid: row_data_id as u64,
-        owner: row_owner as u32,
+        owner: row_owner as PID,
         size: row_size as u32,
         name: row_name,
         data_type: row_data_type as u16,
@@ -47,14 +47,14 @@ fn map_row_to_meta_info(
             permission: row_permission as u8,
             recipient_ids: row_permission_recipients
                 .into_iter()
-                .map(|id| id as u32)
+                .map(|id| id as PID)
                 .collect(),
         },
         del_permission: Permission {
             permission: row_delete_permission as u8,
             recipient_ids: row_delete_permission_recipients
                 .into_iter()
-                .map(|id| id as u32)
+                .map(|id| id as PID)
                 .collect(),
         },
         period: row_period as u16,
@@ -409,7 +409,7 @@ async fn get_custom_rankings_by_data_ids(
     results
 }
 
-async fn get_user_course_object_ids(owner_pid: u32) -> Result<Vec<u64>, ErrorCode> {
+async fn get_user_course_object_ids(owner_pid: PID) -> Result<Vec<u64>, ErrorCode> {
     let rows = sqlx::query!(
         r#"
                 SELECT data_id
@@ -719,7 +719,7 @@ impl DataStore for User {
             return Err(ErrorCode::DataStore_UnderReviewing);
         }
 
-        if record.owner.unwrap_or(0) as u32 != self.pid {
+        if record.owner.unwrap_or(0) as PID != self.pid {
             return Err(ErrorCode::DataStore_PermissionDenied);
         }
 
