@@ -3,6 +3,7 @@ use crate::prudp::socket::{CryptoHandler, CryptoHandlerConnectionInstance};
 use hmac::digest::consts::U32;
 use rc4::cipher::StreamCipherCoreWrapper;
 use rc4::{KeyInit, Rc4, Rc4Core, StreamCipher};
+use rnex_core::PID;
 use rnex_core::nex::account::Account;
 use rnex_core::prudp::encryption::EncryptionPair;
 use rnex_core::prudp::ticket::read_secure_connection_data;
@@ -49,7 +50,7 @@ pub struct SecureInstance {
     self_signature: [u8; 16],
     #[allow(dead_code)]
     remote_signature: [u8; 16],
-    pid: u32,
+    pid: PID,
 }
 
 impl CryptoHandler for Secure {
@@ -108,7 +109,7 @@ impl CryptoHandlerConnectionInstance for SecureInstance {
         }
     }
 
-    fn get_user_id(&self) -> u32 {
+    fn get_user_id(&self) -> i32 {
         self.pid
     }
 

@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use log::error;
 use log::{info, warn};
 use rc4::StreamCipher;
+use rnex_core::PID;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use rnex_core::prudp::types_flags::TypesFlags;
 use rnex_core::prudp::types_flags::flags::{ACK, HAS_SIZE, MULTI_ACK, NEED_ACK, RELIABLE};
@@ -31,7 +32,7 @@ use tokio::time::{Instant, sleep};
 /// PRUDP Socket for accepting connections to then send and recieve data from those clients
 
 pub struct CommonConnection {
-    pub user_id: u32,
+    pub user_id: PID,
     pub socket_addr: PRUDPSockAddr,
     pub server_port: VirtualPort,
     session_id: u8,
@@ -851,7 +852,7 @@ pub trait CryptoHandlerConnectionInstance: Send + Sync + 'static {
     fn decrypt_incoming(&mut self, substream: u8, data: &mut [u8]);
     fn encrypt_outgoing(&mut self, substream: u8, data: &mut [u8]);
 
-    fn get_user_id(&self) -> u32;
+    fn get_user_id(&self) -> i32;
     fn sign_connect(&self, packet: &mut PRUDPV1Packet);
     fn sign_packet(&self, packet: &mut PRUDPV1Packet);
     fn verify_packet(&self, packet: &PRUDPV1Packet) -> bool;

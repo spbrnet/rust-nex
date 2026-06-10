@@ -5,9 +5,9 @@
 //#![warn(missing_docs)]
 
 #[cfg(feature = "big_pid")]
-pub type PID = u64;
+pub type PID = i64;
 #[cfg(not(feature = "big_pid"))]
-pub type PID = u32;
+pub type PID = i32;
 
 extern crate self as rnex_core;
 

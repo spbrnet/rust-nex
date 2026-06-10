@@ -62,7 +62,7 @@ impl CryptoHandlerConnectionInstance for UnsecureInstance {
         }
     }
 
-    fn get_user_id(&self) -> u32 {
+    fn get_user_id(&self) -> i32 {
         0
     }
 

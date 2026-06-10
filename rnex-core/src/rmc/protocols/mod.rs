@@ -3,7 +3,8 @@
 pub mod account_management;
 pub mod auth;
 pub mod datastore;
-pub mod friends;
+pub mod friends_3ds;
+pub mod friends_wiiu;
 pub mod matchmake;
 pub mod matchmake_ext;
 pub mod matchmake_extension;

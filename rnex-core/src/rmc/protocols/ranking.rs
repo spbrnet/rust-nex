@@ -1,10 +1,12 @@
 use macros::{RmcSerialize, method_id, rmc_proto};
 
 use rnex_core::kerberos::KerberosDateTime;
-use rnex_core::rmc::structures::qbuffer::QBuffer;
-use rnex_core::rmc::structures::resultsrange::ResultsRange;
 use rnex_core::rmc::response::ErrorCode;
+use rnex_core::rmc::structures::qbuffer::QBuffer;
 use rnex_core::rmc::structures::ranking::UploadCompetitionData;
+use rnex_core::rmc::structures::resultsrange::ResultsRange;
+
+use crate::PID;
 
 #[derive(RmcSerialize, Debug, Default, Clone)]
 #[rmc_struct(1)]
@@ -28,7 +30,7 @@ pub struct CompetitionRankingScoreInfo {
 #[rmc_struct(0)]
 pub struct CompetitionRankingScoreData {
     pub unk: u32,
-    pub pid: u32,
+    pub pid: PID,
     pub score: u32,
     pub modified: KerberosDateTime,
     pub unk2: u8,

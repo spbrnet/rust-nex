@@ -4,6 +4,8 @@ use rnex_core::{kerberos::KerberosDateTime, rmc::response::ErrorCode};
 
 use rnex_core::rmc::structures::data::Data;
 
+use rnex_core::PID;
+
 #[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
 pub struct MiiV2 {
@@ -21,7 +23,7 @@ pub struct MiiV2 {
 pub struct PrincipalBasicInfo {
     #[extends]
     pub data: Data,
-    pub pid: u32,
+    pub pid: PID,
     pub nnid: String,
     pub mii: MiiV2,
     pub unk: u8,
@@ -147,8 +149,17 @@ pub struct PersistentNotification {
     pub unk5: String,
 }
 
+#[derive(RmcSerialize)]
+#[rmc_struct(0)]
+pub struct PrincipalRequestBlockSetting {
+    #[extends]
+    pub data: Data,
+    pub pid: PID,
+    pub blocked: bool,
+}
+
 #[rmc_proto(102)]
-pub trait Friends {
+pub trait FriendsWiiU {
     #[method_id(1)]
     async fn update_and_get_all_information(
         &self,
@@ -169,10 +180,53 @@ pub trait Friends {
         ),
         ErrorCode,
     >;
+    #[method_id(2)]
+    async fn add_friend(&self, friend: PID) -> Result<(FriendRequest, FriendInfo), ErrorCode>;
+    #[method_id(3)]
+    async fn add_friend_by_name(
+        &self,
+        name: String,
+    ) -> Result<(FriendRequest, FriendInfo), ErrorCode>;
+    #[method_id(4)]
+    async fn remove_friend(&self, friend: PID) -> Result<(), ErrorCode>;
+    #[method_id(5)]
+    async fn add_friend_request(
+        &self,
+        friend: PID,
+        unk1: u8,
+        message: String,
+        unk2: u8,
+        unk3: String,
+        game_key: GameKey,
+        unk4: KerberosDateTime,
+    ) -> Result<(FriendRequest, FriendInfo), ErrorCode>;
+    #[method_id(6)]
+    async fn cancel_friend_request(&self, id: u64) -> Result<(), ErrorCode>;
+    #[method_id(7)]
+    async fn accept_friend_request(&self, id: u64) -> Result<FriendInfo, ErrorCode>;
+    #[method_id(8)]
+    async fn delete_friend_request(&self, id: u64) -> Result<(), ErrorCode>;
+    #[method_id(9)]
+    async fn deny_friend_request(&self, id: u64) -> Result<BlacklistedPrincipal, ErrorCode>;
+    #[method_id(10)]
+    async fn mark_friend_requests_as_received(&self, ids: Vec<u64>) -> Result<(), ErrorCode>;
+    #[method_id(11)]
+    async fn add_blacklist(
+        &self,
+        principal: BlacklistedPrincipal,
+    ) -> Result<BlacklistedPrincipal, ErrorCode>;
+    #[method_id(12)]
+    async fn remove_blacklist(&self, id: PID) -> Result<(), ErrorCode>;
     #[method_id(13)]
     async fn update_presence(&self, presence: NintendoPresenceV2) -> Result<(), ErrorCode>;
+    #[method_id(14)]
+    async fn update_mii(&self, presence: MiiV2) -> Result<KerberosDateTime, ErrorCode>;
+    #[method_id(15)]
+    async fn update_comment(&self, presence: Comment) -> Result<KerberosDateTime, ErrorCode>;
     #[method_id(16)]
     async fn update_preference(&self, preference: PrincipalPreference) -> Result<(), ErrorCode>;
+    #[method_id(17)]
+    async fn get_basic_info(&self, pids: Vec<PID>) -> Result<Vec<PrincipalBasicInfo>, ErrorCode>;
     #[method_id(18)]
     async fn delete_persistent_notification(
         &self,
@@ -180,4 +234,9 @@ pub trait Friends {
     ) -> Result<(), ErrorCode>;
     #[method_id(19)]
     async fn check_setting_status(&self) -> Result<u8, ErrorCode>;
+    #[method_id(20)]
+    async fn get_request_block_settings(
+        &self,
+        unk: Vec<u32>,
+    ) -> Result<Vec<PrincipalRequestBlockSetting>, ErrorCode>;
 }

@@ -37,7 +37,7 @@ use std::env;
 use std::str::FromStr;
 
 use cfg_if::cfg_if;
-use log::{error, info, warn};
+use log::{error, info};
 use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
 use rnex_core::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
@@ -456,7 +456,7 @@ impl MatchmakeExtension for User {
             .users_by_pid
             .read()
             .await
-            .get(&recpipent)
+            .get(&bytemuck::cast(recpipent))
             .and_then(|v| v.upgrade())
         else {
             return Err(ErrorCode::Core_InvalidArgument);
@@ -468,8 +468,8 @@ impl MatchmakeExtension for User {
                     .process_notification_event(NotificationEvent {
                         pid_source: self.pid,
                         notif_type: REQUEST_JOIN_GATHERING * 1000,
-                        param_1,
-                        param_2,
+                        param_1: bytemuck::cast(param_1),
+                        param_2: bytemuck::cast(param_2),
                         #[cfg(feature = "third-notif-param")]
                         param_3: 0,
                         str_param,
@@ -481,8 +481,8 @@ impl MatchmakeExtension for User {
                     .process_notification_event(NotificationEvent {
                         pid_source: self.pid,
                         notif_type: END_GATHERING * 1000,
-                        param_1,
-                        param_2,
+                        param_1: bytemuck::cast(param_1),
+                        param_2: bytemuck::cast(param_2),
                         #[cfg(feature = "third-notif-param")]
                         param_3: 0,
                         str_param,

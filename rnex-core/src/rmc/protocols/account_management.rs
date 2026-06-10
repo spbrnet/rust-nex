@@ -5,7 +5,7 @@ use rnex_core::{
     rmc::{response::ErrorCode, structures::any::Any},
 };
 
-use crate::{kerberos::KerberosDateTime, rmc::protocols::friends::NNAInfo};
+use crate::{kerberos::KerberosDateTime, rmc::protocols::friends_wiiu::NNAInfo};
 
 #[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]

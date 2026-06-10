@@ -1,7 +1,6 @@
 use log::info;
 use rand::random;
 use rnex_core::PID;
-use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::nex::user::User;
 use rnex_core::rmc::protocols::notifications::notification_types::{
     HOST_CHANGED, OWNERSHIP_CHANGED,
@@ -11,9 +10,8 @@ use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::response::ErrorCode::{Core_InvalidArgument, RendezVous_SessionVoid};
 use rnex_core::rmc::structures::matchmake::gathering_flags::PERSISTENT_GATHERING;
 use rnex_core::rmc::structures::matchmake::{
-    Gathering, MatchmakeParam, MatchmakeSession, MatchmakeSessionSearchCriteria,
+    Gathering, MatchmakeSession, MatchmakeSessionSearchCriteria,
 };
-use rnex_core::rmc::structures::variant::Variant;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU32;
@@ -28,7 +26,7 @@ pub struct MatchmakeManager {
     pub sessions: RwLock<HashMap<u32, Arc<Mutex<ExtendedMatchmakeSession>>>>,
     pub rv_cid_counter: AtomicU32,
     pub users: RwLock<HashMap<u32, Weak<User>>>,
-    pub users_by_pid: RwLock<HashMap<u32, Weak<User>>>,
+    pub users_by_pid: RwLock<HashMap<PID, Weak<User>>>,
 }
 
 impl MatchmakeManager {
@@ -162,6 +160,13 @@ impl ExtendedMatchmakeSession {
 
         cfg_if::cfg_if! {
             if #[cfg(feature = "v3-5-0")]{
+                use rnex_core::{
+                    rmc::structures::{
+                        variant::Variant,
+                        matchmake::MatchmakeParam
+                    },
+                    kerberos::KerberosDateTime
+                };
                 let mm_session = MatchmakeSession {
                     gathering: Gathering {
                         self_gid: gid,

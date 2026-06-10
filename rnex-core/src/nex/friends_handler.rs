@@ -10,7 +10,9 @@ use macros::rmc_struct;
 use rnex_core::rmc::protocols::account_management::{
     AccountManagement, RawAccountManagement, RawAccountManagementInfo, RemoteAccountManagement,
 };
-use rnex_core::rmc::protocols::friends::{Friends, RawFriends, RawFriendsInfo, RemoteFriends};
+use rnex_core::rmc::protocols::friends_wiiu::{
+    FriendsWiiU, RawFriendsWiiU, RawFriendsWiiUInfo, RemoteFriendsWiiU,
+};
 use rnex_core::rmc::protocols::nintendo_notification::{
     NintendoNotification, RawNintendoNotification, RawNintendoNotificationInfo,
     RemoteNintendoNotification,
@@ -22,19 +24,20 @@ use rnex_core::{
     nex::common::get_station_urls,
     prudp::{socket_addr::PRUDPSockAddr, station_url::StationUrl},
     rmc::{
-        protocols::friends::{
+        protocols::friends_wiiu::{
             BlacklistedPrincipal, Comment, FriendInfo, FriendRequest, NNAInfo, NintendoPresenceV2,
-            PersistentNotification, PrincipalPreference,
+            PersistentNotification, PrincipalPreference, PrincipalRequestBlockSetting,
         },
         response::ErrorCode,
         structures::{any::Any, qresult::QResult},
     },
 };
+use sqlx::query;
 use std::sync::atomic::Ordering::Relaxed;
 use tokio::spawn;
 use tokio::sync::RwLock;
 
-use rnex_core::rmc::protocols::friends::{GameKey, MiiV2, PrincipalBasicInfo};
+use rnex_core::rmc::protocols::friends_wiiu::{GameKey, MiiV2, PrincipalBasicInfo};
 
 use rnex_core::PID;
 
@@ -44,10 +47,12 @@ use rnex_core::rmc::structures::RmcSerialize;
 
 use rnex_core::rmc::structures::data::Data;
 
+use crate::executables::common::get_db;
+
 define_rmc_proto!(
     proto FriendsUser{
         Secure,
-        Friends
+        FriendsWiiU
     }
 );
 define_rmc_proto!(
@@ -95,29 +100,12 @@ impl FriendsManager {
     }
 }
 
-pub fn friend_info_from_user(data: &UserData) -> FriendInfo {
-    FriendInfo {
-        data: Data {},
-        nna_info: data.info.clone(),
-        presence: data.presence.clone(),
-        comment: Comment {
-            data: Data {},
-            unk: 0,
-            message: "haii =w=".to_string(),
-            last_changed: KerberosDateTime::now(),
-        },
-        became_friends: KerberosDateTime::now(),
-        last_online: KerberosDateTime::now(),
-        unk: 0,
-    }
-}
-
-impl Friends for FriendsUser {
+impl FriendsWiiU for FriendsUser {
     async fn update_and_get_all_information(
         &self,
         info: NNAInfo,
         presence: NintendoPresenceV2,
-        _date_time: KerberosDateTime,
+        date_time: KerberosDateTime,
     ) -> Result<
         (
             PrincipalPreference,
@@ -132,213 +120,105 @@ impl Friends for FriendsUser {
         ),
         ErrorCode,
     > {
-        println!("updating own data");
-        let mut data = self.data.write().await;
-        *data = Some(UserData { info, presence });
-        let self_fr_info = friend_info_from_user(data.as_ref().unwrap());
-        let Ok(any_self_fr_info) = Any::new(&self_fr_info) else {
-            return Err(ErrorCode::RendezVous_ControlScriptFailure);
-        };
-        let Ok(any_self_presence) = Any::new(&self_fr_info.presence) else {
-            return Err(ErrorCode::RendezVous_ControlScriptFailure);
-        };
-        drop(data);
+        // let query = query!("select ", self.pid).fetch_all(get_db()).await;
+        Err(ErrorCode::Core_NotImplemented)
+    }
 
-        let mut fr_list = vec![FriendInfo {
-            data: Data{},
-            became_friends: KerberosDateTime::now(),
-            comment: Comment {
-                data: Data{},
-                last_changed: KerberosDateTime::now(),
-                message: "I'm just a dummy account :3".to_string(),
-                unk: 0,
-            },
-            last_online: KerberosDateTime::now(),
-            nna_info: NNAInfo {
-                data: Data{},
-                principal_basic_info: PrincipalBasicInfo {
-                    data: Data{},
-                    pid: 101,
-                    nnid: "dummy:3".to_string(),
-                    mii: MiiV2{
-                        data: Data{},
-                        date_time: KerberosDateTime::now(),
-                        name: "TheDummy".to_string(),
-                        mii_data: hex::decode("030000402bd7c32986a771f2dc6b35e31da15e37ff7c0000391e6f006f006d0069000000000000000000000000004040001065033568641e2013661a611821640f0000290052485000000000000000000000000000000000000000000000e838").unwrap(),
-                        unk: 0,
-                        unk2: 0,
-                    },
-                    unk: 0
-                },
-                unk: 0,
-                unk2: 0
-            },
-            presence: NintendoPresenceV2{
-                data: Data{},
-                changed_flags: 0,
-                message: "".to_string(),
-                app_data: vec![],
-                game_key: GameKey{
-                    data: Data{},
-                    tid: 0x00050002101ce400,
-                    version: 0x0
-                },
-                game_server_id: 0,
-                is_online: true,
-                gid: 0,
-                pid: 101,
-                unk: 0,
-                unk2: 0,
-                unk3: 0,
-                unk4: 0,
-                unk5: 0,
-                unk6: 0,
-                unk7: 0
-            },
-            unk: 0
-        }];
+    async fn add_friend(&self, friend: PID) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
+        todo!()
+    }
 
-        println!("acquiring user and current friends locks");
-        let users = self.fm.users.read().await;
-        if users.iter().filter(|u| u.upgrade().is_some()).count() >= 100 {
-            return Err(ErrorCode::RendezVous_ConnectionFailure);
-        }
-        println!("started summing users");
-        for u in users.deref().iter().filter_map(|u| u.upgrade()) {
-            let data = u.data.read().await;
-            let Some(inner_data) = data.as_ref() else {
-                continue;
-            };
-            fr_list.push(friend_info_from_user(&inner_data));
-            drop(data);
+    async fn add_friend_by_name(
+        &self,
+        name: String,
+    ) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
+        todo!()
+    }
 
-            let mut curr_friends = self.current_friends.write().await;
-            curr_friends.push(u.pid);
-            drop(curr_friends);
+    async fn remove_friend(&self, friend: PID) -> Result<(), ErrorCode> {
+        todo!()
+    }
 
-            let mut fr = u.current_friends.write().await;
-            if !fr.contains(&self.pid) {
-                fr.push(self.pid);
-                drop(fr);
-                let data = any_self_fr_info.clone();
-                let u = u.clone();
-                let sender = self.pid;
-                spawn(async move {
-                    u.remote
-                        .process_nintendo_notification_event_1(NintendoNotificationEvent {
-                            event_type: 30,
-                            sender,
-                            data,
-                        })
-                        .await;
-                });
-            } else {
-                let data = any_self_presence.clone();
-                let u = u.clone();
-                let sender = self.pid;
-                spawn(async move {
-                    u.remote
-                        .process_nintendo_notification_event_2(NintendoNotificationEvent {
-                            event_type: 24,
-                            sender,
-                            data,
-                        })
-                        .await;
-                });
-                drop(fr);
-            }
-        }
-        println!("finished summing users");
-        drop(users);
+    async fn add_friend_request(
+        &self,
+        friend: PID,
+        unk1: u8,
+        message: String,
+        unk2: u8,
+        unk3: String,
+        game_key: GameKey,
+        unk4: KerberosDateTime,
+    ) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
+        todo!()
+    }
 
-        println!("adding self to users");
-        let mut users = self.fm.users.write().await;
-        users.push(self.this.clone());
-        drop(users);
+    async fn cancel_friend_request(&self, id: u64) -> Result<(), ErrorCode> {
+        todo!()
+    }
 
-        println!("done...");
-        Ok((
-            PrincipalPreference {
-                data: Data {},
-                block_friend_request: false,
-                show_online: false,
-                show_playing_title: false,
-            },
-            Comment {
-                data: Data {},
-                last_changed: KerberosDateTime::now(),
-                message: "".to_string(),
-                unk: 0,
-            },
-            fr_list,
-            vec![],
-            vec![],
-            vec![],
-            false,
-            vec![],
-            false,
-        ))
+    async fn accept_friend_request(&self, id: u64) -> Result<FriendInfo, ErrorCode> {
+        todo!()
+    }
+
+    async fn delete_friend_request(&self, id: u64) -> Result<(), ErrorCode> {
+        todo!()
+    }
+
+    async fn deny_friend_request(&self, id: u64) -> Result<BlacklistedPrincipal, ErrorCode> {
+        todo!()
+    }
+
+    async fn mark_friend_requests_as_received(&self, ids: Vec<u64>) -> Result<(), ErrorCode> {
+        todo!()
+    }
+
+    async fn add_blacklist(
+        &self,
+        principal: BlacklistedPrincipal,
+    ) -> Result<BlacklistedPrincipal, ErrorCode> {
+        todo!()
+    }
+
+    async fn remove_blacklist(&self, id: PID) -> Result<(), ErrorCode> {
+        todo!()
     }
 
     async fn update_presence(&self, presence: NintendoPresenceV2) -> Result<(), ErrorCode> {
-        info!("user updated presence: {:?}", presence);
-        let mut data = self.data.write().await;
-        let Some(inner_data) = data.as_mut() else {
-            log::error!("unable to get presence data");
-            return Err(ErrorCode::RendezVous_PermissionDenied);
-        };
-        inner_data.presence = presence;
-        let Ok(any_self_fr_info) = Any::new(&inner_data.presence) else {
-            log::error!("unable to create presence any data holder");
-            return Err(ErrorCode::RendezVous_ControlScriptFailure);
-        };
-        drop(data);
+        todo!()
+    }
 
-        let users = self.fm.users.read().await;
-        for u in users.deref().iter().filter_map(|u| u.upgrade()) {
-            info!("sending presence update");
-            u.remote
-                .process_nintendo_notification_event_2(NintendoNotificationEvent {
-                    event_type: 24,
-                    sender: self.pid,
-                    data: any_self_fr_info.clone(),
-                })
-                .await;
-        }
-        drop(users);
+    async fn update_mii(&self, presence: MiiV2) -> Result<KerberosDateTime, ErrorCode> {
+        todo!()
+    }
 
-        Ok(())
+    async fn update_comment(&self, presence: Comment) -> Result<KerberosDateTime, ErrorCode> {
+        todo!()
+    }
+
+    async fn update_preference(&self, preference: PrincipalPreference) -> Result<(), ErrorCode> {
+        todo!()
+    }
+
+    async fn get_basic_info(&self, pids: Vec<PID>) -> Result<Vec<PrincipalBasicInfo>, ErrorCode> {
+        todo!()
     }
 
     async fn delete_persistent_notification(
         &self,
-        _notifs: Vec<PersistentNotification>,
+        notifs: Vec<PersistentNotification>,
     ) -> Result<(), ErrorCode> {
-        Ok(())
+        todo!()
     }
 
     async fn check_setting_status(&self) -> Result<u8, ErrorCode> {
-        Ok(0xFF)
+        todo!()
     }
-    
-    async fn update_preference(&self, preference: PrincipalPreference) -> Result<(),ErrorCode>  {
-        info!("user updated preference: {:?}", preference);
-        let any_presence: Any = Any::new(&preference).expect("out of memory");
 
-        let users = self.fm.users.read().await;
-        for u in users.deref().iter().filter_map(|u| u.upgrade()) {
-            info!("sending preference update");
-            u.remote
-                .process_nintendo_notification_event_2(NintendoNotificationEvent {
-                    event_type: 23,
-                    sender: self.pid,
-                    data: any_presence.clone(),
-                })
-                .await;
-        }
-        drop(users);
-        
-        Ok(())
+    async fn get_request_block_settings(
+        &self,
+        unk: Vec<u32>,
+    ) -> Result<Vec<PrincipalRequestBlockSetting>, ErrorCode> {
+        todo!()
     }
 }
 

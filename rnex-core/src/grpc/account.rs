@@ -166,7 +166,7 @@ impl Client {
             .find(|v| v.0 == "pid")
             .ok_or(SomethingHappened)?
             .1
-            .as_u32()
+            .as_i32()
         else {
             return Err(SomethingHappened);
         };
