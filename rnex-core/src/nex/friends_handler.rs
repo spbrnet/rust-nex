@@ -125,18 +125,18 @@ impl FriendsWiiU for FriendsUser {
     }
 
     async fn add_friend(&self, friend: PID) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn add_friend_by_name(
         &self,
         name: String,
     ) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn remove_friend(&self, friend: PID) -> Result<(), ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn add_friend_request(
@@ -149,76 +149,76 @@ impl FriendsWiiU for FriendsUser {
         game_key: GameKey,
         unk4: KerberosDateTime,
     ) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn cancel_friend_request(&self, id: u64) -> Result<(), ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn accept_friend_request(&self, id: u64) -> Result<FriendInfo, ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn delete_friend_request(&self, id: u64) -> Result<(), ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn deny_friend_request(&self, id: u64) -> Result<BlacklistedPrincipal, ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn mark_friend_requests_as_received(&self, ids: Vec<u64>) -> Result<(), ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn add_blacklist(
         &self,
         principal: BlacklistedPrincipal,
     ) -> Result<BlacklistedPrincipal, ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn remove_blacklist(&self, id: PID) -> Result<(), ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn update_presence(&self, presence: NintendoPresenceV2) -> Result<(), ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn update_mii(&self, presence: MiiV2) -> Result<KerberosDateTime, ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn update_comment(&self, presence: Comment) -> Result<KerberosDateTime, ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn update_preference(&self, preference: PrincipalPreference) -> Result<(), ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn get_basic_info(&self, pids: Vec<PID>) -> Result<Vec<PrincipalBasicInfo>, ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn delete_persistent_notification(
         &self,
         notifs: Vec<PersistentNotification>,
     ) -> Result<(), ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn check_setting_status(&self) -> Result<u8, ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn get_request_block_settings(
         &self,
         unk: Vec<u32>,
     ) -> Result<Vec<PrincipalRequestBlockSetting>, ErrorCode> {
-        todo!()
+        Err(ErrorCode::Core_NotImplemented)
     }
 }
 
