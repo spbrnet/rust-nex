@@ -1,4 +1,4 @@
-use macros::{RmcSerialize, method_id, rmc_proto};
+use macros::{RmcSerialize, method_id, rmc_proto, rmc_struct};
 use rnex_core::PID;
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::rmc::response::ErrorCode;
@@ -74,7 +74,7 @@ pub struct RatingInitParam {
     pub flag: u8,
     pub internal_flag: u8,
     pub lock_type: u8,
-    pub intial_valie: i64,
+    pub initial_value: i64,
     pub range_min: i32,
     pub range_max: i32,
     pub period_hour: i8,
@@ -213,6 +213,13 @@ pub struct DataStoreSearchParam {
     pub use_cache: bool,
 }
 
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct AttachFileParam {
+    pub post_param: PreparePostParam,
+    pub refer_data_id: u64,
+    pub content_type: String,
+}
 #[rmc_proto(115)]
 pub trait DataStore {
     #[method_id(8)]
@@ -263,4 +270,9 @@ pub trait DataStore {
         &self,
         application_id: u32,
     ) -> Result<Vec<String>, ErrorCode>;
+    #[method_id(59)]
+    async fn prepare_attach_file(
+        &self,
+        attach_file_param: AttachFileParam,
+    ) -> Result<ReqPostInfo, ErrorCode>;
 }

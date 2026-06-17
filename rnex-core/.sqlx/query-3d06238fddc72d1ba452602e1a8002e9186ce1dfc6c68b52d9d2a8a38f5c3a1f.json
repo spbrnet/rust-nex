@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT buffer\n                FROM datastore.buffer_queues\n                WHERE data_id = $1 AND slot = $2\n                ORDER BY creation_date ASC\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "buffer",
+        "type_info": "Bytea"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3d06238fddc72d1ba452602e1a8002e9186ce1dfc6c68b52d9d2a8a38f5c3a1f"
+}

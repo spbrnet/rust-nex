@@ -5,17 +5,13 @@ use rnex_core::executables::common::{
 };
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::nex::s3presigner::S3Presigner;
-use rnex_core::rmc::protocols::datastore::{
-    BufferQueueParam, CompletePostParam, DataStoreCustomRankingResult,
-    DataStoreGetCustomRankingByDataIDParam, DataStorePrepareGetParam, DataStoreReqGetInfo,
-    DataStoreSearchParam, GetMetaInfo, GetMetaParam, KeyValue, Permission, PersistenceTarget,
-    RateCustomRankingParam, RatingInfo, RatingInfoWithSlot,
-};
+use rnex_core::rmc::protocols::datastore::{BufferQueueParam, CompletePostParam, DataStoreCustomRankingResult, DataStoreGetCustomRankingByDataIDParam, DataStorePrepareGetParam, DataStoreReqGetInfo, DataStoreSearchParam, GetMetaInfo, GetMetaParam, KeyValue, Permission, PersistenceTarget, RateCustomRankingParam, RatingInfo, RatingInfoWithSlot, RatingInitParamWithSlot};
 use rnex_core::rmc::protocols::datastore::{DataStore, PreparePostParam, ReqPostInfo};
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::qbuffer::QBuffer;
 use rnex_core::rmc::structures::qresult::QResult;
 use sqlx::types::time;
+use crate::rmc::protocols::datastore::AttachFileParam;
 
 fn map_row_to_meta_info(
     row_data_id: i64,
@@ -359,6 +355,45 @@ fn filter_properties_by_result_option(meta_info: &mut GetMetaInfo, result_option
     // No idea what the other things do. :shrug:
 }
 
+async fn init_object_rating_slot(data_id: u64, rating_param: RatingInitParamWithSlot) {
+    let row = sqlx::query!(
+            r#"
+            INSERT INTO datastore.object_ratings (
+                data_id,
+                slot,
+                flag,
+                internal_flag,
+                lock_type,
+                initial_value,
+                range_min,
+                range_max,
+                period_hour,
+                period_duration,
+                total_value
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+            )
+            "#,
+            data_id as i64,
+            rating_param.slot as i16,
+            rating_param.param.flag as i16,
+            rating_param.param.internal_flag as i16,
+            rating_param.param.lock_type as i16,
+            rating_param.param.initial_value,
+            rating_param.param.range_min,
+            rating_param.param.range_max,
+            rating_param.param.period_hour as i16,
+            rating_param.param.period_duration as i32,
+            rating_param.param.initial_value,
+        )
+        .fetch_one(get_db())
+        .await
+        .map_err(|e| {
+            log::error!("DB Error: {:?}", e);
+            ErrorCode::DataStore_SystemFileError
+        });
+}
+
 // Dawg...
 async fn get_custom_rankings_by_data_ids(
     application_id: u32,
@@ -438,7 +473,7 @@ async fn get_user_course_object_ids(owner_pid: PID) -> Result<Vec<u64>, ErrorCod
 }
 
 fn get_blacklist_1() -> Vec<String> {
-    [
+    vec![
         "けされ",
         "消され",
         "削除され",
@@ -506,13 +541,13 @@ fn get_blacklist_1() -> Vec<String> {
         "PLEASE star",
         "Bitte Sterne",
     ]
-    .iter()
+    .into_iter()
     .map(String::from)
     .collect()
 }
 
 fn get_blacklist_2() -> Vec<String> {
-    [
+    vec![
         "ゼロから",
         "０から",
         "0から",
@@ -521,13 +556,13 @@ fn get_blacklist_2() -> Vec<String> {
         "東日本",
         "大震",
     ]
-    .iter()
+    .into_iter()
     .map(String::from)
     .collect()
 }
 
 fn get_blacklist_3() -> Vec<String> {
-    [
+    vec![
         "いいね",
         "下さい",
         "ください",
@@ -590,7 +625,7 @@ fn get_blacklist_3() -> Vec<String> {
         "ま/んこ",
         "まん/こ",
     ]
-    .iter()
+    .into_iter()
     .map(String::from)
     .collect()
 }
@@ -845,7 +880,6 @@ impl DataStore for User {
         &self,
         custom_ranking_param: DataStoreGetCustomRankingByDataIDParam,
     ) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode> {
-        // use log instead
         println!("appid: {:?}", custom_ranking_param.application_id);
         println!("dataid list: {:?}", custom_ranking_param.data_id_list);
         println!("result option: {:?}", custom_ranking_param.result_option);
@@ -1040,5 +1074,107 @@ impl DataStore for User {
         }
 
         Ok((metas, results))
+    }
+
+    async fn prepare_attach_file(&self, param: AttachFileParam) -> Result<ReqPostInfo, ErrorCode> {
+        let recipient_ids: Vec<i32> = param
+            .post_param
+            .permission
+            .recipient_ids
+            .iter()
+            .map(|&id| id as i32)
+            .collect();
+
+        let del_recipient_ids: Vec<i32> = param
+            .post_param
+            .del_permission
+            .recipient_ids
+            .iter()
+            .map(|&id| id as i32)
+            .collect();
+
+        let tags: Vec<String> = param
+            .post_param
+            .tags
+            .iter()
+            .map(|t| t.to_string())
+            .collect();
+
+        let extra_data: Vec<String> = param
+            .post_param
+            .extra_data
+            .iter()
+            .map(|e| e.to_string())
+            .collect();
+
+        let now = time::OffsetDateTime::now_utc();
+        let db_now = time::PrimitiveDateTime::new(now.date(), now.time());
+
+        let row = sqlx::query!(
+            r#"
+            INSERT INTO datastore.objects (
+                owner, size, name, data_type, meta_binary,
+                permission, permission_recipients,
+                delete_permission, delete_permission_recipients,
+                flag, period, refer_data_id, tags,
+                persistence_slot_id, extra_data, creation_date, update_date
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+            ) RETURNING data_id
+            "#,
+            self.pid as i32,
+            param.post_param.size as i32,
+            param.post_param.name,
+            param.post_param.data_type as i32,
+            &param.post_param.meta_binary.0,
+            param.post_param.permission.permission as i32,
+            &recipient_ids,
+            param.post_param.del_permission.permission as i32,
+            &del_recipient_ids,
+            param.post_param.flag as i32,
+            param.post_param.period as i32,
+            param.refer_data_id as i64, // The course's data ID being attached to
+            &tags,
+            param.post_param.persistence_init_param.persistence_slot_id as i32,
+            &extra_data,
+            db_now,
+            db_now
+        )
+            .fetch_one(get_db())
+            .await
+            .map_err(|e| {
+                log::error!("DB Error: {:?}", e);
+                ErrorCode::DataStore_SystemFileError
+            })?;
+
+        let data_id = row.data_id as u64;
+
+        for rating_param in &param.post_param.rating_init_params {
+            init_object_rating_slot(data_id, rating_param.clone())
+                .await
+        }
+
+        let presigner = S3Presigner::new(
+            &format!("https://{}", *RNEX_DATASTORE_S3_ENDPOINT),
+            format!("{}", *RNEX_DATASTORE_S3_BUCKET),
+        )
+            .await;
+
+        let key = format!("data/{}.jpg", data_id);
+
+        let (upload_url, fields) = presigner.generate_presigned_post(&key).await;
+
+        let form_fields = fields
+            .into_iter()
+            .map(|(k, v)| KeyValue { key: k, value: v })
+            .collect();
+
+        Ok(ReqPostInfo {
+            dataid: data_id,
+            url: upload_url,
+            request_headers: vec![],
+            form_fields,
+            root_ca_cert: vec![],
+        })
     }
 }
