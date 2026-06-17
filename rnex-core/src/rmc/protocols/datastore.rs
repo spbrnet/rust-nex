@@ -270,6 +270,11 @@ pub trait DataStore {
         &self,
         application_id: u32,
     ) -> Result<Vec<String>, ErrorCode>;
+    #[method_id(57)]
+    async fn complete_attach_file(
+        &self,
+        complete_attach_param: CompletePostParam
+    ) -> Result<String, ErrorCode>;
     #[method_id(59)]
     async fn prepare_attach_file(
         &self,

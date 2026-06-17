@@ -1177,4 +1177,19 @@ impl DataStore for User {
             root_ca_cert: vec![],
         })
     }
+
+    async fn complete_attach_file(&self, complete_attach_param: CompletePostParam) -> Result<String, ErrorCode> {
+        log::info!("Data ID: {:?}", complete_attach_param.dataid);
+        log::info!("Success: {:?}", complete_attach_param.success);
+
+        let presigner = S3Presigner::new(
+            &format!("https://{}", *RNEX_DATASTORE_S3_ENDPOINT),
+            format!("{}", *RNEX_DATASTORE_S3_BUCKET),
+        ).await;
+
+        let key = format!("data/{}.jpg", complete_attach_param.dataid);
+        let download_url = presigner.generate_presigned_get(&key);
+
+        Ok(download_url)
+    }
 }
