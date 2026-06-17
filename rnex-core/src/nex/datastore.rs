@@ -438,7 +438,7 @@ async fn get_user_course_object_ids(owner_pid: PID) -> Result<Vec<u64>, ErrorCod
 }
 
 fn get_blacklist_1() -> Vec<String> {
-    vec![
+    [
         "けされ",
         "消され",
         "削除され",
@@ -512,7 +512,7 @@ fn get_blacklist_1() -> Vec<String> {
 }
 
 fn get_blacklist_2() -> Vec<String> {
-    vec![
+    [
         "ゼロから",
         "０から",
         "0から",
@@ -527,7 +527,7 @@ fn get_blacklist_2() -> Vec<String> {
 }
 
 fn get_blacklist_3() -> Vec<String> {
-    vec![
+    [
         "いいね",
         "下さい",
         "ください",
