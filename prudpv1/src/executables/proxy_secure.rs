@@ -9,6 +9,7 @@ use rnex_core::reggie::UnitPacketRead;
 use rnex_core::reggie::UnitPacketWrite;
 use rnex_core::rmc::structures::RmcSerialize;
 use rnex_core::rnex_proxy_common::ConnectionInitData;
+use std::ops::Deref;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::task;
@@ -105,7 +106,7 @@ pub async fn start(param: ProxyStartupParam) {
                     }
                 }
             }
-            conn.close_connection().await;
+            conn.deref().close_connection().await;
         });
     }
 }

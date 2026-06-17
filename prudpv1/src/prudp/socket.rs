@@ -40,7 +40,7 @@ pub struct CommonConnection {
 
 struct InternalConnection<E: CryptoHandlerConnectionInstance> {
     common: Arc<CommonConnection>,
-    connections: Weak<Mutex<BTreeMap<PRUDPSockAddr, Arc<Mutex<InternalConnection<E>>>>>>,
+    connections: Weak<Mutex<BTreeMap<PRUDPSockAddr, Arc<InternalConnectionMutex<E>>>>>,
     reliable_server_counter: u16,
     reliable_client_counter: u16,
     supported_function_version: u32,
@@ -51,6 +51,23 @@ struct InternalConnection<E: CryptoHandlerConnectionInstance> {
     packet_queue: HashMap<u16, PRUDPV1Packet>,
     last_packet_time: Instant,
     unacknowleged_packets: Vec<(Instant, PRUDPV1Packet)>,
+}
+
+struct InternalConnectionMutex<E: CryptoHandlerConnectionInstance>(Mutex<InternalConnection<E>>);
+
+impl<E: CryptoHandlerConnectionInstance> AsRef<Mutex<InternalConnection<E>>>
+    for InternalConnectionMutex<E>
+{
+    fn as_ref(&self) -> &Mutex<InternalConnection<E>> {
+        &self.0
+    }
+}
+
+impl<E: CryptoHandlerConnectionInstance> Deref for InternalConnectionMutex<E> {
+    type Target = Mutex<InternalConnection<E>>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl<E: CryptoHandlerConnectionInstance> Deref for InternalConnection<E> {
@@ -124,15 +141,26 @@ impl<E: CryptoHandlerConnectionInstance> InternalConnection<E> {
     }
 }
 
-pub struct ExternalConnection {
-    sending: SendingConnection,
+pub struct ExternalConnection<T: CryptoHandlerConnectionInstance> {
+    sending: SendingConnection<T>,
     data_receiver: Receiver<Vec<u8>>,
 }
 
-#[derive(Clone)]
-pub struct SendingConnection {
+pub struct SendingConnection<T: CryptoHandlerConnectionInstance> {
     common: Arc<CommonConnection>,
-    internal: Weak<dyn AnyInternalConnection>,
+    internal: Weak<InternalConnectionMutex<T>>,
+}
+
+// we couldnt use the implementation the derive would generate here because that
+// bakes in the assumption that all type parameters must be `Clone` for the struct
+// we are deriving on to be `Clone` as well
+impl<T: CryptoHandlerConnectionInstance> Clone for SendingConnection<T> {
+    fn clone(&self) -> Self {
+        Self {
+            common: self.common.clone(),
+            internal: self.internal.clone(),
+        }
+    }
 }
 
 pub struct CommonSocket {
@@ -146,20 +174,23 @@ pub(super) struct InternalSocket<T: CryptoHandler> {
     crypto_handler: T,
     // perf note: change the code to use RwLock here instead to avoid connections being able to block one another before the data is sent off.
     internal_connections: Arc<
-        Mutex<BTreeMap<PRUDPSockAddr, Arc<Mutex<InternalConnection<T::CryptoConnectionInstance>>>>>,
+        Mutex<BTreeMap<PRUDPSockAddr, Arc<InternalConnectionMutex<T::CryptoConnectionInstance>>>>,
     >,
     connection_establishment_data_sender: Mutex<Option<Sender<PRUDPV1Packet>>>,
-    connection_sender: Sender<ExternalConnection>,
+    connection_sender: Sender<ExternalConnection<T::CryptoConnectionInstance>>,
 }
 
-pub struct ExternalSocket {
+pub struct ExternalSocket<T: CryptoHandler> {
     common: Arc<CommonSocket>,
-    connection_receiver: Receiver<ExternalConnection>,
-    internal: Weak<dyn AnyInternalSocket>,
+    connection_receiver: Receiver<ExternalConnection<T::CryptoConnectionInstance>>,
+    internal: Weak<InternalSocket<T>>,
 }
 
-impl ExternalSocket {
-    pub async fn connect(&mut self, addr: PRUDPSockAddr) -> Option<ExternalConnection> {
+impl<T: CryptoHandler> ExternalSocket<T> {
+    pub async fn connect(
+        &mut self,
+        addr: PRUDPSockAddr,
+    ) -> Option<ExternalConnection<T::CryptoConnectionInstance>> {
         let socket = self.internal.upgrade()?;
 
         socket.connect(addr).await;
@@ -167,12 +198,12 @@ impl ExternalSocket {
         self.connection_receiver.recv().await
     }
 
-    pub async fn accept(&mut self) -> Option<ExternalConnection> {
+    pub async fn accept(&mut self) -> Option<ExternalConnection<T::CryptoConnectionInstance>> {
         self.connection_receiver.recv().await
     }
 }
 
-impl Deref for ExternalSocket {
+impl<T: CryptoHandler> Deref for ExternalSocket<T> {
     type Target = CommonSocket;
     fn deref(&self) -> &Self::Target {
         &self.common
@@ -194,15 +225,7 @@ pub(super) trait AnyInternalSocket:
     async fn connect(&self, address: PRUDPSockAddr) -> Option<()>;
 }
 
-#[async_trait]
-pub(super) trait AnyInternalConnection: Send + Sync + 'static {
-    async fn send_data_packet(&self, data: Vec<u8>);
-
-    async fn close_connection(&self);
-}
-
-#[async_trait]
-impl<T: CryptoHandlerConnectionInstance> AnyInternalConnection for Mutex<InternalConnection<T>> {
+impl<E: CryptoHandlerConnectionInstance> InternalConnectionMutex<E> {
     async fn send_data_packet(&self, data: Vec<u8>) {
         let pieces = data.chunks(600);
         let max_piece = pieces.len() - 1;
@@ -248,14 +271,8 @@ impl<T: CryptoHandlerConnectionInstance> AnyInternalConnection for Mutex<Interna
 
             locked.unacknowleged_packets.push((Instant::now(), packet));
             drop(locked);
-            sleep(Duration::from_secs(16)).await;
+            sleep(Duration::from_millis(16)).await;
         }
-    }
-
-    async fn close_connection(&self) {
-        let mut locked = self.lock().await;
-
-        locked.close_connection().await;
     }
 }
 
@@ -280,7 +297,7 @@ impl<T: CryptoHandler> InternalSocket<T> {
     async fn get_connection(
         &self,
         addr: PRUDPSockAddr,
-    ) -> Option<Arc<Mutex<InternalConnection<T::CryptoConnectionInstance>>>> {
+    ) -> Option<Arc<InternalConnectionMutex<T::CryptoConnectionInstance>>> {
         let connections = self.internal_connections.lock().await;
         let Some(conn) = connections.get(&addr) else {
             error!("tried to send data on inactive connection!");
@@ -337,7 +354,7 @@ impl<T: CryptoHandler> InternalSocket<T> {
     }
 
     async fn connection_thread(
-        connection: Weak<Mutex<InternalConnection<T::CryptoConnectionInstance>>>,
+        connection: Weak<InternalConnectionMutex<T::CryptoConnectionInstance>>,
     ) {
         //todo: handle stuff like resending packets if they arent acknowledged in here
 
@@ -417,9 +434,9 @@ impl<T: CryptoHandler> InternalSocket<T> {
             supported_function_version,
         };
 
-        let internal = Arc::new(Mutex::new(internal));
+        let internal = Arc::new(InternalConnectionMutex(Mutex::new(internal)));
 
-        let dyn_internal: Arc<dyn AnyInternalConnection> = internal.clone();
+        let dyn_internal = internal.clone();
 
         let external = ExternalConnection {
             sending: SendingConnection {
@@ -670,6 +687,7 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
 
         if (packet.header.types_and_flags.get_flags() & MULTI_ACK) != 0 {
             if let Some(conn) = self.get_connection(address).await {
+                let conn = &**conn;
                 let mut conn = conn.lock().await;
 
                 if conn.supported_function_version == 1 {
@@ -818,7 +836,7 @@ pub(super) fn new_socket_pair<T: CryptoHandler>(
     virtual_port: VirtualPort,
     encryption: T,
     socket: Arc<UdpSocket>,
-) -> (Arc<InternalSocket<T>>, ExternalSocket) {
+) -> (Arc<InternalSocket<T>>, ExternalSocket<T>) {
     let common = Arc::new(CommonSocket {
         virtual_port,
         _phantom_unconstructible: Default::default(),
@@ -835,7 +853,7 @@ pub(super) fn new_socket_pair<T: CryptoHandler>(
         socket,
     });
 
-    let dyn_internal: Arc<dyn AnyInternalSocket> = internal.clone();
+    let dyn_internal = internal.clone();
 
     let external = ExternalSocket {
         common,
@@ -872,32 +890,32 @@ pub trait CryptoHandler: Send + Sync + 'static {
     fn sign_pre_handshake(&self, packet: &mut PRUDPV1Packet);
 }
 
-impl Deref for ExternalConnection {
-    type Target = SendingConnection;
+impl<T: CryptoHandlerConnectionInstance> Deref for ExternalConnection<T> {
+    type Target = SendingConnection<T>;
     fn deref(&self) -> &Self::Target {
         &self.sending
     }
 }
 
-impl Deref for SendingConnection {
+impl<T: CryptoHandlerConnectionInstance> Deref for SendingConnection<T> {
     type Target = CommonConnection;
     fn deref(&self) -> &Self::Target {
         &self.common
     }
 }
 
-impl ExternalConnection {
+impl<E: CryptoHandlerConnectionInstance> ExternalConnection<E> {
     pub async fn recv(&mut self) -> Option<Vec<u8>> {
         self.data_receiver.recv().await
     }
     //todo: make this an actual result instead of an option
 
-    pub fn duplicate_sender(&self) -> SendingConnection {
+    pub fn duplicate_sender(&self) -> SendingConnection<E> {
         self.sending.clone()
     }
 }
 
-impl SendingConnection {
+impl<E: CryptoHandlerConnectionInstance> SendingConnection<E> {
     pub async fn send(&self, data: Vec<u8>) -> Option<()> {
         let internal = self.internal.upgrade()?;
         spawn(async move {
@@ -910,6 +928,8 @@ impl SendingConnection {
         let Some(internal) = self.internal.upgrade() else {
             return;
         };
+
+        let mut internal = internal.lock().await;
 
         internal.close_connection().await;
     }
