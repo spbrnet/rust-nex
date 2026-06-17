@@ -506,7 +506,7 @@ fn get_blacklist_1() -> Vec<String> {
         "PLEASE star",
         "Bitte Sterne",
     ]
-    .into_iter()
+    .iter()
     .map(String::from)
     .collect()
 }
@@ -521,7 +521,7 @@ fn get_blacklist_2() -> Vec<String> {
         "東日本",
         "大震",
     ]
-    .into_iter()
+    .iter()
     .map(String::from)
     .collect()
 }
@@ -590,7 +590,7 @@ fn get_blacklist_3() -> Vec<String> {
         "ま/んこ",
         "まん/こ",
     ]
-    .into_iter()
+    .iter()
     .map(String::from)
     .collect()
 }
@@ -845,6 +845,7 @@ impl DataStore for User {
         &self,
         custom_ranking_param: DataStoreGetCustomRankingByDataIDParam,
     ) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode> {
+        // use log instead
         println!("appid: {:?}", custom_ranking_param.application_id);
         println!("dataid list: {:?}", custom_ranking_param.data_id_list);
         println!("result option: {:?}", custom_ranking_param.result_option);
