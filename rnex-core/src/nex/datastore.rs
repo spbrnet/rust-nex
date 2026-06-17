@@ -506,7 +506,7 @@ fn get_blacklist_1() -> Vec<String> {
         "PLEASE star",
         "Bitte Sterne",
     ]
-    .iter()
+    .into_iter()
     .map(String::from)
     .collect()
 }
@@ -521,7 +521,7 @@ fn get_blacklist_2() -> Vec<String> {
         "東日本",
         "大震",
     ]
-    .iter()
+    .into_iter()
     .map(String::from)
     .collect()
 }
@@ -590,7 +590,7 @@ fn get_blacklist_3() -> Vec<String> {
         "ま/んこ",
         "まん/こ",
     ]
-    .iter()
+    .into_iter()
     .map(String::from)
     .collect()
 }
