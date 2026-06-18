@@ -386,7 +386,7 @@ async fn init_object_rating_slot(data_id: u64, rating_param: RatingInitParamWith
             rating_param.param.period_duration as i32,
             rating_param.param.initial_value,
         )
-        .fetch_one(get_db())
+        .execute(get_db())
         .await
         .map_err(|e| {
             log::error!("DB Error: {:?}", e);
@@ -806,7 +806,7 @@ impl DataStore for User {
                 ErrorCode::DataStore_SystemFileError
             })?;
         } else {
-            return Err(ErrorCode::Transport_TemporaryServerError);
+            return Err(ErrorCode::DataStore_InvalidArgument);
         }
 
         Ok(())
@@ -1184,7 +1184,7 @@ impl DataStore for User {
             })?;
 
         let data_id = row.data_id as u64;
-        
+
         for rating_param in &param.post_param.rating_init_params {
             log::info!("running init params");
             init_object_rating_slot(data_id, rating_param.clone())
