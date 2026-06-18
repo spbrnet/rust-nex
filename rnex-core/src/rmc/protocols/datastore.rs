@@ -68,7 +68,7 @@ pub struct GetMetaInfo {
     pub ratings: Vec<RatingInfoWithSlot>,
 }
 
-#[derive(RmcSerialize, Clone)]
+#[derive(RmcSerialize, Clone, Debug)]
 #[rmc_struct(0)]
 pub struct RatingInitParam {
     pub flag: u8,
@@ -81,14 +81,14 @@ pub struct RatingInitParam {
     pub period_duration: i16,
 }
 
-#[derive(RmcSerialize, Clone)]
+#[derive(RmcSerialize, Clone, Debug)]
 #[rmc_struct(0)]
 pub struct RatingInitParamWithSlot {
     pub slot: i8,
     pub param: RatingInitParam,
 }
 
-#[derive(RmcSerialize, Clone)]
+#[derive(RmcSerialize, Clone, Debug)]
 #[rmc_struct(0)]
 pub struct PersistenceInitParam {
     pub persistence_slot_id: u16,
@@ -102,7 +102,7 @@ pub struct KeyValue {
     pub value: String,
 }
 
-#[derive(RmcSerialize, Clone)]
+#[derive(RmcSerialize, Clone, Debug)]
 #[rmc_struct(0)]
 pub struct PreparePostParam {
     pub size: u32,
