@@ -995,9 +995,11 @@ impl DataStore for User {
         prepare_get_param: DataStorePrepareGetParam,
     ) -> Result<DataStoreReqGetInfo, ErrorCode> {
         let meta_info = if prepare_get_param.dataid != 0 {
+            log::info!("getting object by meta info")
             get_object_info_by_data_id(prepare_get_param.dataid, prepare_get_param.access_password)
                 .await?
         } else {
+            log::info!("getting object by persistence info");
             get_object_info_by_persistence_target(
                 prepare_get_param.persistence_target,
                 prepare_get_param.access_password,
@@ -1005,6 +1007,7 @@ impl DataStore for User {
             .await?
         };
 
+        log::info!("verifying object permission");
         verify_object_permission(meta_info.owner, self.pid, &meta_info.permission).await?;
 
         let presigner = S3Presigner::new(
