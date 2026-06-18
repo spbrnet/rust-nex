@@ -996,6 +996,7 @@ impl DataStore for User {
     ) -> Result<DataStoreReqGetInfo, ErrorCode> {
         let meta_info = if prepare_get_param.dataid != 0 {
             log::info!("getting object by meta info")
+            log::info!("Data ID: {:?}", prepare_get_param.dataid);
             get_object_info_by_data_id(prepare_get_param.dataid, prepare_get_param.access_password)
                 .await?
         } else {
