@@ -213,7 +213,7 @@ pub struct DataStoreSearchParam {
     pub use_cache: bool,
 }
 
-#[derive(RmcSerialize, Clone)]
+#[derive(RmcSerialize, Clone, Debug)]
 #[rmc_struct(0)]
 pub struct AttachFileParam {
     pub post_param: PreparePostParam,
