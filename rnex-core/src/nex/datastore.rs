@@ -1,6 +1,4 @@
-use crate::rmc::protocols::datastore::{
-    DataStoreGetCourseRecordParam, DataStoreGetCourseRecordResult, DataStoreUploadCourseRecordParam,
-};
+use crate::rmc::protocols::datastore::{DataStoreFileServerObjectInfo, DataStoreGetCourseRecordParam, DataStoreGetCourseRecordResult, DataStoreUploadCourseRecordParam};
 use chrono::{NaiveDateTime, Utc};
 use futures::TryStreamExt;
 use rnex_core::PID;
@@ -254,7 +252,7 @@ async fn get_object_info_by_persistence_target(
 
 async fn get_buffer_queues_by_data_id_and_slot(
     data_id: i64,
-    slot: u32,
+    slot: i32,
 ) -> Result<Vec<QBuffer>, ErrorCode> {
     check_object_availability(data_id, 0).await?;
 
@@ -680,6 +678,36 @@ async fn get_rating_with_slot_data_id(dataid: i64) -> Result<Vec<RatingInfoWithS
         .collect::<Vec<RatingInfoWithSlot>>();
 
     Ok(ratings)
+}
+
+pub async fn insert_buffer(dataid: i64, slot: i32, buffer: &QBuffer) {
+    let db_now = Utc::now().naive_utc();
+
+    let row = sqlx::query!(
+        r#"
+            INSERT INTO datastore.buffer_queues (
+                data_id,
+                slot,
+                creation_date,
+                buffer
+            ) VALUES (
+                $1,
+                $2,
+                $3,
+                $4
+            ) ON CONFLICT (data_id, slot, buffer) DO UPDATE SET creation_date=$3
+        "#,
+        dataid,
+        slot,
+        db_now,
+        buffer.0
+    )
+        .execute(get_db())
+        .await
+        .map_err(|e| {
+            log::error!("DB Error: {:?}", e);
+            ErrorCode::DataStore_NotFound
+        });
 }
 
 impl DataStore for User {
@@ -1553,5 +1581,62 @@ impl DataStore for User {
             created_time: KerberosDateTime::from_i64(0x9C3F3E0000),
             updated_time: KerberosDateTime::from_i64(0x9C3F3E0000),
         })
+    }
+
+    async fn add_to_buffer_queues(
+        &self,
+        bufferparam: Vec<BufferQueueParam>,
+        buffers: Vec<QBuffer>,
+    ) -> Result<Vec<QResult>, ErrorCode> {
+        let mut results = Vec::new();
+
+        let client_pid = self.pid;
+
+        for (param, buffer) in bufferparam.iter().zip(buffers.iter()) {
+            if param.slot == 0 {
+                let object_info = get_object_info_by_data_id(param.dataid, 0).await?;
+
+                if object_info.data_type == 1 && object_info.owner != client_pid {
+                    return Err(ErrorCode::DataStore_PermissionDenied);
+                }
+            }
+
+            insert_buffer(param.dataid, param.slot, buffer).await;
+
+            results.push(QResult::success(ErrorCode::Core_Unknown));
+        }
+
+        Ok(results)
+    }
+
+    async fn get_object_infos(&self, dataids: Vec<i64>) -> Result<Vec<DataStoreFileServerObjectInfo>, ErrorCode> {
+        let mut list = Vec::with_capacity(dataids.len());
+        for dataid in dataids.into_iter() {
+            let object_info = get_object_info_by_data_id(dataid, 0).await?;
+
+            let presigner = S3Presigner::new(
+                &format!("https://{}", *RNEX_DATASTORE_S3_ENDPOINT),
+                format!("{}", *RNEX_DATASTORE_S3_BUCKET),
+            )
+                .await;
+
+            let key = format!("data/{}.bin", dataid);
+            let download_url = presigner.generate_presigned_get(&key);
+
+            list.push(
+                DataStoreFileServerObjectInfo {
+                    dataid,
+                    get_info: DataStoreReqGetInfo {
+                        url: download_url,
+                        request_headers: vec![],
+                        size: object_info.size,
+                        root_ca_cert: vec![],
+                        dataid
+                    }
+                }
+            );
+        };
+
+        Ok(list)
     }
 }

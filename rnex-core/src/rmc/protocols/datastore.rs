@@ -150,7 +150,7 @@ pub struct RateCustomRankingParam {
 #[rmc_struct(0)]
 pub struct BufferQueueParam {
     pub dataid: i64,
-    pub slot: u32,
+    pub slot: i32,
 }
 
 // I just realized I forgot to add "DataStore" in front of the structs. I can't be assed to change it, sucks to be you lol.
@@ -295,6 +295,13 @@ pub struct DataStoreGetCourseRecordResult {
     pub updated_time: KerberosDateTime,
 }
 
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct DataStoreFileServerObjectInfo {
+    pub dataid: i64,
+    pub get_info: DataStoreReqGetInfo,
+}
+
 #[rmc_proto(115)]
 pub trait DataStore {
     #[method_id(8)]
@@ -329,6 +336,12 @@ pub trait DataStore {
         &self,
         custom_ranking_param: DataStoreGetCustomRankingByDataIDParam,
     ) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode>;
+    #[method_id(53)]
+    async fn add_to_buffer_queues(
+        &self,
+        bufferparam: Vec<BufferQueueParam>,
+        buffers: Vec<QBuffer>,
+    ) -> Result<Vec<QResult>, ErrorCode>;
     #[method_id(54)]
     async fn get_buffer_queue(
         &self,
@@ -364,6 +377,11 @@ pub trait DataStore {
         _transactional: bool,
         fetch_ratings: bool,
     ) -> Result<(Vec<RatingInfo>, Vec<QResult>), ErrorCode>;
+    #[method_id(45)]
+    async fn get_object_infos(
+        &self,
+        dataids: Vec<i64>,
+    ) -> Result<Vec<DataStoreFileServerObjectInfo>, ErrorCode>;
     #[method_id(57)]
     async fn complete_attach_file(
         &self,
