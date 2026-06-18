@@ -646,9 +646,9 @@ async fn rate_object(dataid: u64, slot: i8, rating_value: i32, access_password: 
         "#,
         rating_value as i64,
         dataid as i64,
-        slot as i8
+        slot as i16
     )
-        .fetch_one(get_db())
+        .fetch_all(get_db())
         .await
         .map_err(|e| {
             log::error!("DB Error: {:?}", e);
@@ -1243,6 +1243,7 @@ impl DataStore for User {
             let param = &params[i];
 
             log::info!("Data ID: {:?}", target.dataid);
+            log::info!("Slot: {:?}", target.slot);
             log::info!("Access Password: {:?}", param.access_password);
 
             let object_info = get_object_info_by_data_id(target.dataid, param.access_password).await?;
