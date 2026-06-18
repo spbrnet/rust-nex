@@ -400,6 +400,11 @@ pub trait DataStore {
     #[method_id(72)]
     async fn get_course_record(
         &self,
-        get_course_record_param: DataStoreGetCourseRecordParam
+        get_course_record_param: DataStoreGetCourseRecordParam,
     ) -> Result<DataStoreGetCourseRecordResult, ErrorCode>;
+    #[method_id(79)]
+    async fn check_rate_custom_ranking_counter(
+        &self,
+        application_id: u32,
+    ) -> Result<bool, ErrorCode>;
 }

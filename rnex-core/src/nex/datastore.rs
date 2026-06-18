@@ -1639,4 +1639,9 @@ impl DataStore for User {
 
         Ok(list)
     }
+
+    async fn check_rate_custom_ranking_counter(&self, application_id: u32) -> Result<bool, ErrorCode> {
+        // official servers always return true? application ID is always 0 as far as i know. maybe a check is warranted for the app id?
+        Ok(true)
+    }
 }
