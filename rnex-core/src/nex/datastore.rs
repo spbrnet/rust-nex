@@ -355,6 +355,7 @@ fn filter_properties_by_result_option(meta_info: &mut GetMetaInfo, result_option
 }
 
 async fn init_object_rating_slot(data_id: u64, rating_param: RatingInitParamWithSlot) {
+    log::info!("running init object rating slot");
     let row = sqlx::query!(
             r#"
             INSERT INTO datastore.object_ratings (
@@ -391,6 +392,7 @@ async fn init_object_rating_slot(data_id: u64, rating_param: RatingInitParamWith
             log::error!("DB Error: {:?}", e);
             ErrorCode::DataStore_SystemFileError
         });
+    log::info!("done running");
 }
 
 // Dawg...
@@ -1159,7 +1161,7 @@ impl DataStore for User {
             &del_recipient_ids,
             param.post_param.flag as i32,
             param.post_param.period as i32,
-            param.refer_data_id as i64, // The course's data ID being attached to
+            param.refer_data_id as i64, // Data ID of the course this is attached to
             &tags,
             param.post_param.persistence_init_param.persistence_slot_id as i32,
             &extra_data,
@@ -1176,6 +1178,7 @@ impl DataStore for User {
         let data_id = row.data_id as u64;
 
         for rating_param in &param.post_param.rating_init_params {
+            log::info!("running init params");
             init_object_rating_slot(data_id, rating_param.clone())
                 .await
         }
