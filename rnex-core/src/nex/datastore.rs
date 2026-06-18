@@ -1177,6 +1177,8 @@ impl DataStore for User {
 
         let data_id = row.data_id as u64;
 
+        log::info!("param is: {:?}", param);
+        log::info!("RIP len is: {}", param.post_param.rating_init_params.len());
         for rating_param in &param.post_param.rating_init_params {
             log::info!("running init params");
             init_object_rating_slot(data_id, rating_param.clone())
