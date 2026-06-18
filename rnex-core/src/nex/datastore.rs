@@ -1549,7 +1549,7 @@ impl DataStore for User {
             .await
             .map_err(|e| {
                 log::error!("DB Error: {:?}", e);
-                ErrorCode::DataStore_SystemFileError
+                ErrorCode::DataStore_NotFound
             })?;
 
         Ok(
