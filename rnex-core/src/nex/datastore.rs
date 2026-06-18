@@ -1138,6 +1138,7 @@ impl DataStore for User {
         let now = time::OffsetDateTime::now_utc();
         let db_now = time::PrimitiveDateTime::new(now.date(), now.time());
 
+        log::info!("huh");
         let row = sqlx::query!(
             r#"
             INSERT INTO datastore.objects (
@@ -1174,6 +1175,7 @@ impl DataStore for User {
                 log::error!("DB Error: {:?}", e);
                 ErrorCode::DataStore_SystemFileError
             })?;
+        log::info!("what?");
 
         let data_id = row.data_id as u64;
 
