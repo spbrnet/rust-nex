@@ -1,3 +1,4 @@
+use futures::TryFutureExt;
 use rnex_core::nex::user::User;
 use rnex_core::PID;
 use rnex_core::executables::common::{
@@ -5,7 +6,7 @@ use rnex_core::executables::common::{
 };
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::nex::s3presigner::S3Presigner;
-use rnex_core::rmc::protocols::datastore::{BufferQueueParam, CompletePostParam, DataStoreCustomRankingResult, DataStoreGetCustomRankingByDataIDParam, DataStorePrepareGetParam, DataStoreReqGetInfo, DataStoreSearchParam, GetMetaInfo, GetMetaParam, KeyValue, Permission, PersistenceTarget, RateCustomRankingParam, RatingInfo, RatingInfoWithSlot, RatingInitParamWithSlot};
+use rnex_core::rmc::protocols::datastore::{BufferQueueParam, CompletePostParam, DataStoreChangeMetaParam, DataStoreCustomRankingResult, DataStoreGetCustomRankingByDataIDParam, DataStorePrepareGetParam, DataStoreReqGetInfo, DataStoreSearchParam, GetMetaInfo, GetMetaParam, KeyValue, Permission, PersistenceTarget, RateCustomRankingParam, RatingInfo, RatingInfoWithSlot, RatingInitParamWithSlot};
 use rnex_core::rmc::protocols::datastore::{DataStore, PreparePostParam, ReqPostInfo, AttachFileParam, DataStoreRateObjectParam, DataStoreRatingTarget};
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::qbuffer::QBuffer;
@@ -65,6 +66,7 @@ fn map_row_to_meta_info(
         ratings,
     }
 }
+
 
 pub async fn check_object_availability(data_id: u64, password: u64) -> Result<(), ErrorCode> {
     let row = sqlx::query!(
@@ -656,6 +658,31 @@ async fn rate_object(dataid: u64, slot: i8, rating_value: i32, access_password: 
         })?;
 
     Ok(rating)
+}
+
+async fn change_meta_object_check(param: &DataStoreChangeMetaParam) -> Result<(), ErrorCode> {
+    let row = sqlx::query!(
+                r#"
+                SELECT update_password, under_review FROM datastore.objects WHERE data_id=$1 AND upload_completed=TRUE AND deleted=FALSE
+                "#,
+                param.dataid as i64
+            )
+        .fetch_one(get_db())
+        .await
+        .map_err(|e| {
+            log::error!("DB Error: {:?}", e);
+            ErrorCode::DataStore_SystemFileError
+        })?;
+
+    if row.update_password != 0 && row.update_password != param.update_password as i64 {
+        return Err(ErrorCode::DataStore_InvalidPassword);
+    }
+
+    if row.under_review {
+        return Err(ErrorCode::DataStore_UnderReviewing);
+    }
+
+    Ok(())
 }
 
 impl DataStore for User {
@@ -1259,5 +1286,60 @@ impl DataStore for User {
         }
 
         Ok((ratings, results))
+    }
+
+    async fn change_meta(&self, param: DataStoreChangeMetaParam) -> Result<(), ErrorCode> {
+        let object_info = get_object_info_by_data_id(param.dataid, 0).await?;
+        verify_object_permission(object_info.owner, self.pid, &object_info.permission).await?;
+
+        if param.modifies_flag & 0x08 != 0 {
+            change_meta_object_check(&param).await?;
+
+            sqlx::query!(
+                r#"UPDATE datastore.objects SET period=$1 WHERE data_id=$2"#,
+                param.period as i16,
+                param.dataid as i64
+            )
+                .execute(get_db())
+                .await
+                .map_err(|e| {
+                    eprintln!("update error: {:?}", e);
+                    ErrorCode::DataStore_SystemFileError
+                })?;
+        }
+
+        if param.modifies_flag & 0x10 != 0 {
+            change_meta_object_check(&param).await?;
+
+            sqlx::query!(
+                r#"UPDATE datastore.objects SET meta_binary=$1 WHERE data_id=$2"#,
+                param.meta_binary.0,
+                param.dataid as i64
+            )
+                .execute(get_db())
+                .await
+                .map_err(|e| {
+                    eprintln!("update error: {:?}", e);
+                    ErrorCode::DataStore_SystemFileError
+                })?;
+        }
+
+        if param.modifies_flag & 0x80 != 0 {
+            change_meta_object_check(&param).await?;
+
+            sqlx::query!(
+                r#"UPDATE datastore.objects SET data_type=$1 WHERE data_id=$2"#,
+                param.data_type as i16,
+                param.dataid as i64
+            )
+                .execute(get_db())
+                .await
+                .map_err(|e| {
+                    eprintln!("update error: {:?}", e);
+                    ErrorCode::DataStore_SystemFileError
+                })?;
+        }
+
+        Ok(())
     }
 }

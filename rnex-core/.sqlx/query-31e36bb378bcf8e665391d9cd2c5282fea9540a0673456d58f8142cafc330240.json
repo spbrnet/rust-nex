@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE datastore.objects SET data_type=$1 WHERE data_id=$2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "31e36bb378bcf8e665391d9cd2c5282fea9540a0673456d58f8142cafc330240"
+}

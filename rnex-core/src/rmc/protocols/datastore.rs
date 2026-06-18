@@ -235,6 +235,39 @@ pub struct DataStoreRateObjectParam {
     pub access_password: u64,
 }
 
+#[derive(RmcSerialize, Clone, Default, Debug)]
+#[rmc_struct(0)]
+pub struct DataStoreChangeMetaCompareParam {
+    pub comparison_flag: u32,
+    pub name: String,
+    pub permission: Permission,
+    pub del_permission: Permission,
+    pub period: u16,
+    pub meta_binary: QBuffer,
+    pub tags: Vec<String>,
+    pub referred_cnt: u32,
+    pub data_type: u16,
+    pub status: u8,
+}
+
+#[derive(RmcSerialize, Clone, Default, Debug)]
+#[rmc_struct(0)]
+pub struct DataStoreChangeMetaParam {
+    pub dataid: u64,
+    pub modifies_flag: u32,
+    pub name: String,
+    pub permission: Permission,
+    pub del_permission: Permission,
+    pub period: u16,
+    pub meta_binary: QBuffer,
+    pub tags: Vec<String>,
+    pub update_password: u64,
+    pub referred_cnt: u32,
+    pub data_type: u16,
+    pub status: u8,
+    pub compare_param: DataStoreChangeMetaCompareParam,
+}
+
 #[rmc_proto(115)]
 pub trait DataStore {
     #[method_id(8)]
@@ -285,6 +318,11 @@ pub trait DataStore {
         &self,
         application_id: u32,
     ) -> Result<Vec<String>, ErrorCode>;
+    #[method_id(38)]
+    async fn change_meta(
+        &self,
+        param: DataStoreChangeMetaParam
+    ) -> Result<(), ErrorCode>;
     #[method_id(40)]
     async fn rate_objects(
         &self,
