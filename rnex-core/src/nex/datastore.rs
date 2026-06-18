@@ -1,18 +1,28 @@
+use crate::rmc::protocols::datastore::{
+    DataStoreGetCourseRecordParam, DataStoreGetCourseRecordResult, DataStoreUploadCourseRecordParam,
+};
+use chrono::{NaiveDateTime, Utc};
 use futures::TryStreamExt;
-use rnex_core::nex::user::User;
 use rnex_core::PID;
 use rnex_core::executables::common::{
     RNEX_DATASTORE_S3_BUCKET, RNEX_DATASTORE_S3_ENDPOINT, get_db,
 };
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::nex::s3presigner::S3Presigner;
-use rnex_core::rmc::protocols::datastore::{BufferQueueParam, CompletePostParam, DataStoreChangeMetaParam, DataStoreCustomRankingResult, DataStoreGetCustomRankingByDataIDParam, DataStorePrepareGetParam, DataStoreReqGetInfo, DataStoreSearchParam, GetMetaInfo, GetMetaParam, KeyValue, Permission, PersistenceTarget, RateCustomRankingParam, RatingInfo, RatingInfoWithSlot, RatingInitParamWithSlot};
-use rnex_core::rmc::protocols::datastore::{DataStore, PreparePostParam, ReqPostInfo, AttachFileParam, DataStoreRateObjectParam, DataStoreRatingTarget};
+use rnex_core::nex::user::User;
+use rnex_core::rmc::protocols::datastore::{
+    AttachFileParam, DataStore, DataStoreRateObjectParam, DataStoreRatingTarget, PreparePostParam,
+    ReqPostInfo,
+};
+use rnex_core::rmc::protocols::datastore::{
+    BufferQueueParam, CompletePostParam, DataStoreChangeMetaParam, DataStoreCustomRankingResult,
+    DataStoreGetCustomRankingByDataIDParam, DataStorePrepareGetParam, DataStoreReqGetInfo,
+    DataStoreSearchParam, GetMetaInfo, GetMetaParam, KeyValue, Permission, PersistenceTarget,
+    RateCustomRankingParam, RatingInfo, RatingInfoWithSlot, RatingInitParamWithSlot,
+};
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::qbuffer::QBuffer;
 use rnex_core::rmc::structures::qresult::QResult;
-use sqlx::types::time;
-use crate::rmc::protocols::datastore::{DataStoreGetCourseRecordParam, DataStoreGetCourseRecordResult, DataStoreUploadCourseRecordParam};
 
 fn map_row_to_meta_info(
     row_data_id: i64,
@@ -67,7 +77,6 @@ fn map_row_to_meta_info(
         ratings,
     }
 }
-
 
 pub async fn check_object_availability(data_id: i64, password: i64) -> Result<(), ErrorCode> {
     let row = sqlx::query!(
@@ -134,7 +143,10 @@ pub async fn get_object_ratings(
     Ok(ratings)
 }
 
-pub async fn get_object_info_by_data_id(data_id: i64, password: i64) -> Result<GetMetaInfo, ErrorCode> {
+pub async fn get_object_info_by_data_id(
+    data_id: i64,
+    password: i64,
+) -> Result<GetMetaInfo, ErrorCode> {
     check_object_availability(data_id, password).await?;
 
     let row = sqlx::query!(
@@ -174,34 +186,8 @@ pub async fn get_object_info_by_data_id(data_id: i64, password: i64) -> Result<G
         row.refer_data_id.unwrap_or(0),
         row.flag.unwrap_or(0),
         row.tags.unwrap_or_default(),
-        row.creation_date
-            .map(|dt| {
-                chrono::NaiveDateTime::new(
-                    chrono::NaiveDate::from_ymd_opt(dt.year(), dt.month() as u32, dt.day() as u32)
-                        .unwrap(),
-                    chrono::NaiveTime::from_hms_opt(
-                        dt.hour() as u32,
-                        dt.minute() as u32,
-                        dt.second() as u32,
-                    )
-                    .unwrap(),
-                )
-            })
-            .unwrap_or_default(),
-        row.update_date
-            .map(|dt| {
-                chrono::NaiveDateTime::new(
-                    chrono::NaiveDate::from_ymd_opt(dt.year(), dt.month() as u32, dt.day() as u32)
-                        .unwrap(),
-                    chrono::NaiveTime::from_hms_opt(
-                        dt.hour() as u32,
-                        dt.minute() as u32,
-                        dt.second() as u32,
-                    )
-                    .unwrap(),
-                )
-            })
-            .unwrap_or_default(),
+        row.creation_date.unwrap_or_default(),
+        row.update_date.unwrap_or_default(),
         ratings,
     ))
 }
@@ -260,34 +246,8 @@ async fn get_object_info_by_persistence_target(
         row.refer_data_id.unwrap_or(0),
         row.flag.unwrap_or(0),
         row.tags.unwrap_or_default(),
-        row.creation_date
-            .map(|dt| {
-                chrono::NaiveDateTime::new(
-                    chrono::NaiveDate::from_ymd_opt(dt.year(), dt.month() as u32, dt.day() as u32)
-                        .unwrap(),
-                    chrono::NaiveTime::from_hms_opt(
-                        dt.hour() as u32,
-                        dt.minute() as u32,
-                        dt.second() as u32,
-                    )
-                    .unwrap(),
-                )
-            })
-            .unwrap_or_default(),
-        row.update_date
-            .map(|dt| {
-                chrono::NaiveDateTime::new(
-                    chrono::NaiveDate::from_ymd_opt(dt.year(), dt.month() as u32, dt.day() as u32)
-                        .unwrap(),
-                    chrono::NaiveTime::from_hms_opt(
-                        dt.hour() as u32,
-                        dt.minute() as u32,
-                        dt.second() as u32,
-                    )
-                    .unwrap(),
-                )
-            })
-            .unwrap_or_default(),
+        row.creation_date.unwrap_or_default(),
+        row.update_date.unwrap_or_default(),
         ratings,
     ))
 }
@@ -360,7 +320,7 @@ fn filter_properties_by_result_option(meta_info: &mut GetMetaInfo, result_option
 async fn init_object_rating_slot(data_id: i64, rating_param: RatingInitParamWithSlot) {
     log::info!("running init object rating slot");
     let row = sqlx::query!(
-            r#"
+        r#"
             INSERT INTO datastore.object_ratings (
                 data_id,
                 slot,
@@ -377,24 +337,24 @@ async fn init_object_rating_slot(data_id: i64, rating_param: RatingInitParamWith
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
             )
             "#,
-            data_id,
-            rating_param.slot as i16,
-            rating_param.param.flag as i16,
-            rating_param.param.internal_flag as i16,
-            rating_param.param.lock_type as i16,
-            rating_param.param.initial_value,
-            rating_param.param.range_min,
-            rating_param.param.range_max,
-            rating_param.param.period_hour as i16,
-            rating_param.param.period_duration as i32,
-            rating_param.param.initial_value,
-        )
-        .execute(get_db())
-        .await
-        .map_err(|e| {
-            log::error!("DB Error: {:?}", e);
-            ErrorCode::DataStore_NotFound
-        });
+        data_id,
+        rating_param.slot as i16,
+        rating_param.param.flag as i16,
+        rating_param.param.internal_flag as i16,
+        rating_param.param.lock_type as i16,
+        rating_param.param.initial_value,
+        rating_param.param.range_min,
+        rating_param.param.range_max,
+        rating_param.param.period_hour as i16,
+        rating_param.param.period_duration as i32,
+        rating_param.param.initial_value,
+    )
+    .execute(get_db())
+    .await
+    .map_err(|e| {
+        log::error!("DB Error: {:?}", e);
+        ErrorCode::DataStore_NotFound
+    });
     log::info!("done running");
 }
 
@@ -635,7 +595,12 @@ fn get_blacklist_3() -> Vec<String> {
 }
 
 // couldn't find a better way to do this im going crazyy
-async fn rate_object(dataid: i64, slot: i8, rating_value: i32, access_password: i64) -> Result<RatingInfo, ErrorCode> {
+async fn rate_object(
+    dataid: i64,
+    slot: i8,
+    rating_value: i32,
+    access_password: i64,
+) -> Result<RatingInfo, ErrorCode> {
     check_object_availability(dataid, access_password).await?;
 
     let rating = RatingInfo::default();
@@ -651,12 +616,12 @@ async fn rate_object(dataid: i64, slot: i8, rating_value: i32, access_password: 
         dataid,
         slot as i16
     )
-        .fetch_all(get_db())
-        .await
-        .map_err(|e| {
-            log::error!("DB Error: {:?}", e);
-            ErrorCode::DataStore_NotFound
-        })?;
+    .fetch_all(get_db())
+    .await
+    .map_err(|e| {
+        log::error!("DB Error: {:?}", e);
+        ErrorCode::DataStore_NotFound
+    })?;
 
     Ok(rating)
 }
@@ -753,7 +718,7 @@ impl DataStore for User {
             .iter()
             .map(|&id| id as i32)
             .collect();
-        let now = time::OffsetDateTime::now_utc();
+        let now = Utc::now().naive_utc();
 
         let row = sqlx::query!(
                         r#"
@@ -782,8 +747,8 @@ impl DataStore for User {
                         &postparam.tags,
                         postparam.persistence_init_param.persistence_slot_id as i32,
                         &postparam.extra_data,
-                        time::PrimitiveDateTime::new(now.date(), now.time()),
-                        time::PrimitiveDateTime::new(now.date(), now.time())
+                        now,
+                        now
                     )
                     .fetch_one(get_db())
                     .await
@@ -803,8 +768,7 @@ impl DataStore for User {
         log::info!("RIP len is: {}", postparam.rating_init_params.len());
         for rating_param in &postparam.rating_init_params {
             log::info!("running init params");
-            init_object_rating_slot(data_id, rating_param.clone())
-                .await
+            init_object_rating_slot(data_id, rating_param.clone()).await
         }
 
         let key = format!("data/{}.bin", data_id);
@@ -1145,7 +1109,8 @@ impl DataStore for User {
 
             match info_result {
                 Ok(mut meta) => {
-                    if let Err(e) = verify_object_permission(meta.owner, self.pid, &meta.permission).await
+                    if let Err(e) =
+                        verify_object_permission(meta.owner, self.pid, &meta.permission).await
                     {
                         metas.push(GetMetaInfo::default());
                         results.push(QResult::error(e));
@@ -1206,8 +1171,7 @@ impl DataStore for User {
             .map(|e| e.to_string())
             .collect();
 
-        let now = time::OffsetDateTime::now_utc();
-        let db_now = time::PrimitiveDateTime::new(now.date(), now.time());
+        let now = Utc::now().naive_utc();
 
         let row = sqlx::query!(
             r#"
@@ -1236,29 +1200,28 @@ impl DataStore for User {
             &tags,
             param.post_param.persistence_init_param.persistence_slot_id as i32,
             &extra_data,
-            db_now,
-            db_now
+            now,
+            now
         )
-            .fetch_one(get_db())
-            .await
-            .map_err(|e| {
-                log::error!("DB Error: {:?}", e);
-                ErrorCode::DataStore_NotFound
-            })?;
+        .fetch_one(get_db())
+        .await
+        .map_err(|e| {
+            log::error!("DB Error: {:?}", e);
+            ErrorCode::DataStore_NotFound
+        })?;
 
         let data_id = row.data_id;
 
         for rating_param in &param.post_param.rating_init_params {
             log::info!("running init params");
-            init_object_rating_slot(data_id, rating_param.clone())
-                .await
+            init_object_rating_slot(data_id, rating_param.clone()).await
         }
 
         let presigner = S3Presigner::new(
             &format!("https://{}", *RNEX_DATASTORE_S3_ENDPOINT),
             format!("{}", *RNEX_DATASTORE_S3_BUCKET),
         )
-            .await;
+        .await;
 
         let key = format!("data/{}.jpg", data_id);
 
@@ -1278,14 +1241,18 @@ impl DataStore for User {
         })
     }
 
-    async fn complete_attach_file(&self, complete_attach_param: CompletePostParam) -> Result<String, ErrorCode> {
+    async fn complete_attach_file(
+        &self,
+        complete_attach_param: CompletePostParam,
+    ) -> Result<String, ErrorCode> {
         log::info!("Data ID: {:?}", complete_attach_param.dataid);
         log::info!("Success: {:?}", complete_attach_param.success);
 
         let presigner = S3Presigner::new(
             &format!("https://{}", *RNEX_DATASTORE_S3_ENDPOINT),
             format!("{}", *RNEX_DATASTORE_S3_BUCKET),
-        ).await;
+        )
+        .await;
 
         let key = format!("data/{}.jpg", complete_attach_param.dataid);
         let download_url = presigner.generate_presigned_get(&key);
@@ -1293,13 +1260,19 @@ impl DataStore for User {
         Ok(download_url)
     }
 
-    async fn rate_objects(&self, targets: Vec<DataStoreRatingTarget>, params: Vec<DataStoreRateObjectParam>, _transactional: bool, fetch_ratings: bool) -> Result<(Vec<RatingInfo>, Vec<QResult>), ErrorCode> {
+    async fn rate_objects(
+        &self,
+        targets: Vec<DataStoreRatingTarget>,
+        params: Vec<DataStoreRateObjectParam>,
+        _transactional: bool,
+        fetch_ratings: bool,
+    ) -> Result<(Vec<RatingInfo>, Vec<QResult>), ErrorCode> {
         let mut ratings: Vec<RatingInfo> = vec![];
         let results: Vec<QResult> = vec![];
 
         // SMM seems to work fine with this, no clue for other DTSR games
         if targets.len() != params.len() {
-            return Err(ErrorCode::DataStore_OperationNotAllowed)
+            return Err(ErrorCode::DataStore_OperationNotAllowed);
         }
 
         for (i, target) in targets.into_iter().enumerate() {
@@ -1309,11 +1282,18 @@ impl DataStore for User {
             log::info!("Slot: {:?}", target.slot);
             log::info!("Access Password: {:?}", param.access_password);
 
-            let object_info = get_object_info_by_data_id(target.dataid, param.access_password).await?;
+            let object_info =
+                get_object_info_by_data_id(target.dataid, param.access_password).await?;
             log::info!("object info get complete");
             verify_object_permission(object_info.owner, self.pid, &object_info.permission).await?;
             log::info!("object permission complete");
-            let rating = rate_object(target.dataid, target.slot, param.rating_value, param.access_password).await?;
+            let rating = rate_object(
+                target.dataid,
+                target.slot,
+                param.rating_value,
+                param.access_password,
+            )
+            .await?;
             log::info!("rating complete");
 
             if fetch_ratings {
@@ -1336,12 +1316,12 @@ impl DataStore for User {
                 param.period as i16,
                 param.dataid
             )
-                .execute(get_db())
-                .await
-                .map_err(|e| {
-                    eprintln!("update error: {:?}", e);
-                    ErrorCode::DataStore_NotFound
-                })?;
+            .execute(get_db())
+            .await
+            .map_err(|e| {
+                eprintln!("update error: {:?}", e);
+                ErrorCode::DataStore_NotFound
+            })?;
         }
 
         if param.modifies_flag & 0x10 != 0 {
@@ -1352,12 +1332,12 @@ impl DataStore for User {
                 param.meta_binary.0,
                 param.dataid
             )
-                .execute(get_db())
-                .await
-                .map_err(|e| {
-                    eprintln!("update error: {:?}", e);
-                    ErrorCode::DataStore_NotFound
-                })?;
+            .execute(get_db())
+            .await
+            .map_err(|e| {
+                eprintln!("update error: {:?}", e);
+                ErrorCode::DataStore_NotFound
+            })?;
         }
 
         if param.modifies_flag & 0x80 != 0 {
@@ -1368,22 +1348,26 @@ impl DataStore for User {
                 param.data_type as i16,
                 param.dataid
             )
-                .execute(get_db())
-                .await
-                .map_err(|e| {
-                    eprintln!("update error: {:?}", e);
-                    ErrorCode::DataStore_NotFound
-                })?;
+            .execute(get_db())
+            .await
+            .map_err(|e| {
+                eprintln!("update error: {:?}", e);
+                ErrorCode::DataStore_NotFound
+            })?;
         }
 
         Ok(())
     }
 
-    async fn recommended_course_search_object(&self, course_search_param: DataStoreSearchParam, extra_data: Vec<String>) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode> {
+    async fn recommended_course_search_object(
+        &self,
+        course_search_param: DataStoreSearchParam,
+        extra_data: Vec<String>,
+    ) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode> {
         let mut courses = Vec::new();
 
         let mut stream = sqlx::query!(
-        r#"
+            r#"
             SELECT
                 object.data_id,
                 object.owner,
@@ -1413,14 +1397,13 @@ impl DataStore for User {
             ORDER BY RANDOM()
             LIMIT 100
         "#
-    )
-            .fetch(get_db());
+        )
+        .fetch(get_db());
 
         while let Some(row) = stream.try_next().await.map_err(|e| {
             eprintln!("stream error: {:?}", e);
             ErrorCode::DataStore_NotFound
         })? {
-
             let permission = Permission {
                 permission: row.permission.unwrap_or(0) as u8,
                 recipient_ids: row.permission_recipients.unwrap_or_default(),
@@ -1431,21 +1414,25 @@ impl DataStore for User {
                 recipient_ids: row.delete_permission_recipients.unwrap_or_default(),
             };
 
-            let meta_binary = row.meta_binary
+            let meta_binary = row
+                .meta_binary
                 .map(|bytes| QBuffer(bytes))
                 .unwrap_or_default();
 
-            let created_time = row.creation_date
-                .map(|t| KerberosDateTime::from_i64(t.assume_utc().unix_timestamp()))
-                .unwrap_or_else(|| KerberosDateTime::from_i64(0));
+            let created_time = row
+                .creation_date
+                .map(KerberosDateTime::from_naive)
+                .unwrap_or_default();
 
-            let updated_time = row.update_date
-                .map(|t| KerberosDateTime::from_i64(t.assume_utc().unix_timestamp()))
-                .unwrap_or_else(|| KerberosDateTime::from_i64(0));
+            let updated_time = row
+                .update_date
+                .map(KerberosDateTime::from_naive)
+                .unwrap_or_default();
 
-            let referred_time = row.creation_date
-                .map(|t| KerberosDateTime::from_i64(t.assume_utc().unix_timestamp()))
-                .unwrap_or_else(|| KerberosDateTime::from_i64(0));
+            let referred_time = row
+                .creation_date
+                .map(KerberosDateTime::from_naive)
+                .unwrap_or_default();
 
             let mut meta_info = GetMetaInfo {
                 dataid: row.data_id,
@@ -1486,9 +1473,11 @@ impl DataStore for User {
         Ok(courses)
     }
 
-    async fn upload_course_record(&self, upload_course_record_param: DataStoreUploadCourseRecordParam) -> Result<(), ErrorCode> {
-        let now = time::OffsetDateTime::now_utc();
-        let db_now = time::PrimitiveDateTime::new(now.date(), now.time());
+    async fn upload_course_record(
+        &self,
+        upload_course_record_param: DataStoreUploadCourseRecordParam,
+    ) -> Result<(), ErrorCode> {
+        let now = Utc::now().naive_utc();
 
         let row = sqlx::query!(
             r#"
@@ -1518,8 +1507,8 @@ impl DataStore for User {
             self.pid,
             self.pid,
             upload_course_record_param.score,
-            db_now,
-            db_now
+            now,
+            now
         )
             .execute(get_db())
             .await
@@ -1531,7 +1520,10 @@ impl DataStore for User {
         Ok(())
     }
 
-    async fn get_course_record(&self, get_course_record_param: DataStoreGetCourseRecordParam) -> Result<DataStoreGetCourseRecordResult, ErrorCode> {
+    async fn get_course_record(
+        &self,
+        get_course_record_param: DataStoreGetCourseRecordParam,
+    ) -> Result<DataStoreGetCourseRecordResult, ErrorCode> {
         let row = sqlx::query!(
             r#"
                 SELECT
@@ -1545,23 +1537,21 @@ impl DataStore for User {
             get_course_record_param.dataid,
             get_course_record_param.slot as i16
         )
-            .fetch_one(get_db())
-            .await
-            .map_err(|e| {
-                log::error!("DB Error: {:?}", e);
-                ErrorCode::DataStore_NotFound
-            })?;
+        .fetch_one(get_db())
+        .await
+        .map_err(|e| {
+            log::error!("DB Error: {:?}", e);
+            ErrorCode::DataStore_NotFound
+        })?;
 
-        Ok(
-            DataStoreGetCourseRecordResult {
-                dataid: get_course_record_param.dataid,
-                slot: get_course_record_param.slot,
-                first_pid: row.first_pid as u32,
-                best_pid: row.best_pid as u32,
-                best_score: row.best_score,
-                created_time: KerberosDateTime::from_i64(0x9C3F3E0000),
-                updated_time: KerberosDateTime::from_i64(0x9C3F3E0000),
-            }
-        )
+        Ok(DataStoreGetCourseRecordResult {
+            dataid: get_course_record_param.dataid,
+            slot: get_course_record_param.slot,
+            first_pid: row.first_pid as u32,
+            best_pid: row.best_pid as u32,
+            best_score: row.best_score,
+            created_time: KerberosDateTime::from_i64(0x9C3F3E0000),
+            updated_time: KerberosDateTime::from_i64(0x9C3F3E0000),
+        })
     }
 }

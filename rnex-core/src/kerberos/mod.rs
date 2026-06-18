@@ -46,13 +46,14 @@ pub fn derive_key(pid: PID, password: &[u8]) -> [u8; 16] {
 
     key
 }
-#[derive(Pod, Zeroable, Copy, Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Pod, Zeroable, Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct KerberosDateTime(pub u64);
 
 impl KerberosDateTime {
+    #[deprecated]
     pub fn from_i64(val: i64) -> Self {
-        Self(val as u64)
+        Self(bytemuck::cast(val))
     }
 
     pub fn from_naive(dt: chrono::NaiveDateTime) -> Self {
@@ -68,7 +69,7 @@ impl KerberosDateTime {
         )
     }
 
-    pub fn new(second: u64, minute: u64, hour: u64, day: u64, month: u64, year: u64) -> Self {
+    pub const fn new(second: u64, minute: u64, hour: u64, day: u64, month: u64, year: u64) -> Self {
         Self(second | (minute << 6) | (hour << 12) | (day << 17) | (month << 22) | (year << 26))
     }
 
@@ -84,35 +85,26 @@ impl KerberosDateTime {
         )
     }
 
-    #[inline]
-    pub fn get_seconds(&self) -> u8 {
+    pub const fn get_seconds(&self) -> u8 {
         (self.0 & 0b111111) as u8
     }
 
-    #[inline]
-    pub fn get_minutes(&self) -> u8 {
+    pub const fn get_minutes(&self) -> u8 {
         ((self.0 >> 6) & 0b111111) as u8
     }
-    #[inline]
-    pub fn get_hours(&self) -> u8 {
+    pub const fn get_hours(&self) -> u8 {
         ((self.0 >> 12) & 0b111111) as u8
     }
-    #[inline]
-    pub fn get_days(&self) -> u8 {
+    pub const fn get_days(&self) -> u8 {
         ((self.0 >> 17) & 0b111111) as u8
     }
-
-    #[inline]
-    pub fn get_month(&self) -> u8 {
+    pub const fn get_month(&self) -> u8 {
         ((self.0 >> 22) & 0b1111) as u8
     }
-
-    #[inline]
-    pub fn get_year(&self) -> u64 {
+    pub const fn get_year(&self) -> u64 {
         (self.0 >> 26) & 0xFFFFFFFF
     }
-
-    pub fn to_regular_time(&self) -> chrono::DateTime<Utc> {
+    pub const fn to_regular_time(&self) -> chrono::DateTime<Utc> {
         NaiveDateTime::new(
             NaiveDate::from_ymd_opt(
                 self.get_year() as i32,
@@ -128,6 +120,12 @@ impl KerberosDateTime {
             .unwrap(),
         )
         .and_utc()
+    }
+}
+
+impl Default for KerberosDateTime {
+    fn default() -> Self {
+        Self::now()
     }
 }
 
