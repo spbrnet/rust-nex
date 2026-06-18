@@ -1,4 +1,4 @@
-use futures::TryFutureExt;
+use futures::TryStreamExt;
 use rnex_core::nex::user::User;
 use rnex_core::PID;
 use rnex_core::executables::common::{
@@ -685,6 +685,37 @@ async fn change_meta_object_check(param: &DataStoreChangeMetaParam) -> Result<()
     Ok(())
 }
 
+async fn get_rating_with_slot_data_id(dataid: u64) -> Result<Vec<RatingInfoWithSlot>, ErrorCode> {
+    check_object_availability(dataid, 0).await?;
+
+    let rows = sqlx::query!(
+        r#"
+            SELECT slot, total_value, count, initial_value FROM datastore.object_ratings WHERE data_id=$1
+        "#,
+        dataid as i64
+    )
+        .fetch_all(get_db())
+        .await
+        .map_err(|e| {
+            log::error!("DB Error: {:?}", e);
+            ErrorCode::DataStore_SystemFileError
+        })?;
+
+    let ratings = rows
+        .into_iter()
+        .map(|row| RatingInfoWithSlot {
+            slot: row.slot as i8,
+            rating: RatingInfo {
+                total_value: row.total_value.unwrap_or(0),
+                count: row.count as u32,
+                initial_value: row.initial_value.unwrap_or(0),
+            },
+        })
+        .collect::<Vec<RatingInfoWithSlot>>();
+
+    Ok(ratings)
+}
+
 impl DataStore for User {
     async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode> {
         let mut meta_info = if metaparam.dataid != 0 {
@@ -1345,5 +1376,112 @@ impl DataStore for User {
         }
 
         Ok(())
+    }
+
+    async fn recommended_course_search_object(&self, course_search_param: DataStoreSearchParam, extra_data: Vec<String>) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode> {
+        let mut courses = Vec::new();
+
+        let mut stream = sqlx::query!(
+        r#"
+            SELECT
+                object.data_id,
+                object.owner,
+                object.size,
+                object.name,
+                object.data_type,
+                object.meta_binary,
+                object.permission,
+                object.permission_recipients,
+                object.delete_permission,
+                object.delete_permission_recipients,
+                object.period,
+                object.refer_data_id,
+                object.flag,
+                object.tags,
+                object.creation_date,
+                object.update_date,
+                ranking.value
+            FROM datastore.objects object
+            JOIN datastore.object_custom_rankings ranking
+            ON
+                object.data_id = ranking.data_id AND
+                object.upload_completed = TRUE AND
+                object.deleted = FALSE AND
+                object.under_review = FALSE AND
+                ranking.application_id = 0
+            ORDER BY RANDOM()
+            LIMIT 100
+        "#
+    )
+            .fetch(get_db());
+
+        while let Some(row) = stream.try_next().await.map_err(|e| {
+            eprintln!("stream error: {:?}", e);
+            ErrorCode::DataStore_SystemFileError
+        })? {
+
+            let permission = Permission {
+                permission: row.permission.unwrap_or(0) as u8,
+                recipient_ids: row.permission_recipients.unwrap_or_default(),
+            };
+
+            let del_permission = Permission {
+                permission: row.delete_permission.unwrap_or(0) as u8,
+                recipient_ids: row.delete_permission_recipients.unwrap_or_default(),
+            };
+
+            let meta_binary = row.meta_binary
+                .map(|bytes| QBuffer(bytes))
+                .unwrap_or_default();
+
+            let created_time = row.creation_date
+                .map(|t| KerberosDateTime::from_u64(t.assume_utc().unix_timestamp() as u64))
+                .unwrap_or_else(|| KerberosDateTime::from_u64(0));
+
+            let updated_time = row.update_date
+                .map(|t| KerberosDateTime::from_u64(t.assume_utc().unix_timestamp() as u64))
+                .unwrap_or_else(|| KerberosDateTime::from_u64(0));
+
+            let referred_time = row.creation_date
+                .map(|t| KerberosDateTime::from_u64(t.assume_utc().unix_timestamp() as u64))
+                .unwrap_or_else(|| KerberosDateTime::from_u64(0));
+
+            let mut meta_info = GetMetaInfo {
+                dataid: row.data_id as u64,
+                owner: row.owner.unwrap_or(0),
+                size: row.size.unwrap_or(0) as u32,
+                name: row.name.unwrap_or_default(),
+                data_type: row.data_type.unwrap_or(0) as u16,
+                meta_binary,
+                permission,
+                del_permission,
+                period: row.period.unwrap_or(0) as u16,
+                status: 0,
+                referred_count: 0,
+                refer_dat_id: row.refer_data_id.unwrap_or(0) as u32,
+                flag: row.flag.unwrap_or(0) as u32,
+                tags: row.tags.unwrap_or_default(),
+                expire_time: KerberosDateTime::from_u64(0x9C3F3E0000),
+                created_time,
+                updated_time,
+                referred_time,
+                ratings: Vec::new(),
+            };
+
+            match get_rating_with_slot_data_id(row.data_id as u64).await {
+                Ok(ratings) => meta_info.ratings = ratings,
+                Err(e) => return Err(e),
+            }
+
+            let course = DataStoreCustomRankingResult {
+                order: 0,
+                score: row.value.unwrap_or(0) as u32,
+                meta_info,
+            };
+
+            courses.push(course);
+        }
+
+        Ok(courses)
     }
 }

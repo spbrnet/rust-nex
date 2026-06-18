@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT slot, total_value, count, initial_value FROM datastore.object_ratings WHERE data_id=$1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "slot",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_value",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "initial_value",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "8df96ce41787673f9fd03aadf142f3a77f61ff0d3fbe54cf34e967fbb852cbb8"
+}

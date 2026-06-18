@@ -20,7 +20,7 @@ pub struct Permission {
     pub recipient_ids: Vec<PID>,
 }
 
-#[derive(RmcSerialize, Clone)]
+#[derive(RmcSerialize, Clone, Default)]
 #[rmc_struct(0)]
 pub struct RatingInfoWithSlot {
     pub slot: i8,
@@ -309,6 +309,12 @@ pub trait DataStore {
     ) -> Result<Vec<QBuffer>, ErrorCode>;
     #[method_id(65)]
     async fn followings_latest_course_search_object(
+        &self,
+        course_search_param: DataStoreSearchParam,
+        extra_data: Vec<String>,
+    ) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode>;
+    #[method_id(66)]
+    async fn recommended_course_search_object(
         &self,
         course_search_param: DataStoreSearchParam,
         extra_data: Vec<String>,
