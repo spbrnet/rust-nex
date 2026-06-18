@@ -740,6 +740,14 @@ impl DataStore for User {
         )
         .await;
 
+        log::info!("param is: {:?}", postparam);
+        log::info!("RIP len is: {}", postparam.rating_init_params.len());
+        for rating_param in &postparam.rating_init_params {
+            log::info!("running init params");
+            init_object_rating_slot(data_id, rating_param.clone())
+                .await
+        }
+
         let key = format!("data/{}.bin", data_id);
 
         let (upload_url, fields) = presigner.generate_presigned_post(&key).await;
@@ -1138,7 +1146,6 @@ impl DataStore for User {
         let now = time::OffsetDateTime::now_utc();
         let db_now = time::PrimitiveDateTime::new(now.date(), now.time());
 
-        log::info!("huh");
         let row = sqlx::query!(
             r#"
             INSERT INTO datastore.objects (
@@ -1175,12 +1182,9 @@ impl DataStore for User {
                 log::error!("DB Error: {:?}", e);
                 ErrorCode::DataStore_SystemFileError
             })?;
-        log::info!("what?");
 
         let data_id = row.data_id as u64;
-
-        log::info!("param is: {:?}", param);
-        log::info!("RIP len is: {}", param.post_param.rating_init_params.len());
+        
         for rating_param in &param.post_param.rating_init_params {
             log::info!("running init params");
             init_object_rating_slot(data_id, rating_param.clone())
