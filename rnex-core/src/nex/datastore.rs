@@ -82,7 +82,7 @@ pub async fn check_object_availability(data_id: i64, password: i64) -> Result<()
     .await
     .map_err(|e| {
         eprintln!("Availability check DB error: {:?}", e);
-        ErrorCode::DataStore_SystemFileError
+        ErrorCode::DataStore_NotFound
     })?
     .ok_or(ErrorCode::DataStore_NotFound)?;
 
@@ -116,7 +116,7 @@ pub async fn get_object_ratings(
     .await
     .map_err(|e| {
         eprintln!("Ratings fetch error: {:?}", e);
-        ErrorCode::DataStore_SystemFileError
+        ErrorCode::DataStore_NotFound
     })?;
 
     let ratings = rows
@@ -146,7 +146,7 @@ pub async fn get_object_info_by_data_id(data_id: i64, password: i64) -> Result<G
             )
                 .fetch_optional(get_db())
                 .await
-                .map_err(|_| ErrorCode::DataStore_SystemFileError)?
+                .map_err(|_| ErrorCode::DataStore_NotFound)?
                 .ok_or(ErrorCode::DataStore_NotFound)?;
 
     let ratings = get_object_ratings(data_id, password).await?;
@@ -223,7 +223,7 @@ async fn get_object_info_by_persistence_target(
             )
                 .fetch_optional(get_db())
                 .await
-                .map_err(|_| ErrorCode::DataStore_SystemFileError)?
+                .map_err(|_| ErrorCode::DataStore_NotFound)?
                 .ok_or(ErrorCode::DataStore_NotFound)?;
 
     let db_password = row.access_password;
@@ -312,7 +312,7 @@ async fn get_buffer_queues_by_data_id_and_slot(
     .await
     .map_err(|e| {
         log::error!("Buffer queue fetch error: {:?}", e);
-        ErrorCode::DataStore_SystemFileError
+        ErrorCode::DataStore_NotFound
     })?;
 
     let buffer_queues = rows.into_iter().map(|row| QBuffer(row.buffer)).collect();
@@ -393,7 +393,7 @@ async fn init_object_rating_slot(data_id: i64, rating_param: RatingInitParamWith
         .await
         .map_err(|e| {
             log::error!("DB Error: {:?}", e);
-            ErrorCode::DataStore_SystemFileError
+            ErrorCode::DataStore_NotFound
         });
     log::info!("done running");
 }
@@ -461,7 +461,7 @@ async fn get_user_course_object_ids(owner_pid: PID) -> Result<Vec<i64>, ErrorCod
     .await
     .map_err(|e| {
         log::error!("error fetching course IDs for PID {}: {:?}", owner_pid, e);
-        ErrorCode::DataStore_SystemFileError
+        ErrorCode::DataStore_NotFound
     })?;
 
     let mut valid_ids = Vec::new();
@@ -655,7 +655,7 @@ async fn rate_object(dataid: i64, slot: i8, rating_value: i32, access_password: 
         .await
         .map_err(|e| {
             log::error!("DB Error: {:?}", e);
-            ErrorCode::DataStore_SystemFileError
+            ErrorCode::DataStore_NotFound
         })?;
 
     Ok(rating)
@@ -672,7 +672,7 @@ async fn change_meta_object_check(param: &DataStoreChangeMetaParam) -> Result<()
         .await
         .map_err(|e| {
             log::error!("DB Error: {:?}", e);
-            ErrorCode::DataStore_SystemFileError
+            ErrorCode::DataStore_NotFound
         })?;
 
     if row.update_password != 0 && row.update_password != param.update_password {
@@ -699,7 +699,7 @@ async fn get_rating_with_slot_data_id(dataid: i64) -> Result<Vec<RatingInfoWithS
         .await
         .map_err(|e| {
             log::error!("DB Error: {:?}", e);
-            ErrorCode::DataStore_SystemFileError
+            ErrorCode::DataStore_NotFound
         })?;
 
     let ratings = rows
@@ -789,7 +789,7 @@ impl DataStore for User {
                     .await
                     .map_err(|e| {
                         log::error!("DB Error: {:?}", e);
-                        ErrorCode::DataStore_SystemFileError
+                        ErrorCode::DataStore_NotFound
                     })?;
 
         let data_id = row.data_id;
@@ -840,7 +840,7 @@ impl DataStore for User {
         .await
         .map_err(|e| {
             eprintln!("select error: {:?}", e);
-            ErrorCode::DataStore_SystemFileError
+            ErrorCode::DataStore_NotFound
         })?;
 
         let record = record.ok_or(ErrorCode::DataStore_NotFound)?;
@@ -862,7 +862,7 @@ impl DataStore for User {
             .await
             .map_err(|e| {
                 eprintln!("update error: {:?}", e);
-                ErrorCode::DataStore_SystemFileError
+                ErrorCode::DataStore_NotFound
             })?;
         } else {
             return Err(ErrorCode::DataStore_InvalidArgument);
@@ -882,7 +882,7 @@ impl DataStore for User {
             )
             .fetch_one(get_db())
             .await
-            .map_err(|_| ErrorCode::DataStore_SystemFileError)?;
+            .map_err(|_| ErrorCode::DataStore_NotFound)?;
 
             if !exists.unwrap_or(false) {
                 return Err(ErrorCode::DataStore_NotFound);
@@ -903,7 +903,7 @@ impl DataStore for User {
                         .await
                         .map_err(|e| {
                             log::error!("update/insert error: {:?}", e);
-                            ErrorCode::DataStore_SystemFileError
+                            ErrorCode::DataStore_NotFound
                         })?;
         }
 
@@ -1243,7 +1243,7 @@ impl DataStore for User {
             .await
             .map_err(|e| {
                 log::error!("DB Error: {:?}", e);
-                ErrorCode::DataStore_SystemFileError
+                ErrorCode::DataStore_NotFound
             })?;
 
         let data_id = row.data_id;
@@ -1340,7 +1340,7 @@ impl DataStore for User {
                 .await
                 .map_err(|e| {
                     eprintln!("update error: {:?}", e);
-                    ErrorCode::DataStore_SystemFileError
+                    ErrorCode::DataStore_NotFound
                 })?;
         }
 
@@ -1356,7 +1356,7 @@ impl DataStore for User {
                 .await
                 .map_err(|e| {
                     eprintln!("update error: {:?}", e);
-                    ErrorCode::DataStore_SystemFileError
+                    ErrorCode::DataStore_NotFound
                 })?;
         }
 
@@ -1372,7 +1372,7 @@ impl DataStore for User {
                 .await
                 .map_err(|e| {
                     eprintln!("update error: {:?}", e);
-                    ErrorCode::DataStore_SystemFileError
+                    ErrorCode::DataStore_NotFound
                 })?;
         }
 
@@ -1418,7 +1418,7 @@ impl DataStore for User {
 
         while let Some(row) = stream.try_next().await.map_err(|e| {
             eprintln!("stream error: {:?}", e);
-            ErrorCode::DataStore_SystemFileError
+            ErrorCode::DataStore_NotFound
         })? {
 
             let permission = Permission {
@@ -1525,7 +1525,7 @@ impl DataStore for User {
             .await
             .map_err(|e| {
                 log::error!("DB Error: {:?}", e);
-                ErrorCode::DataStore_SystemFileError
+                ErrorCode::DataStore_NotFound
             })?;
 
         Ok(())
