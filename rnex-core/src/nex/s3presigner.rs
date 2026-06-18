@@ -1,4 +1,3 @@
-use aws_sdk_s3::presigning::PresigningConfig;
 use base64::{engine::general_purpose, Engine as _};
 use hmac::{Hmac, Mac};
 use sha2::{Sha256, Digest};
@@ -43,7 +42,7 @@ impl S3Presigner {
 
         let signature = self.calculate_signature(&secret_key, &date_short, region, &policy_base64);
 
-        let mut fields = vec![
+        let fields = vec![
             ("key".to_string(), key.to_string()),
             ("X-Amz-Algorithm".to_string(), "AWS4-HMAC-SHA256".to_string()),
             ("X-Amz-Credential".to_string(), credential),

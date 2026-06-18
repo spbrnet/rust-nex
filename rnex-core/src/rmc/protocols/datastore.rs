@@ -1,4 +1,4 @@
-use macros::{RmcSerialize, method_id, rmc_proto, rmc_struct};
+use macros::{RmcSerialize, method_id, rmc_proto};
 use rnex_core::PID;
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::rmc::response::ErrorCode;
@@ -27,7 +27,7 @@ pub struct RatingInfoWithSlot {
     pub rating: RatingInfo,
 }
 
-#[derive(RmcSerialize, Clone)]
+#[derive(RmcSerialize, Clone, Default)]
 #[rmc_struct(0)]
 pub struct RatingInfo {
     pub total_value: i64,
@@ -220,23 +220,43 @@ pub struct AttachFileParam {
     pub refer_data_id: u64,
     pub content_type: String,
 }
+
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct DataStoreRatingTarget {
+    pub dataid: u64,
+    pub slot: i8,
+}
+
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct DataStoreRateObjectParam {
+    pub rating_value: i32,
+    pub access_password: u64,
+}
+
 #[rmc_proto(115)]
 pub trait DataStore {
     #[method_id(8)]
     async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode>;
-    #[method_id(36)]
-    async fn get_metas_multiple_param(
-        &self,
-        params: Vec<GetMetaParam>,
-    ) -> Result<(Vec<GetMetaInfo>, Vec<QResult>), ErrorCode>;
     #[method_id(24)]
     async fn prepare_post_object(
         &self,
         postparam: PreparePostParam,
     ) -> Result<ReqPostInfo, ErrorCode>;
+    #[method_id(25)]
+    async fn prepare_get_object(
+        &self,
+        prepare_get_param: DataStorePrepareGetParam,
+    ) -> Result<DataStoreReqGetInfo, ErrorCode>;
     #[method_id(26)]
-    async fn complete_post_object(&self, completeparam: CompletePostParam)
-    -> Result<(), ErrorCode>;
+    async fn complete_post_object(&self, completeparam: CompletePostParam
+    ) -> Result<(), ErrorCode>;
+    #[method_id(36)]
+    async fn get_metas_multiple_param(
+        &self,
+        params: Vec<GetMetaParam>,
+    ) -> Result<(Vec<GetMetaInfo>, Vec<QResult>), ErrorCode>;
     #[method_id(48)]
     async fn rate_custom_ranking(
         &self,
@@ -254,11 +274,6 @@ pub trait DataStore {
         &self,
         bufferparam: BufferQueueParam,
     ) -> Result<Vec<QBuffer>, ErrorCode>;
-    #[method_id(25)]
-    async fn prepare_get_object(
-        &self,
-        prepare_get_param: DataStorePrepareGetParam,
-    ) -> Result<DataStoreReqGetInfo, ErrorCode>;
     #[method_id(65)]
     async fn followings_latest_course_search_object(
         &self,
@@ -270,6 +285,14 @@ pub trait DataStore {
         &self,
         application_id: u32,
     ) -> Result<Vec<String>, ErrorCode>;
+    #[method_id(40)]
+    async fn rate_objects(
+        &self,
+        targets: Vec<DataStoreRatingTarget>,
+        params: Vec<DataStoreRateObjectParam>,
+        _transactional: bool,
+        fetch_ratings: bool,
+    ) -> Result<(Vec<RatingInfo>, Vec<QResult>), ErrorCode>;
     #[method_id(57)]
     async fn complete_attach_file(
         &self,

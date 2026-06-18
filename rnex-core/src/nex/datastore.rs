@@ -1,4 +1,4 @@
-use crate::nex::user::User;
+use rnex_core::nex::user::User;
 use rnex_core::PID;
 use rnex_core::executables::common::{
     RNEX_DATASTORE_S3_BUCKET, RNEX_DATASTORE_S3_ENDPOINT, get_db,
@@ -6,12 +6,11 @@ use rnex_core::executables::common::{
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::nex::s3presigner::S3Presigner;
 use rnex_core::rmc::protocols::datastore::{BufferQueueParam, CompletePostParam, DataStoreCustomRankingResult, DataStoreGetCustomRankingByDataIDParam, DataStorePrepareGetParam, DataStoreReqGetInfo, DataStoreSearchParam, GetMetaInfo, GetMetaParam, KeyValue, Permission, PersistenceTarget, RateCustomRankingParam, RatingInfo, RatingInfoWithSlot, RatingInitParamWithSlot};
-use rnex_core::rmc::protocols::datastore::{DataStore, PreparePostParam, ReqPostInfo};
+use rnex_core::rmc::protocols::datastore::{DataStore, PreparePostParam, ReqPostInfo, AttachFileParam, DataStoreRateObjectParam, DataStoreRatingTarget};
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::qbuffer::QBuffer;
 use rnex_core::rmc::structures::qresult::QResult;
 use sqlx::types::time;
-use crate::rmc::protocols::datastore::AttachFileParam;
 
 fn map_row_to_meta_info(
     row_data_id: i64,
@@ -67,7 +66,7 @@ fn map_row_to_meta_info(
     }
 }
 
-async fn check_object_availability(data_id: u64, password: u64) -> Result<(), ErrorCode> {
+pub async fn check_object_availability(data_id: u64, password: u64) -> Result<(), ErrorCode> {
     let row = sqlx::query!(
         r#"
                 SELECT under_review, access_password
@@ -96,7 +95,7 @@ async fn check_object_availability(data_id: u64, password: u64) -> Result<(), Er
     Ok(())
 }
 
-async fn get_object_ratings(
+pub async fn get_object_ratings(
     data_id: u64,
     password: u64,
 ) -> Result<Vec<RatingInfoWithSlot>, ErrorCode> {
@@ -132,7 +131,7 @@ async fn get_object_ratings(
     Ok(ratings)
 }
 
-async fn get_object_info_by_data_id(data_id: u64, password: u64) -> Result<GetMetaInfo, ErrorCode> {
+pub async fn get_object_info_by_data_id(data_id: u64, password: u64) -> Result<GetMetaInfo, ErrorCode> {
     check_object_availability(data_id, password).await?;
 
     let row = sqlx::query!(
@@ -318,7 +317,7 @@ async fn get_buffer_queues_by_data_id_and_slot(
     Ok(buffer_queues)
 }
 
-fn verify_object_permission(
+async fn verify_object_permission(
     owner_id: PID,
     viewer_id: PID,
     permission: &Permission,
@@ -630,8 +629,35 @@ fn get_blacklist_3() -> Vec<String> {
     .collect()
 }
 
+// couldn't find a better way to do this im going crazyy
+async fn rate_object(dataid: u64, slot: i8, rating_value: i32, access_password: u64) -> Result<RatingInfo, ErrorCode> {
+    check_object_availability(dataid, access_password).await?;
+
+    let rating = RatingInfo::default();
+
+    let row = sqlx::query!(
+        r#"
+        UPDATE datastore.object_ratings
+        SET total_value=total_value+$1, count=count+1
+        WHERE data_id=$2 AND slot=$3
+        RETURNING total_value, count, initial_value
+        "#,
+        rating_value as i64,
+        dataid as i64,
+        slot as i8
+    )
+        .fetch_one(get_db())
+        .await
+        .map_err(|e| {
+            log::error!("DB Error: {:?}", e);
+            ErrorCode::DataStore_SystemFileError
+        })?;
+
+    Ok(rating)
+}
+
 impl DataStore for User {
-    async fn get_meta(&self, mut metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode> {
+    async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode> {
         let mut meta_info = if metaparam.dataid != 0 {
             get_object_info_by_data_id(metaparam.dataid, metaparam.access_password).await?
         } else {
@@ -643,7 +669,7 @@ impl DataStore for User {
         };
 
         let current_pid = self.pid;
-        verify_object_permission(meta_info.owner, current_pid, &meta_info.permission)?;
+        verify_object_permission(meta_info.owner, current_pid, &meta_info.permission).await?;
 
         filter_properties_by_result_option(&mut meta_info, metaparam.result_option);
 
@@ -942,7 +968,7 @@ impl DataStore for User {
             .await?
         };
 
-        verify_object_permission(meta_info.owner, self.pid, &meta_info.permission)?;
+        verify_object_permission(meta_info.owner, self.pid, &meta_info.permission).await?;
 
         let presigner = S3Presigner::new(
             &format!("https://{}", *RNEX_DATASTORE_S3_ENDPOINT),
@@ -1046,7 +1072,7 @@ impl DataStore for User {
 
             match info_result {
                 Ok(mut meta) => {
-                    if let Err(e) = verify_object_permission(meta.owner, self.pid, &meta.permission)
+                    if let Err(e) = verify_object_permission(meta.owner, self.pid, &meta.permission).await
                     {
                         metas.push(GetMetaInfo::default());
                         results.push(QResult::error(e));
@@ -1191,5 +1217,29 @@ impl DataStore for User {
         let download_url = presigner.generate_presigned_get(&key);
 
         Ok(download_url)
+    }
+
+    async fn rate_objects(&self, targets: Vec<DataStoreRatingTarget>, params: Vec<DataStoreRateObjectParam>, _transactional: bool, fetch_ratings: bool) -> Result<(Vec<RatingInfo>, Vec<QResult>), ErrorCode> {
+        let mut ratings: Vec<RatingInfo> = vec![];
+        let results: Vec<QResult> = vec![];
+
+        // SMM seems to work fine with this, no clue for other DTSR games
+        if targets.len() != params.len() {
+            return Err(ErrorCode::DataStore_OperationNotAllowed)
+        }
+
+        for (i, target) in targets.into_iter().enumerate() {
+            let param = &params[i];
+
+            let object_info = get_object_info_by_data_id(target.dataid, param.access_password).await?;
+            verify_object_permission(object_info.owner, self.pid, &object_info.permission).await?;
+            let rating = rate_object(target.dataid, target.slot, param.rating_value, param.access_password).await?;
+
+            if fetch_ratings {
+                ratings.push(rating)
+            }
+        }
+
+        Ok((ratings, results))
     }
 }
