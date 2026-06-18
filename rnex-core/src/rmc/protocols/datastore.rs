@@ -1,4 +1,4 @@
-use macros::{RmcSerialize, method_id, rmc_proto};
+use macros::{RmcSerialize, method_id, rmc_proto, rmc_struct};
 use rnex_core::PID;
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::rmc::response::ErrorCode;
@@ -38,16 +38,16 @@ pub struct RatingInfo {
 #[derive(RmcSerialize, Clone, Default)]
 #[rmc_struct(0)]
 pub struct GetMetaParam {
-    pub dataid: u64,
+    pub dataid: i64,
     pub persistence_target: PersistenceTarget,
     pub result_option: u8,
-    pub access_password: u64,
+    pub access_password: i64,
 }
 
 #[derive(RmcSerialize, Clone, Default)]
 #[rmc_struct(0)]
 pub struct GetMetaInfo {
-    pub dataid: u64,
+    pub dataid: i64,
     pub owner: PID,
     pub size: u32,
     pub name: String,
@@ -105,15 +105,15 @@ pub struct KeyValue {
 #[derive(RmcSerialize, Clone, Debug)]
 #[rmc_struct(0)]
 pub struct PreparePostParam {
-    pub size: u32,
+    pub size: i32,
     pub name: String,
-    pub data_type: u16,
+    pub data_type: i16,
     pub meta_binary: QBuffer,
     pub permission: Permission,
     pub del_permission: Permission,
-    pub flag: u32,
-    pub period: u16,
-    pub refer_data_id: u32,
+    pub flag: i32,
+    pub period: i16,
+    pub refer_data_id: i32,
     pub tags: Vec<String>,
     pub rating_init_params: Vec<RatingInitParamWithSlot>,
     pub persistence_init_param: PersistenceInitParam,
@@ -123,7 +123,7 @@ pub struct PreparePostParam {
 #[derive(RmcSerialize, Clone)]
 #[rmc_struct(0)]
 pub struct ReqPostInfo {
-    pub dataid: u64,
+    pub dataid: i64,
     pub url: String,
     pub request_headers: Vec<KeyValue>,
     pub form_fields: Vec<KeyValue>,
@@ -133,14 +133,14 @@ pub struct ReqPostInfo {
 #[derive(RmcSerialize, Clone)]
 #[rmc_struct(0)]
 pub struct CompletePostParam {
-    pub dataid: u64,
+    pub dataid: i64,
     pub success: bool,
 }
 
 #[derive(RmcSerialize, Clone)]
 #[rmc_struct(0)]
 pub struct RateCustomRankingParam {
-    pub dataid: u64,
+    pub dataid: i64,
     pub appid: u32,
     pub score: u32,
     pub period: u16,
@@ -149,7 +149,7 @@ pub struct RateCustomRankingParam {
 #[derive(RmcSerialize, Clone)]
 #[rmc_struct(0)]
 pub struct BufferQueueParam {
-    pub dataid: u64,
+    pub dataid: i64,
     pub slot: u32,
 }
 
@@ -159,7 +159,7 @@ pub struct BufferQueueParam {
 #[rmc_struct(0)]
 pub struct DataStoreGetCustomRankingByDataIDParam {
     pub application_id: u32,
-    pub data_id_list: Vec<u64>,
+    pub data_id_list: Vec<i64>,
     pub result_option: u8,
 }
 
@@ -174,10 +174,10 @@ pub struct DataStoreCustomRankingResult {
 #[derive(RmcSerialize, Clone)]
 #[rmc_struct(0)]
 pub struct DataStorePrepareGetParam {
-    pub dataid: u64,
+    pub dataid: i64,
     pub lockid: u32,
     pub persistence_target: PersistenceTarget,
-    pub access_password: u64,
+    pub access_password: i64,
     pub extra_data: Vec<String>,
 }
 
@@ -188,7 +188,7 @@ pub struct DataStoreReqGetInfo {
     pub request_headers: Vec<KeyValue>,
     pub size: u32,
     pub root_ca_cert: Vec<u8>,
-    pub dataid: u64,
+    pub dataid: i64,
 }
 
 #[derive(RmcSerialize, Clone)]
@@ -197,7 +197,7 @@ pub struct DataStoreSearchParam {
     pub search_target: u8,
     pub owner_ids: Vec<PID>,
     pub owner_type: u8,
-    pub destination_ids: Vec<u64>,
+    pub destination_ids: Vec<i64>,
     pub data_type: u16,
     pub created_after: KerberosDateTime,
     pub created_before: KerberosDateTime,
@@ -217,14 +217,14 @@ pub struct DataStoreSearchParam {
 #[rmc_struct(0)]
 pub struct AttachFileParam {
     pub post_param: PreparePostParam,
-    pub refer_data_id: u64,
+    pub refer_data_id: i64,
     pub content_type: String,
 }
 
 #[derive(RmcSerialize, Clone)]
 #[rmc_struct(0)]
 pub struct DataStoreRatingTarget {
-    pub dataid: u64,
+    pub dataid: i64,
     pub slot: i8,
 }
 
@@ -232,7 +232,7 @@ pub struct DataStoreRatingTarget {
 #[rmc_struct(0)]
 pub struct DataStoreRateObjectParam {
     pub rating_value: i32,
-    pub access_password: u64,
+    pub access_password: i64,
 }
 
 #[derive(RmcSerialize, Clone, Default, Debug)]
@@ -253,7 +253,7 @@ pub struct DataStoreChangeMetaCompareParam {
 #[derive(RmcSerialize, Clone, Default, Debug)]
 #[rmc_struct(0)]
 pub struct DataStoreChangeMetaParam {
-    pub dataid: u64,
+    pub dataid: i64,
     pub modifies_flag: u32,
     pub name: String,
     pub permission: Permission,
@@ -261,11 +261,38 @@ pub struct DataStoreChangeMetaParam {
     pub period: u16,
     pub meta_binary: QBuffer,
     pub tags: Vec<String>,
-    pub update_password: u64,
+    pub update_password: i64,
     pub referred_cnt: u32,
     pub data_type: u16,
     pub status: u8,
     pub compare_param: DataStoreChangeMetaCompareParam,
+}
+
+#[derive(RmcSerialize, Clone, Default, Debug)]
+#[rmc_struct(0)]
+pub struct DataStoreUploadCourseRecordParam {
+    pub dataid: i64,
+    pub slot: u8,
+    pub score: i32
+}
+
+#[derive(RmcSerialize, Clone, Default, Debug)]
+#[rmc_struct(0)]
+pub struct DataStoreGetCourseRecordParam {
+    pub dataid: i64,
+    pub slot: u8,
+}
+
+#[derive(RmcSerialize, Clone, Default, Debug)]
+#[rmc_struct(0)]
+pub struct DataStoreGetCourseRecordResult {
+    pub dataid: i64,
+    pub slot: u8,
+    pub first_pid: u32,
+    pub best_pid: u32,
+    pub best_score: i32,
+    pub created_time: KerberosDateTime,
+    pub updated_time: KerberosDateTime,
 }
 
 #[rmc_proto(115)]
@@ -347,4 +374,14 @@ pub trait DataStore {
         &self,
         attach_file_param: AttachFileParam,
     ) -> Result<ReqPostInfo, ErrorCode>;
+    #[method_id(71)]
+    async fn upload_course_record(
+        &self,
+        upload_course_record_param: DataStoreUploadCourseRecordParam
+    ) -> Result<(), ErrorCode>;
+    #[method_id(72)]
+    async fn get_course_record(
+        &self,
+        get_course_record_param: DataStoreGetCourseRecordParam
+    ) -> Result<DataStoreGetCourseRecordResult, ErrorCode>;
 }

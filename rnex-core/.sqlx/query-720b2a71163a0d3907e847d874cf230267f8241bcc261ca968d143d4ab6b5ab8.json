@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    first_pid,\n                    best_pid,\n                    best_score,\n                    creation_date,\n                    update_date\n                FROM datastore.course_records WHERE data_id=$1 AND slot=$2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "first_pid",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "best_pid",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "best_score",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "creation_date",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 4,
+        "name": "update_date",
+        "type_info": "Timestamp"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "720b2a71163a0d3907e847d874cf230267f8241bcc261ca968d143d4ab6b5ab8"
+}
