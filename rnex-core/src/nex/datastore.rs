@@ -1242,9 +1242,15 @@ impl DataStore for User {
         for (i, target) in targets.into_iter().enumerate() {
             let param = &params[i];
 
+            log::info!("Data ID: {:?}", target.dataid);
+            log::info!("Access Password: {:?}", param.access_password);
+
             let object_info = get_object_info_by_data_id(target.dataid, param.access_password).await?;
+            log::info!("object info get complete");
             verify_object_permission(object_info.owner, self.pid, &object_info.permission).await?;
+            log::info!("object permission complete");
             let rating = rate_object(target.dataid, target.slot, param.rating_value, param.access_password).await?;
+            log::info!("rating complete");
 
             if fetch_ratings {
                 ratings.push(rating)
