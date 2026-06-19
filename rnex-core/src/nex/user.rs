@@ -54,6 +54,7 @@ use rnex_core::rmc::structures::ranking::UploadCompetitionData;
 use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
 
+use crate::rmc::structures::matchmake::Gathering;
 use crate::rmc::structures::matchmake::MatchmakeSessionSearchCriteria;
 
 cfg_if! {
@@ -419,13 +420,11 @@ impl MatchmakeExtension for User {
 
     async fn create_matchmake_session(
         &self,
-        gathering: Any,
+        gathering: Any<Gathering>,
         message: String,
     ) -> Result<(u32, Vec<u8>), ErrorCode> {
         info!("gathering: {:?}", gathering);
-        let Some(Ok(session)): Option<Result<MatchmakeSession, _>> = gathering.try_get() else {
-            return Err(ErrorCode::Core_InvalidArgument);
-        };
+        let session: MatchmakeSession = gathering.try_get_as()?;
 
         let session = self
             .create_matchmake_session_with_param(CreateMatchmakeSessionParam {
@@ -517,14 +516,10 @@ impl MatchmakeExtension for User {
     async fn auto_matchmake_with_search_criteria_postpone(
         &self,
         criteria: Vec<MatchmakeSessionSearchCriteria>,
-        gathering: Any,
+        gathering: Any<Gathering>,
         join_message: String,
-    ) -> Result<Any, ErrorCode> {
-        let session: MatchmakeSession = gathering
-            .try_get()
-            .map(|v| v.ok())
-            .flatten()
-            .ok_or(ErrorCode::Core_InvalidArgument)?;
+    ) -> Result<Any<Gathering>, ErrorCode> {
+        let session: MatchmakeSession = gathering.try_get_as()?;
 
         println!("{:?}", criteria);
 
@@ -548,7 +543,7 @@ impl MatchmakeExtension for User {
 }
 
 impl Matchmake for User {
-    async fn find_by_single_id(&self, gid: u32) -> Result<(bool, Any), ErrorCode> {
+    async fn find_by_single_id(&self, gid: u32) -> Result<(bool, Any<Gathering>), ErrorCode> {
         let s = self.matchmake_manager.get_session(gid).await?;
         let s = s.lock().await;
         Ok((

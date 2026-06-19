@@ -5,15 +5,30 @@ use rnex_core::{
     rmc::{response::ErrorCode, structures::any::Any},
 };
 
-use crate::{kerberos::KerberosDateTime, rmc::protocols::friends_wiiu::NNAInfo};
+use crate::{
+    kerberos::KerberosDateTime,
+    rmc::{protocols::friends_wiiu::NNAInfo, structures::data::Data},
+};
 
 #[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
 pub struct NintendoCreateAccountData {
+    #[extends]
+    pub data: Data,
     pub nna_info: NNAInfo,
     pub nex_token: String,
     pub birthday: KerberosDateTime,
     pub unk: u64,
+}
+
+#[derive(RmcSerialize, Debug, Clone)]
+#[rmc_struct(0)]
+pub struct AccountExtraInfo {
+    #[extends]
+    pub data: Data,
+    pub unk1: u64,
+    pub unk2: u32,
+    pub nex_token: String,
 }
 
 #[rmc_proto(25)]

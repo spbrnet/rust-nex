@@ -17,20 +17,16 @@ use syn::{parse_macro_input, Data, DeriveInput, Lit, LitStr};
 pub fn rmc_serialize(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
 
-    let (serialize, deserialize, write_size, version) = match &derive_input.data {
-        Data::Struct(s) => rmc_serialize_struct(s, &derive_input),
+    let (serialize, deserialize, write_size, version, rmc_struct_impl) = match &derive_input.data {
+        Data::Struct(s) => rmc_serialize_struct(s, &derive_input.ident, &derive_input),
         Data::Enum(e) => rmc_serialize_enum(e, &derive_input),
         Data::Union(_) => {
-            unimplemented!("serialize a union is not allowed");
+            unimplemented!("serializing a union is not allowed");
         }
     };
 
     // generate base data
 
-    let str_name = Lit::Str(LitStr::new(
-        &derive_input.ident.to_string(),
-        derive_input.ident.span(),
-    ));
     let ident = derive_input.ident;
 
     let write_size = if let Some(v) = write_size {
@@ -52,6 +48,7 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
     } else {
         quote! {}
     };
+    let rmc_struct_impl = rmc_struct_impl.unwrap_or_default();
 
     let tokens = quote! {
         impl rnex_core::rmc::structures::RmcSerialize for #ident{
@@ -67,11 +64,8 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
             #write_size
 
             #version
-
-            fn name() -> &'static str{
-                #str_name
-            }
         }
+        #rmc_struct_impl
     };
 
     tokens.into()

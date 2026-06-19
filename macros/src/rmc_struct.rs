@@ -1,8 +1,8 @@
 use proc_macro2::{Literal, Span, TokenStream};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{
-    bracketed, parse::Parse, punctuated::Punctuated, token::Bracket, DataEnum, DataStruct,
-    DeriveInput, Field, Fields, Ident, Meta, Token, Variant,
+    bracketed, ext, parse::Parse, punctuated::Punctuated, token::Bracket, DataEnum, DataStruct,
+    DeriveInput, Field, Fields, Ident, LitStr, Meta, Token, Variant,
 };
 
 use crate::util::fold_tokenable;
@@ -235,12 +235,58 @@ fn generate_struct_version(attr: Option<&RmcStructAttr>) -> proc_macro2::TokenSt
     }
 }
 
+fn gen_rmc_struct_impl(
+    struct_ident: &Ident,
+    extended_struct: Option<&Field>,
+) -> proc_macro2::TokenStream {
+    let self_name_str_lit = LitStr::new(&struct_ident.to_string(), struct_ident.span());
+    let register = if let Some(extended_struct) = extended_struct {
+        let extended_struct_ty = &extended_struct.ty;
+        let ext_ty_name = LitStr::new(
+            &extended_struct_ty.to_token_stream().to_string(),
+            Span::call_site(),
+        );
+        quote! {
+            #[::rnex_core::ctor(unsafe)]
+            #[allow(nonstandard_style)]
+            fn register_fun() {
+                println!("registering {} as parent of {}", #self_name_str_lit, #ext_ty_name);
+                let mut wr = <#extended_struct_ty as ::rnex_core::rmc::structures::RmcStruct>::get_struct_info()
+                    .inheritors
+                    .write()
+                    .expect("poisoned");
+                wr.push(<#struct_ident as ::rnex_core::rmc::structures::RmcStruct>::get_struct_info());
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    quote! {
+        impl ::rnex_core::rmc::structures::RmcStruct for #struct_ident {
+            fn get_struct_info() -> &'static ::rnex_core::rmc::structures::RmcStructInfo {
+                #register
+                static STRUCT_DATA: ::rnex_core::rmc::structures::RmcStructInfo =
+                    ::rnex_core::rmc::structures::RmcStructInfo {
+                        inheritors: ::std::sync::RwLock::new(::std::vec::Vec::new()),
+                        name: #self_name_str_lit,
+                    };
+
+                &STRUCT_DATA
+            }
+        }
+
+    }
+}
+
 pub fn rmc_serialize_struct(
     s: &DataStruct,
+    name: &Ident,
     derive_input: &DeriveInput,
 ) -> (
     proc_macro2::TokenStream,
     proc_macro2::TokenStream,
+    Option<proc_macro2::TokenStream>,
     Option<proc_macro2::TokenStream>,
     Option<proc_macro2::TokenStream>,
 ) {
@@ -285,8 +331,19 @@ pub fn rmc_serialize_struct(
         generate_deserialize_struct(s, extended_struct, elements, struct_attr.is_some());
     let write_size = generate_write_size_struct(s, struct_attr.is_some());
     let version = generate_struct_version(struct_attr);
+    let rmc_struct_impl = if struct_attr.is_some() {
+        Some(gen_rmc_struct_impl(name, extended_struct))
+    } else {
+        None
+    };
 
-    (serialize, deserialize, Some(write_size), Some(version))
+    (
+        serialize,
+        deserialize,
+        Some(write_size),
+        Some(version),
+        rmc_struct_impl,
+    )
 }
 
 fn field_to_ident(field: &Field, idx: usize) -> Ident {
@@ -405,6 +462,7 @@ pub fn rmc_serialize_enum(
     proc_macro2::TokenStream,
     Option<proc_macro2::TokenStream>,
     Option<proc_macro2::TokenStream>,
+    Option<proc_macro2::TokenStream>,
 ) {
     let repr_attr = derive_input.attrs.iter().find(|a| {
         a.path().segments.len() == 1
@@ -422,5 +480,5 @@ pub fn rmc_serialize_enum(
     let serialize = rmc_generate_serialize_enum(&enum_data, &ty);
     let deserialize = rmc_generate_deserialize_enum(&enum_data, &ty);
 
-    (serialize, deserialize, None, None)
+    (serialize, deserialize, None, None, None)
 }

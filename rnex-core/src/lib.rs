@@ -9,6 +9,8 @@ pub type PID = i64;
 #[cfg(not(feature = "big_pid"))]
 pub type PID = i32;
 
+pub use ctor::ctor;
+
 extern crate self as rnex_core;
 
 pub mod prudp;

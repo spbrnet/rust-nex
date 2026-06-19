@@ -4,6 +4,7 @@ use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::qresult::QResult;
 
 use crate::rmc::structures::any::Any;
+use crate::rmc::structures::data::Data;
 
 #[rmc_proto(11)]
 pub trait Secure {
@@ -17,7 +18,7 @@ pub trait Secure {
     async fn register_ex(
         &self,
         station_urls: Vec<StationUrl>,
-        data: Any,
+        data: Any<Data>,
     ) -> Result<(QResult, u32, StationUrl), ErrorCode>;
     #[method_id(7)]
     async fn replace_url(&self, target: StationUrl, dest: StationUrl) -> Result<(), ErrorCode>;

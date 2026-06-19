@@ -1,7 +1,9 @@
 use crate::rmc::structures::helpers::DummyWriter;
 use async_trait::async_trait;
+use ctor::ctor;
 use std::io::{Read, Write};
 use std::string::FromUtf8Error;
+use std::sync::RwLock;
 use std::{fmt, io};
 use thiserror::Error;
 //ideas for the future: make a proc macro library which allows generation of struct reads
@@ -21,11 +23,15 @@ pub enum Error {
     StationUrlInvalid,
     #[error("error formatting text: {0}")]
     FormatError(#[from] fmt::Error),
+    #[error("tried to validate inheritance chain")]
+    InheritanceError,
     #[error("uncategorized rmc error occurred: {0}")]
     Other(Box<dyn std::error::Error + Send + Sync>),
+    #[error("unexpected out of bounds read/write")]
+    OOB,
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub mod any;
 pub mod buffer;
@@ -68,9 +74,6 @@ pub trait RmcSerialize {
 
         Ok(data)
     }
-    fn name() -> &'static str {
-        "NoNameSpecified"
-    }
     fn version() -> Option<u8> {
         None
     }
@@ -78,21 +81,6 @@ pub trait RmcSerialize {
 
 trait SendWrite: Send + Write {}
 impl<T: Send + Write> SendWrite for T {}
-
-// beware that this trait throws away most of the optimizations which come with using
-// the regular `Serialize` trait, ONLY use this when it is 100% required to have dyn
-// compatibility
-#[async_trait]
-trait DynRmcSerialize: Send + Sync {
-    async fn serialize(&self, writer: &mut dyn SendWrite) -> Result<()>;
-}
-
-#[async_trait]
-impl<T: RmcSerialize + Send + Sync> DynRmcSerialize for T {
-    async fn serialize(&self, writer: &mut dyn SendWrite) -> Result<()> {
-        <Self as RmcSerialize>::serialize(&self, writer)
-    }
-}
 
 impl RmcSerialize for () {
     fn serialize(&self, _writer: &mut (impl Write + ?Sized)) -> Result<()> {
@@ -106,31 +94,28 @@ impl RmcSerialize for () {
     }
 }
 
-trait RmcInternalAnyUnknownAs<T: RmcStruct>: AsRef<T> + DynRmcSerialize + RmcStructInstance {}
-
-trait RmcCastable {
-    // consumes box and returns a Box containing a Box with the requested Struct details
-    fn cast_to(self: Box<Self>, destination: &RmcStructInfo) -> Box<dyn std::any::Any>;
-}
-
-struct RmcStructInfo {
-    inheritors: Vec<&'static RmcStructInfo>,
-    name: &'static str,
-    deserialize_abstract: fn(&mut dyn Read) -> Box<dyn std::any::Any>,
+pub struct RmcStructInfo {
+    // this may never be locked after initialization
+    pub inheritors: RwLock<Vec<&'static RmcStructInfo>>,
+    pub name: &'static str,
 }
 
 impl RmcStructInfo {
-    fn deserialze_abstract_as<T: RmcStruct>(
-        reader: &impl Read,
-    ) -> Box<dyn RmcInternalAnyUnknownAs<T>> {
-        todo!()
+    fn is_inheritor(&self, name: &str) -> bool {
+        if name == self.name {
+            return true;
+        }
+        let inheritors = self.inheritors.read().expect("poisoned");
+        for inheritor in inheritors.iter() {
+            if inheritor.is_inheritor(name) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
-trait RmcStruct {
+pub trait RmcStruct: RmcSerialize {
     fn get_struct_info() -> &'static RmcStructInfo;
-}
-
-trait RmcStructInstance {
-    fn get_self_struct_info(&self) -> &'static RmcStructInfo;
 }

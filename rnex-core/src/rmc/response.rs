@@ -456,6 +456,13 @@ pub enum ErrorCode {
     Ess_GameSessionMaintenance = 0x00750003,
 }
 
+impl From<super::structures::Error> for ErrorCode {
+    fn from(value: super::structures::Error) -> Self {
+        error!("rmc error occurred during method runtime: {}", value);
+        Self::Core_InvalidArgument
+    }
+}
+
 impl Into<u32> for ErrorCode {
     fn into(self) -> u32 {
         unsafe { transmute(self) }

@@ -5,13 +5,14 @@ use rnex_core::rmc::response::ErrorCode;
 use rnex_core::PID;
 
 use crate::rmc::structures::any::Any;
+use crate::rmc::structures::matchmake::Gathering;
 
 #[rmc_proto(21)]
 pub trait Matchmake {
     #[method_id(2)]
     async fn unregister_gathering(&self, gid: u32) -> Result<bool, ErrorCode>;
     #[method_id(21)]
-    async fn find_by_single_id(&self, gid: u32) -> Result<(bool, Any), ErrorCode>;
+    async fn find_by_single_id(&self, gid: u32) -> Result<(bool, Any<Gathering>), ErrorCode>;
     #[method_id(41)]
     async fn get_session_urls(&self, gid: u32) -> Result<Vec<StationUrl>, ErrorCode>;
     #[method_id(42)]
