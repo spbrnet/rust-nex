@@ -1,6 +1,7 @@
 use crate::define_rmc_proto;
 use crate::rmc::protocols::message_delivery::{
-    MessageDelivery, RawMessageDelivery, RawMessageDeliveryInfo, RemoteMessageDelivery,
+    MessageDeliveryNoResponse, RawMessageDeliveryNoResponse, RawMessageDeliveryNoResponseInfo,
+    RemoteMessageDeliveryNoResponse,
 };
 use crate::rmc::protocols::nat_traversal::{
     NatTraversalConsole, RawNatTraversalConsole, RawNatTraversalConsoleInfo,
@@ -14,7 +15,7 @@ define_rmc_proto!(
     proto Console{
         Notification,
         NatTraversalConsole,
-        MessageDelivery
+        MessageDeliveryNoResponse
     }
 );
 /*

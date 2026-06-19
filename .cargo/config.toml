@@ -1,0 +1,2 @@
+[registries]
+spbr = { index = "sparse+https://crates.spbr.net/api/v1/crates/" }

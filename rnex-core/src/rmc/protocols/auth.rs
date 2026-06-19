@@ -1,6 +1,7 @@
 use crate::rmc::structures::connection_data::{ConnectionData, ConnectionDataOld};
+use crate::rmc::structures::data::Data;
 use cfg_if::cfg_if;
-use macros::{method_id, rmc_proto};
+use macros::{RmcSerialize, method_id, rmc_proto};
 use rnex_core::PID;
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::any::Any;
@@ -55,4 +56,15 @@ pub trait Auth {
 
     // `LoginWithContext` is left out here because we don't need it right now and versioning still
     // needs to be figured out
+}
+
+#[derive(RmcSerialize)]
+#[rmc_struct(0)]
+struct AuthenticationInfo {
+    #[extends]
+    pub data: Data,
+    pub auth_token: String,
+    pub ngs_version: u32,
+    pub auth_token_type: u8,
+    pub server_version: u32,
 }
