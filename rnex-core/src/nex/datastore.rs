@@ -74,7 +74,7 @@ fn map_row_to_meta_info(
         refer_dat_id: row_refer_data_id as u32,
         flag: row_flag as u32,
         tags: row_tags,
-        expire_time: KerberosDateTime::from_i64(0x9C3F3E0000),
+        expire_time: KerberosDateTime::PRACTICALLY_NEVER,
         created_time: KerberosDateTime::from_naive(row_creation_date),
         updated_time: KerberosDateTime::from_naive(row_update_date),
         referred_time: KerberosDateTime::from_naive(row_creation_date),
@@ -1414,8 +1414,8 @@ impl DataStore for User {
 
     async fn recommended_course_search_object(
         &self,
-        course_search_param: DataStoreSearchParam,
-        extra_data: Vec<String>,
+        _course_search_param: DataStoreSearchParam,
+        _extra_data: Vec<String>,
     ) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode> {
         let mut courses = Vec::new();
 
@@ -1439,14 +1439,20 @@ impl DataStore for User {
                 object.creation_date,
                 object.update_date,
                 ranking.value
-            FROM datastore.objects object
-            JOIN datastore.object_custom_rankings ranking
+            FROM (
+                SELECT * FROM datastore.objects object
+                WHERE
+                    object.upload_completed = TRUE AND
+                    object.deleted = FALSE AND
+                    object.under_review = FALSE
+            ) object
+            JOIN (
+                SELECT data_id, value
+                FROM datastore.object_custom_rankings ranking
+                WHERE ranking.application_id = 0
+            ) ranking
             ON
-                object.data_id = ranking.data_id AND
-                object.upload_completed = TRUE AND
-                object.deleted = FALSE AND
-                object.under_review = FALSE AND
-                ranking.application_id = 0
+                object.data_id = ranking.data_id
             ORDER BY RANDOM()
             LIMIT 100
         "#
@@ -1467,10 +1473,7 @@ impl DataStore for User {
                 recipient_ids: row.delete_permission_recipients.unwrap_or_default(),
             };
 
-            let meta_binary = row
-                .meta_binary
-                .map(|bytes| QBuffer(bytes))
-                .unwrap_or_default();
+            let meta_binary = row.meta_binary.map(QBuffer).unwrap_or_default();
 
             let created_time = row
                 .creation_date
@@ -1502,17 +1505,12 @@ impl DataStore for User {
                 refer_dat_id: row.refer_data_id.unwrap_or(0) as u32,
                 flag: row.flag.unwrap_or(0) as u32,
                 tags: row.tags.unwrap_or_default(),
-                expire_time: KerberosDateTime::from_i64(0x9C3F3E0000),
+                expire_time: KerberosDateTime::PRACTICALLY_NEVER,
                 created_time,
                 updated_time,
                 referred_time,
-                ratings: Vec::new(),
+                ratings: get_rating_with_slot_data_id(row.data_id).await?,
             };
-
-            match get_rating_with_slot_data_id(row.data_id).await {
-                Ok(ratings) => meta_info.ratings = ratings,
-                Err(e) => return Err(e),
-            }
 
             let course = DataStoreCustomRankingResult {
                 order: 0,
@@ -1603,8 +1601,8 @@ impl DataStore for User {
             first_pid: row.first_pid as u32,
             best_pid: row.best_pid as u32,
             best_score: row.best_score,
-            created_time: KerberosDateTime::from_i64(0x9C3F3E0000),
-            updated_time: KerberosDateTime::from_i64(0x9C3F3E0000),
+            created_time: KerberosDateTime::PRACTICALLY_NEVER,
+            updated_time: KerberosDateTime::PRACTICALLY_NEVER,
         })
     }
 

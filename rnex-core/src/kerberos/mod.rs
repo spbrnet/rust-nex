@@ -51,11 +51,9 @@ pub fn derive_key(pid: PID, password: &[u8]) -> [u8; 16] {
 pub struct KerberosDateTime(pub u64);
 
 impl KerberosDateTime {
-    #[deprecated]
-    pub fn from_i64(val: i64) -> Self {
-        Self(bytemuck::cast(val))
-    }
-
+    // this is the time which smm returned as the expriy date, we use it as a
+    // date so far into the future that it might as well just be never more generally
+    pub const PRACTICALLY_NEVER: Self = Self::new(0, 0, 0, 31, 12, 9999);
     pub fn from_naive(dt: chrono::NaiveDateTime) -> Self {
         use chrono::Datelike;
         use chrono::Timelike;
@@ -93,7 +91,7 @@ impl KerberosDateTime {
         ((self.0 >> 6) & 0b111111) as u8
     }
     pub const fn get_hours(&self) -> u8 {
-        ((self.0 >> 12) & 0b111111) as u8
+        ((self.0 >> 12) & 0b11111) as u8
     }
     pub const fn get_days(&self) -> u8 {
         ((self.0 >> 17) & 0b111111) as u8
@@ -217,5 +215,20 @@ mod test {
         let time = KerberosDateTime(135904948834);
 
         println!("{}", time.to_regular_time().to_rfc2822());
+
+        let time = KerberosDateTime(0x9C3F3E0000);
+
+        println!(
+            "{}.{}.{} {}:{}:{}",
+            time.get_year(),
+            time.get_month(),
+            time.get_days(),
+            time.get_hours(),
+            time.get_minutes(),
+            time.get_seconds()
+        );
+        println!("{}", time.to_regular_time().to_rfc2822());
+
+        assert_eq!(KerberosDateTime::PRACTICALLY_NEVER, time)
     }
 }
