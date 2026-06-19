@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                object.data_id,\n                object.owner,\n                object.size,\n                object.name,\n                object.data_type,\n                object.meta_binary,\n                object.permission,\n                object.permission_recipients,\n                object.delete_permission,\n                object.delete_permission_recipients,\n                object.period,\n                object.refer_data_id,\n                object.flag,\n                object.tags,\n                object.creation_date,\n                object.update_date,\n                ranking.value\n            FROM datastore.objects object\n            JOIN datastore.object_custom_rankings ranking\n            ON\n                object.data_id = ranking.data_id AND\n                object.upload_completed = TRUE AND\n                object.deleted = FALSE AND\n                object.under_review = FALSE AND\n                ranking.application_id = 0\n            ORDER BY RANDOM()\n            LIMIT 100\n        ",
+  "query": "\n            SELECT\n                object.data_id,\n                object.owner,\n                object.size,\n                object.name,\n                object.data_type,\n                object.meta_binary,\n                object.permission,\n                object.permission_recipients,\n                object.delete_permission,\n                object.delete_permission_recipients,\n                object.period,\n                object.refer_data_id,\n                object.flag,\n                object.tags,\n                object.creation_date,\n                object.update_date,\n                ranking.value\n            FROM (\n                SELECT * FROM datastore.objects object\n                WHERE\n                    object.upload_completed = TRUE AND\n                    object.deleted = FALSE AND\n                    object.under_review = FALSE\n            ) object\n            JOIN (\n                SELECT data_id, value\n                FROM datastore.object_custom_rankings ranking\n                WHERE ranking.application_id = 0\n            ) ranking\n            ON\n                object.data_id = ranking.data_id\n            ORDER BY RANDOM()\n            LIMIT 100\n        ",
   "describe": {
     "columns": [
       {
@@ -112,5 +112,5 @@
       true
     ]
   },
-  "hash": "77ab7a78fbe302864ac617ac06ff7914f641fb379982b5e52b760b87e0cca945"
+  "hash": "502f3f0fbb3739ddcffa2938680b2399e0b204b25631e14cac0d61fcff8e29c3"
 }
