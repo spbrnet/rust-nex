@@ -40,6 +40,9 @@ use cfg_if::cfg_if;
 use log::{error, info};
 use macros::rmc_struct;
 use rnex_core::prudp::socket_addr::PRUDPSockAddr;
+use rnex_core::rmc::protocols::message_delivery::{
+    MessageDelivery, RawMessageDelivery, RawMessageDeliveryInfo, RemoteMessageDelivery,
+};
 use rnex_core::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
 use rnex_core::rmc::protocols::ranking::{
     CompetitionRankingGetParam, CompetitionRankingScoreData, CompetitionRankingScoreInfo,
@@ -65,7 +68,8 @@ cfg_if! {
                 NatTraversal,
                 Ranking,
                 Utility,
-                DataStore
+                DataStore,
+                MessageDelivery
             }
         );
     } else {
@@ -921,4 +925,8 @@ impl Ranking for User {
 
         Ok(true)
     }
+}
+
+impl MessageDelivery for User {
+    async fn deliver_message(&self, message: Any) {}
 }

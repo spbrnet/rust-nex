@@ -8,6 +8,7 @@ pub mod friends_wiiu;
 pub mod matchmake;
 pub mod matchmake_ext;
 pub mod matchmake_extension;
+pub mod message_delivery;
 pub mod nat_traversal;
 pub mod nintendo_notification;
 pub mod notifications;

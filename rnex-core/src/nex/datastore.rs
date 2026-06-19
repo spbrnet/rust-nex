@@ -1,6 +1,12 @@
-use crate::rmc::protocols::datastore::{DataStoreFileServerObjectInfo, DataStoreGetCourseRecordParam, DataStoreGetCourseRecordResult, DataStoreUploadCourseRecordParam};
+use std::convert;
+
+use crate::rmc::protocols::datastore::{
+    DataStoreFileServerObjectInfo, DataStoreGetCourseRecordParam, DataStoreGetCourseRecordResult,
+    DataStoreUploadCourseRecordParam,
+};
 use chrono::{NaiveDateTime, Utc};
 use futures::TryStreamExt;
+use futures::future::join_all;
 use rnex_core::PID;
 use rnex_core::executables::common::{
     RNEX_DATASTORE_S3_BUCKET, RNEX_DATASTORE_S3_ENDPOINT, get_db,
@@ -161,6 +167,8 @@ pub async fn get_object_info_by_data_id(
 
     let ratings = get_object_ratings(data_id, password).await?;
 
+    // lots of ugly unwraps please fix the db eventually to correctly represent what states it can and cant be in
+
     Ok(map_row_to_meta_info(
         row.data_id,
         row.owner.unwrap_or(0),
@@ -298,8 +306,9 @@ async fn verify_object_permission(
                 Err(ErrorCode::DataStore_PermissionDenied)
             }
         }
-        3 => Err(ErrorCode::DataStore_PermissionDenied), // Owner only, redundant
-        _ => Err(ErrorCode::DataStore_InvalidArgument),  // ??? haxx0r
+        3 => Err(ErrorCode::DataStore_PermissionDenied), // Owner only, redundant (maple: we should still check if its
+        // the owner and return true if it is, otherwise the owner would be unable to access their own objects)
+        _ => Err(ErrorCode::DataStore_InvalidArgument), // ??? haxx0r
     }
 }
 
@@ -702,12 +711,12 @@ pub async fn insert_buffer(dataid: i64, slot: i32, buffer: &QBuffer) {
         db_now,
         buffer.0
     )
-        .execute(get_db())
-        .await
-        .map_err(|e| {
-            log::error!("DB Error: {:?}", e);
-            ErrorCode::DataStore_NotFound
-        });
+    .execute(get_db())
+    .await
+    .map_err(|e| {
+        log::error!("DB Error: {:?}", e);
+        ErrorCode::DataStore_NotFound
+    });
 }
 
 impl DataStore for User {
@@ -1295,39 +1304,55 @@ impl DataStore for User {
         _transactional: bool,
         fetch_ratings: bool,
     ) -> Result<(Vec<RatingInfo>, Vec<QResult>), ErrorCode> {
-        let mut ratings: Vec<RatingInfo> = vec![];
         let results: Vec<QResult> = vec![];
 
-        // SMM seems to work fine with this, no clue for other DTSR games
-        if targets.len() != params.len() {
+        // this might be good to keep as a sanity check but as long as we zip the two vecs together
+        // we already avoid crashes which can be caused by this
+        // (previous comment) SMM seems to work fine with this, no clue for other DTSR games
+        /*if targets.len() != params.len() {
             return Err(ErrorCode::DataStore_OperationNotAllowed);
-        }
+        }*/
 
-        for (i, target) in targets.into_iter().enumerate() {
-            let param = &params[i];
+        let actions =
+            targets
+                .into_iter()
+                .zip(params.into_iter())
+                .map(|(target, param)| async move {
+                    log::info!("Data ID: {:?}", target.dataid);
+                    log::info!("Slot: {:?}", target.slot);
+                    log::info!("Access Password: {:?}", param.access_password);
 
-            log::info!("Data ID: {:?}", target.dataid);
-            log::info!("Slot: {:?}", target.slot);
-            log::info!("Access Password: {:?}", param.access_password);
+                    let object_info =
+                        get_object_info_by_data_id(target.dataid, param.access_password).await?;
+                    log::info!("object info get complete");
+                    verify_object_permission(object_info.owner, self.pid, &object_info.permission)
+                        .await?;
+                    log::info!("object permission complete");
 
-            let object_info =
-                get_object_info_by_data_id(target.dataid, param.access_password).await?;
-            log::info!("object info get complete");
-            verify_object_permission(object_info.owner, self.pid, &object_info.permission).await?;
-            log::info!("object permission complete");
-            let rating = rate_object(
-                target.dataid,
-                target.slot,
-                param.rating_value,
-                param.access_password,
-            )
-            .await?;
-            log::info!("rating complete");
+                    if fetch_ratings {
+                        let rating = rate_object(
+                            target.dataid,
+                            target.slot,
+                            param.rating_value,
+                            param.access_password,
+                        )
+                        .await?;
+                        log::info!("rating complete");
+                        Result::<Option<RatingInfo>, ErrorCode>::Ok(Some(rating))
+                    } else {
+                        Result::<Option<RatingInfo>, ErrorCode>::Ok(None)
+                    }
+                });
 
-            if fetch_ratings {
-                ratings.push(rating)
-            }
-        }
+        let ratings: Result<Vec<_>, ErrorCode> = join_all(actions).await.into_iter().collect();
+        let ratings = ratings?;
+
+        let ratings = if fetch_ratings {
+            ratings.into_iter().filter_map(convert::identity).collect()
+        } else {
+            // skip collecting, we already know the vector is empty
+            vec![]
+        };
 
         Ok((ratings, results))
     }
@@ -1609,7 +1634,10 @@ impl DataStore for User {
         Ok(results)
     }
 
-    async fn get_object_infos(&self, dataids: Vec<i64>) -> Result<Vec<DataStoreFileServerObjectInfo>, ErrorCode> {
+    async fn get_object_infos(
+        &self,
+        dataids: Vec<i64>,
+    ) -> Result<Vec<DataStoreFileServerObjectInfo>, ErrorCode> {
         let mut list = Vec::with_capacity(dataids.len());
         for dataid in dataids.into_iter() {
             let object_info = get_object_info_by_data_id(dataid, 0).await?;
@@ -1618,29 +1646,30 @@ impl DataStore for User {
                 &format!("https://{}", *RNEX_DATASTORE_S3_ENDPOINT),
                 format!("{}", *RNEX_DATASTORE_S3_BUCKET),
             )
-                .await;
+            .await;
 
             let key = format!("data/{}.bin", dataid);
             let download_url = presigner.generate_presigned_get(&key);
 
-            list.push(
-                DataStoreFileServerObjectInfo {
+            list.push(DataStoreFileServerObjectInfo {
+                dataid,
+                get_info: DataStoreReqGetInfo {
+                    url: download_url,
+                    request_headers: vec![],
+                    size: object_info.size,
+                    root_ca_cert: vec![],
                     dataid,
-                    get_info: DataStoreReqGetInfo {
-                        url: download_url,
-                        request_headers: vec![],
-                        size: object_info.size,
-                        root_ca_cert: vec![],
-                        dataid
-                    }
-                }
-            );
-        };
+                },
+            });
+        }
 
         Ok(list)
     }
 
-    async fn check_rate_custom_ranking_counter(&self, application_id: u32) -> Result<bool, ErrorCode> {
+    async fn check_rate_custom_ranking_counter(
+        &self,
+        application_id: u32,
+    ) -> Result<bool, ErrorCode> {
         // official servers always return true? application ID is always 0 as far as i know. maybe a check is warranted for the app id?
         Ok(true)
     }
