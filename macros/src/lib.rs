@@ -56,11 +56,11 @@ pub fn rmc_serialize(input: TokenStream) -> TokenStream {
     let tokens = quote! {
         impl rnex_core::rmc::structures::RmcSerialize for #ident{
             #[inline(always)]
-            fn serialize(&self, writer: &mut impl ::std::io::Write) -> rnex_core::rmc::structures::Result<()>{
+            fn serialize(&self, writer: &mut (impl ::std::io::Write + ?::std::marker::Sized)) -> rnex_core::rmc::structures::Result<()>{
                 #serialize
             }
             #[inline(always)]
-            fn deserialize(reader: &mut impl ::std::io::Read) -> rnex_core::rmc::structures::Result<Self>{
+            fn deserialize(reader: &mut (impl ::std::io::Read + ?::std::marker::Sized)) -> rnex_core::rmc::structures::Result<Self>{
                 #deserialize
             }
 

@@ -5,7 +5,7 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 
 impl RmcSerialize for SocketAddr {
-    fn deserialize(reader: &mut impl std::io::Read) -> Result<Self>
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> Result<Self>
     where
         Self: Sized,
     {
@@ -16,7 +16,7 @@ impl RmcSerialize for SocketAddr {
             v => Err(Error::UnexpectedValue(v as u64)),
         }
     }
-    fn serialize(&self, writer: &mut impl Write) -> Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> Result<()> {
         match self {
             SocketAddr::V4(v) => {
                 writer.write_all(&[4])?;
@@ -32,14 +32,14 @@ impl RmcSerialize for SocketAddr {
 }
 
 impl RmcSerialize for SocketAddrV4 {
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         self.ip().to_bits().serialize(writer)?;
         self.port().serialize(writer)?;
 
         Ok(())
     }
 
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let ip = u32::deserialize(reader)?;
         let port = u16::deserialize(reader)?;
 
@@ -50,7 +50,7 @@ impl RmcSerialize for SocketAddrV4 {
     }
 }
 impl RmcSerialize for SocketAddrV6 {
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         self.ip().to_bits().serialize(writer)?;
         self.port().serialize(writer)?;
         self.flowinfo().serialize(writer)?;
@@ -59,7 +59,7 @@ impl RmcSerialize for SocketAddrV6 {
         Ok(())
     }
 
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let ip = u128::deserialize(reader)?;
         let port = u16::deserialize(reader)?;
         let flowinfo = u32::deserialize(reader)?;
@@ -78,13 +78,13 @@ impl RmcSerialize for SocketAddrV6 {
 }
 
 impl RmcSerialize for VirtualPort {
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         self.0.serialize(writer)?;
 
         Ok(())
     }
 
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         Ok(Self(u8::deserialize(reader)?))
     }
     fn serialize_write_size(&self) -> crate::rmc::structures::Result<u32> {

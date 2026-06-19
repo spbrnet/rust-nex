@@ -1,13 +1,13 @@
-use std::io::{Read, Write};
-use bytemuck::bytes_of;
-use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 use crate::rmc::structures::{Result, RmcSerialize};
+use bytemuck::bytes_of;
+use std::io::{Read, Write};
+use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 
 #[derive(Clone, Debug, Default)]
 pub struct QBuffer(pub Vec<u8>);
 
-impl RmcSerialize for QBuffer{
-    fn serialize(&self, writer: &mut impl Write) -> Result<()> {
+impl RmcSerialize for QBuffer {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> Result<()> {
         let len_u16 = self.0.len() as u16;
 
         writer.write(bytes_of(&len_u16))?;
@@ -16,7 +16,7 @@ impl RmcSerialize for QBuffer{
         Ok(())
     }
 
-    fn deserialize(reader: &mut impl Read) -> Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> Result<Self> {
         let size: u16 = reader.read_struct(IS_BIG_ENDIAN)?;
 
         let mut vec = vec![0; size as usize];

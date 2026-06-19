@@ -128,11 +128,11 @@ impl Default for KerberosDateTime {
 }
 
 impl RmcSerialize for KerberosDateTime {
-    fn serialize(&self, writer: &mut impl Write) -> Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> Result<()> {
         Ok(self.0.serialize(writer)?)
     }
 
-    fn deserialize(reader: &mut impl Read) -> Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> Result<Self> {
         Ok(Self(u64::deserialize(reader)?))
     }
 }

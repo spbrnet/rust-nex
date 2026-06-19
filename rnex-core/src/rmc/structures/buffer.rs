@@ -3,7 +3,7 @@ use crate::rmc::structures::RmcSerialize;
 use std::io::{Read, Write};
 
 impl<'a> RmcSerialize for &'a [u8] {
-    fn serialize(&self, writer: &mut impl Write) -> Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> Result<()> {
         let u32_size = self.len() as u32;
         writer.write(bytemuck::bytes_of(&u32_size))?;
         writer.write(self)?;
@@ -12,7 +12,7 @@ impl<'a> RmcSerialize for &'a [u8] {
     }
 
     /// DO NOT USE (also maybe split off the serialize and deserialize functions at some point)
-    fn deserialize(_reader: &mut impl Read) -> Result<Self> {
+    fn deserialize(_reader: &mut (impl Read + ?Sized)) -> Result<Self> {
         panic!("cannot deserialize to a u8 slice reference (use this ONLY for writing)")
     }
 
@@ -22,11 +22,11 @@ impl<'a> RmcSerialize for &'a [u8] {
 }
 
 impl RmcSerialize for Box<[u8]> {
-    fn serialize(&self, writer: &mut impl Write) -> Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> Result<()> {
         (&self[..]).serialize(writer)
     }
 
-    fn deserialize(reader: &mut impl Read) -> Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> Result<Self> {
         Vec::deserialize(reader).map(|v| v.into_boxed_slice())
     }
 

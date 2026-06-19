@@ -16,7 +16,7 @@ pub enum Variant {
 }
 
 impl RmcSerialize for Variant {
-    fn serialize(&self, writer: &mut impl Write) -> Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> Result<()> {
         match self {
             Variant::None => {
                 writer.write_all(&[0])?;
@@ -50,7 +50,7 @@ impl RmcSerialize for Variant {
         Ok(())
     }
 
-    fn deserialize(reader: &mut impl Read) -> Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> Result<Self> {
         match u8::deserialize(reader)? {
             0 => Ok(Variant::None),
             1 => Ok(Variant::SInt64(i64::deserialize(reader)?)),

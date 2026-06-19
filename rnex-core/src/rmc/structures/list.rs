@@ -7,7 +7,7 @@ use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 // this is also for implementing `Buffer` this is tecnically not the same as its handled internaly
 // probably but as it has the same mapping it doesn't matter and simplifies things
 impl<T: RmcSerialize> RmcSerialize for Vec<T> {
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         let u32_len = self.len() as u32;
 
         writer.write_all(bytes_of(&u32_len))?;
@@ -18,7 +18,7 @@ impl<T: RmcSerialize> RmcSerialize for Vec<T> {
         Ok(())
     }
 
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         println!("reading list");
         let len: u32 = reader.read_struct(IS_BIG_ENDIAN)?;
 
@@ -42,7 +42,7 @@ impl<T: RmcSerialize> RmcSerialize for Vec<T> {
 }
 
 impl<const LEN: usize, T: RmcSerialize> RmcSerialize for [T; LEN] {
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         for i in 0..LEN {
             self[i].serialize(writer)?;
         }
@@ -50,7 +50,7 @@ impl<const LEN: usize, T: RmcSerialize> RmcSerialize for [T; LEN] {
         Ok(())
     }
 
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let mut arr = [const { MaybeUninit::<T>::uninit() }; LEN];
 
         for i in 0..LEN {

@@ -36,7 +36,7 @@ impl Write for OnlyWriteVec<'_> {
 }
 
 #[cfg(feature = "rmc_struct_header")]
-pub fn write_struct<T: Write>(
+pub fn write_struct<T: Write + ?Sized>(
     writer: &mut T,
     version: u8,
     inner_size: u32,
@@ -54,7 +54,7 @@ pub fn write_struct<T: Write>(
 }
 
 #[cfg(not(feature = "rmc_struct_header"))]
-pub fn write_struct<T: Write>(
+pub fn write_struct<T: Write + ?Sized>(
     writer: &mut T,
     _version: u8,
     _inner_size: u32,
@@ -63,12 +63,12 @@ pub fn write_struct<T: Write>(
     pred(writer)
 }
 
-pub struct SubRead<'a, T: Read> {
+pub struct SubRead<'a, T: Read + ?Sized> {
     left_to_read: usize,
     origin: &'a mut T,
 }
 
-impl<'a, T: Read> SubRead<'a, T> {
+impl<'a, T: Read + ?Sized> SubRead<'a, T> {
     pub const fn new(origin: &'a mut T, left_to_read: usize) -> Self {
         Self {
             left_to_read,
@@ -77,7 +77,7 @@ impl<'a, T: Read> SubRead<'a, T> {
     }
 }
 
-impl<T: Read> Read for SubRead<'_, T> {
+impl<T: Read + ?Sized> Read for SubRead<'_, T> {
     #[inline(always)]
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let max_read = max(self.left_to_read, buf.len());
@@ -100,8 +100,8 @@ impl<T: Read> Read for SubRead<'_, T> {
 }
 
 #[cfg(feature = "rmc_struct_header")]
-pub fn read_struct<T: Sized, R: Read>(
-    reader: &mut R,
+pub fn read_struct<T: Sized, R: Read + ?Sized>(
+    mut reader: &mut R,
     version: u8,
     pred: impl FnOnce(&mut SubRead<R>) -> Result<T>,
 ) -> Result<T> {
@@ -120,7 +120,7 @@ pub fn read_struct<T: Sized, R: Read>(
 }
 
 #[cfg(not(feature = "rmc_struct_header"))]
-pub fn read_struct<T: Sized, R: Read>(
+pub fn read_struct<T: Sized, R: Read + ?Sized>(
     mut reader: &mut R,
     _version: u8,
     pred: impl FnOnce(&mut R) -> Result<T>,

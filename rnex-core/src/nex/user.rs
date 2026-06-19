@@ -928,5 +928,7 @@ impl Ranking for User {
 }
 
 impl MessageDelivery for User {
-    async fn deliver_message(&self, message: Any) {}
+    async fn deliver_message(&self, message: Any) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
 }

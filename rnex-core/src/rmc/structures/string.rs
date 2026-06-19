@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 
 impl RmcSerialize for String {
-    fn deserialize(reader: &mut impl Read) -> Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> Result<Self> {
         let len: u16 = reader.read_struct(IS_BIG_ENDIAN)?;
         if len == 0 {
             return Ok("".to_string());
@@ -19,7 +19,7 @@ impl RmcSerialize for String {
 
         Ok(String::from_utf8(data)?)
     }
-    fn serialize(&self, writer: &mut impl Write) -> Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> Result<()> {
         (&self[..]).serialize(writer)
     }
     fn serialize_write_size(&self) -> Result<u32> {
@@ -28,10 +28,10 @@ impl RmcSerialize for String {
 }
 
 impl RmcSerialize for &str {
-    fn deserialize(_reader: &mut impl Read) -> Result<Self> {
+    fn deserialize(_reader: &mut (impl Read + ?Sized)) -> Result<Self> {
         panic!("cannot serialize to &str")
     }
-    fn serialize(&self, writer: &mut impl Write) -> Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> Result<()> {
         let u16_len: u16 = (self.len() + 1) as u16;
         writer.write_all(bytes_of(&u16_len))?;
 

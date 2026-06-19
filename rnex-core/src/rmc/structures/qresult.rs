@@ -26,12 +26,12 @@ impl QResult {
 }
 
 impl RmcSerialize for QResult {
-    fn serialize(&self, writer: &mut impl Write) -> Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> Result<()> {
         writer.write(bytes_of(self))?;
         Ok(())
     }
 
-    fn deserialize(reader: &mut impl Read) -> Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> Result<Self> {
         let result: Self = reader.read_struct(IS_BIG_ENDIAN)?;
         println!("reading qresult: {:x}", result.0);
         Ok(result)

@@ -35,6 +35,7 @@ base64 = "0.22.1"
 sha2 = "0.10.9"
 urlencoding = "2.1.3"
 futures = "0.3.32"
+async-trait = "0.1.89"
 
 [dev-dependencies]
 # criterion = "0.7.0"

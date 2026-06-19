@@ -1,4 +1,10 @@
-use std::{collections::HashSet, hash::Hash, str::FromStr, string::ToString};
+use std::{
+    collections::HashSet,
+    hash::Hash,
+    io::{Read, Write},
+    str::FromStr,
+    string::ToString,
+};
 
 use rnex_core::rmc::structures::RmcSerialize;
 
@@ -55,13 +61,13 @@ impl<T: FromStr + ToString + Eq + Hash> RmcSerialize for StringSet<T>
 where
     <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
 {
-    fn deserialize(reader: &mut impl std::io::prelude::Read) -> super::Result<Self>
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> super::Result<Self>
     where
         Self: Sized,
     {
         Self::from_str(&String::deserialize(reader)?).map_err(super::Error::Other)
     }
-    fn serialize(&self, writer: &mut impl std::io::prelude::Write) -> super::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> super::Result<()> {
         self.to_string().serialize(writer)
     }
     fn serialize_write_size(&self) -> super::Result<u32> {

@@ -2396,6 +2396,7 @@ name = "rnex-core"
 version = "0.1.1"
 dependencies = [
  "anyhow",
+ "async-trait",
  "aws-config",
  "aws-sdk-s3",
  "base64",

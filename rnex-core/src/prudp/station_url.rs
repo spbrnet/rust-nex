@@ -145,12 +145,15 @@ impl<'a> Into<String> for &'a StationUrl {
 }
 
 impl RmcSerialize for StationUrl {
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let str = String::deserialize(reader)?;
 
         Self::try_from(str.as_str()).map_err(|_| StationUrlInvalid)
     }
-    fn serialize(&self, writer: &mut impl std::io::Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(
+        &self,
+        writer: &mut (impl std::io::Write + ?Sized),
+    ) -> crate::rmc::structures::Result<()> {
         let str: String = self.into();
 
         str.serialize(writer)

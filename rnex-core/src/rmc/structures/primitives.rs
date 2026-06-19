@@ -5,12 +5,12 @@ use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 
 impl RmcSerialize for u8 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         Ok(writer.write_all(bytes_of(self))?)
     }
 
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -21,12 +21,12 @@ impl RmcSerialize for u8 {
 
 impl RmcSerialize for i8 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         Ok(writer.write_all(bytes_of(self))?)
     }
 
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -37,11 +37,11 @@ impl RmcSerialize for i8 {
 
 impl RmcSerialize for u16 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -52,11 +52,11 @@ impl RmcSerialize for u16 {
 
 impl RmcSerialize for i16 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -67,11 +67,11 @@ impl RmcSerialize for i16 {
 
 impl RmcSerialize for u32 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -82,11 +82,11 @@ impl RmcSerialize for u32 {
 
 impl RmcSerialize for i32 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -97,11 +97,11 @@ impl RmcSerialize for i32 {
 
 impl RmcSerialize for u64 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -112,11 +112,11 @@ impl RmcSerialize for u64 {
 
 impl RmcSerialize for u128 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let mut data = 0u128;
         reader.read_exact(&mut bytes_of_mut(&mut data))?;
         Ok(data)
@@ -129,11 +129,11 @@ impl RmcSerialize for u128 {
 
 impl RmcSerialize for i64 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         Ok(writer.write_all(bytes_of(self))?)
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -144,12 +144,12 @@ impl RmcSerialize for i64 {
 
 impl RmcSerialize for f64 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         Ok(writer.write_all(bytes_of(self))?)
     }
 
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         Ok(reader.read_struct(IS_BIG_ENDIAN)?)
     }
     #[inline(always)]
@@ -160,7 +160,7 @@ impl RmcSerialize for f64 {
 
 impl RmcSerialize for bool {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         match self {
             true => writer.write_all(&[1])?,
             false => writer.write_all(&[0])?,
@@ -169,7 +169,7 @@ impl RmcSerialize for bool {
     }
 
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         Ok(u8::deserialize(reader)? != 0)
     }
     #[inline(always)]
@@ -180,13 +180,13 @@ impl RmcSerialize for bool {
 
 impl<T: RmcSerialize, U: RmcSerialize> RmcSerialize for (T, U) {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         self.0.serialize(writer)?;
         self.1.serialize(writer)?;
         Ok(())
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let first = T::deserialize(reader)?;
         let second = U::deserialize(reader)?;
 
@@ -200,14 +200,14 @@ impl<T: RmcSerialize, U: RmcSerialize> RmcSerialize for (T, U) {
 
 impl<T: RmcSerialize, U: RmcSerialize, V: RmcSerialize> RmcSerialize for (T, U, V) {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         self.0.serialize(writer)?;
         self.1.serialize(writer)?;
         self.2.serialize(writer)?;
         Ok(())
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let first = T::deserialize(reader)?;
         let second = U::deserialize(reader)?;
         let third = V::deserialize(reader)?;
@@ -226,7 +226,7 @@ impl<T: RmcSerialize, U: RmcSerialize, V: RmcSerialize, W: RmcSerialize> RmcSeri
     for (T, U, V, W)
 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         self.0.serialize(writer)?;
         self.1.serialize(writer)?;
         self.2.serialize(writer)?;
@@ -234,7 +234,7 @@ impl<T: RmcSerialize, U: RmcSerialize, V: RmcSerialize, W: RmcSerialize> RmcSeri
         Ok(())
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let first = T::deserialize(reader)?;
         let second = U::deserialize(reader)?;
         let third = V::deserialize(reader)?;
@@ -255,7 +255,7 @@ impl<T: RmcSerialize, U: RmcSerialize, V: RmcSerialize, W: RmcSerialize, X: RmcS
     RmcSerialize for (T, U, V, W, X)
 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         self.0.serialize(writer)?;
         self.1.serialize(writer)?;
         self.2.serialize(writer)?;
@@ -266,7 +266,7 @@ impl<T: RmcSerialize, U: RmcSerialize, V: RmcSerialize, W: RmcSerialize, X: RmcS
     }
 
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let first = T::deserialize(reader)?;
         let second = U::deserialize(reader)?;
         let third = V::deserialize(reader)?;
@@ -295,7 +295,7 @@ impl<
 > RmcSerialize for (T, U, V, W, X, Y)
 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         self.0.serialize(writer)?;
         self.1.serialize(writer)?;
         self.2.serialize(writer)?;
@@ -307,7 +307,7 @@ impl<
     }
 
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let first = T::deserialize(reader)?;
         let second = U::deserialize(reader)?;
         let third = V::deserialize(reader)?;
@@ -339,7 +339,7 @@ impl<
 > RmcSerialize for (T, U, V, W, X, Y, Z)
 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         self.0.serialize(writer)?;
         self.1.serialize(writer)?;
         self.2.serialize(writer)?;
@@ -351,7 +351,7 @@ impl<
         Ok(())
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let first = T::deserialize(reader)?;
         let second = U::deserialize(reader)?;
         let third = V::deserialize(reader)?;
@@ -386,7 +386,7 @@ impl<
 > RmcSerialize for (T, U, V, W, X, Y, Z, A)
 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         self.0.serialize(writer)?;
         self.1.serialize(writer)?;
         self.2.serialize(writer)?;
@@ -399,7 +399,7 @@ impl<
         Ok(())
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let first = T::deserialize(reader)?;
         let second = U::deserialize(reader)?;
         let third = V::deserialize(reader)?;
@@ -437,7 +437,7 @@ impl<
 > RmcSerialize for (T, U, V, W, X, Y, Z, A, B)
 {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         self.0.serialize(writer)?;
         self.1.serialize(writer)?;
         self.2.serialize(writer)?;
@@ -451,7 +451,7 @@ impl<
         Ok(())
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         let first = T::deserialize(reader)?;
         let second = U::deserialize(reader)?;
         let third = V::deserialize(reader)?;
@@ -482,11 +482,11 @@ impl<
 
 impl<T: RmcSerialize> RmcSerialize for Box<T> {
     #[inline(always)]
-    fn serialize(&self, writer: &mut impl Write) -> crate::rmc::structures::Result<()> {
+    fn serialize(&self, writer: &mut (impl Write + ?Sized)) -> crate::rmc::structures::Result<()> {
         self.as_ref().serialize(writer)
     }
     #[inline(always)]
-    fn deserialize(reader: &mut impl Read) -> crate::rmc::structures::Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> crate::rmc::structures::Result<Self> {
         T::deserialize(reader).map(Box::new)
     }
     #[inline(always)]

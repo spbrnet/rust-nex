@@ -1,7 +1,7 @@
 use crate::{PID, prudp::socket_addr::PRUDPSockAddr};
 use macros::RmcSerialize;
 
-#[derive(Debug, RmcSerialize, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, RmcSerialize)]
 #[rmc_struct(0)]
 pub struct ConnectionInitData {
     pub prudpsock_addr: PRUDPSockAddr,
