@@ -948,8 +948,6 @@ impl MessageDelivery for User {
                 message.emplace_parent(&msg)?;
 
                 user.remote.deliver_message(message).await;
-
-                return Ok(());
             }
             2 => {
                 return Err(ErrorCode::Core_NotImplemented);
