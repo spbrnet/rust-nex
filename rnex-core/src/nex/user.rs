@@ -54,6 +54,7 @@ use rnex_core::rmc::structures::ranking::UploadCompetitionData;
 use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
 
+use crate::rmc::protocols::message_delivery::RemoteMessageDeliveryNoResponse;
 use crate::rmc::protocols::messaging::UserMessage;
 use crate::rmc::structures::matchmake::Gathering;
 use crate::rmc::structures::matchmake::MatchmakeSessionSearchCriteria;
