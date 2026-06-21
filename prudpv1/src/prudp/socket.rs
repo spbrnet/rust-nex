@@ -659,7 +659,7 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                 if let Some(conn) = sender.as_ref() {
                     if let Err(e) = conn.send(packet).await {
                         error!(
-                            "error whilest sending data to connection establishment: {}",
+                            "error whilst sending data to connection establishment: {}",
                             e
                         );
                     }
@@ -707,22 +707,22 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                     let mut cursor = Cursor::new(&packet.payload);
 
                     let Ok(_substream_id): Result<u8, _> = cursor.read_le_struct() else {
-                        error!("invalid data whilest reading new version agregate acknowledgement");
+                        error!("invalid data whilst reading new version agregate acknowledgement");
                         return;
                     };
                     let Ok(additional_sequence_ids): Result<u8, _> = cursor.read_le_struct() else {
-                        error!("invalid data whilest reading new version agregate acknowledgement");
+                        error!("invalid data whilst reading new version agregate acknowledgement");
                         return;
                     };
                     let Ok(sequence_id): Result<u16, _> = cursor.read_le_struct() else {
-                        error!("invalid data whilest reading new version agregate acknowledgement");
+                        error!("invalid data whilst reading new version agregate acknowledgement");
                         return;
                     };
                     for _ in 0..additional_sequence_ids {
                         let Ok(additional_sequence_id): Result<u16, _> = cursor.read_le_struct()
                         else {
                             error!(
-                                "invalid data whilest reading new version agregate acknowledgement"
+                                "invalid data whilst reading new version agregate acknowledgement"
                             );
                             return;
                         };

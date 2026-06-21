@@ -37,7 +37,7 @@ use tokio::time::{Instant, sleep, sleep_until};
 
 #[derive(Error, Debug)]
 pub enum RemoteCallError {
-    #[error("Call to remote timed out whilest waiting on response.")]
+    #[error("Call to remote timed out whilst waiting on response.")]
     Timeout,
     #[error("A server side rmc error occurred: {0:?}")]
     ServerError(ErrorCode),

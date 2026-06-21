@@ -177,7 +177,7 @@ impl RmcProtocolData {
             let deser_params =
                 fold_tokenable(parameters.iter().map(|(param_name, param_type, attribs)| {
                     let error_msg = LitStr::new(
-                        &format!("an error occurred whilest deserializing {}", param_name),
+                        &format!("an error occurred whilst deserializing {}", param_name),
                         Span::call_site(),
                     );
                     let return_from_deser_error = if self.has_returns {
