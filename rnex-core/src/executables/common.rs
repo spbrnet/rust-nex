@@ -139,7 +139,7 @@ where
             Ok(v) => v,
             Err(e) => {
                 error!(
-                    "an error ocurred whilest reading connection data buffer: {:?}",
+                    "an error ocurred whilst reading connection data buffer: {:?}",
                     e
                 );
                 continue;
@@ -151,7 +151,7 @@ where
         let user_connection_data = match user_connection_data {
             Ok(v) => v,
             Err(e) => {
-                error!("an error ocurred whilest reading connection data: {:?}", e);
+                error!("an error ocurred whilst reading connection data: {:?}", e);
                 continue;
             }
         };

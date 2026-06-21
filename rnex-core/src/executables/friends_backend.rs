@@ -31,7 +31,7 @@ pub async fn start_friends_backend() {
             Ok(v) => v,
             Err(e) => {
                 error!(
-                    "an error ocurred whilest reading connection data buffer: {:?}",
+                    "an error ocurred whilst reading connection data buffer: {:?}",
                     e
                 );
                 continue;
@@ -43,7 +43,7 @@ pub async fn start_friends_backend() {
         let c = match user_connection_data {
             Ok(v) => v,
             Err(e) => {
-                error!("an error ocurred whilest reading connection data: {:?}", e);
+                error!("an error ocurred whilst reading connection data: {:?}", e);
                 continue;
             }
         };
