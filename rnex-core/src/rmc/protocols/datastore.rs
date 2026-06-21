@@ -302,10 +302,34 @@ pub struct DataStoreFileServerObjectInfo {
     pub get_info: DataStoreReqGetInfo,
 }
 
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct DataStoreReportCourseParam {
+    pub dataid: i64,
+    pub mii_name: String,
+    pub report_category: i8,
+    pub report_reason: String,
+}
+
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct DataStoreDeleteParam {
+    pub dataid: i64,
+    pub update_password: i64,
+}
+
 #[rmc_proto(115)]
 pub trait DataStore {
+    #[method_id(4)]
+    async fn delete_object(
+        &self,
+        param: DataStoreDeleteParam,
+    ) -> Result<(), ErrorCode>;
     #[method_id(8)]
-    async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode>;
+    async fn get_meta(
+        &self,
+        metaparam: GetMetaParam,
+    ) -> Result<GetMetaInfo, ErrorCode>;
     #[method_id(24)]
     async fn prepare_post_object(
         &self,
@@ -407,4 +431,9 @@ pub trait DataStore {
         &self,
         application_id: u32,
     ) -> Result<bool, ErrorCode>;
+    #[method_id(87)]
+    async fn report_course(
+        &self,
+        report_course_param: DataStoreReportCourseParam
+    ) -> Result<(), ErrorCode>;
 }

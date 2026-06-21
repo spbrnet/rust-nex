@@ -1,9 +1,4 @@
 use std::convert;
-
-use crate::rmc::protocols::datastore::{
-    DataStoreFileServerObjectInfo, DataStoreGetCourseRecordParam, DataStoreGetCourseRecordResult,
-    DataStoreUploadCourseRecordParam,
-};
 use chrono::{NaiveDateTime, Utc};
 use futures::TryStreamExt;
 use futures::future::join_all;
@@ -23,6 +18,8 @@ use rnex_core::rmc::protocols::datastore::{
     DataStoreGetCustomRankingByDataIDParam, DataStorePrepareGetParam, DataStoreReqGetInfo,
     DataStoreSearchParam, GetMetaInfo, GetMetaParam, KeyValue, Permission, PersistenceTarget,
     RateCustomRankingParam, RatingInfo, RatingInfoWithSlot, RatingInitParamWithSlot,
+    DataStoreDeleteParam, DataStoreFileServerObjectInfo, DataStoreGetCourseRecordParam,
+    DataStoreGetCourseRecordResult, DataStoreReportCourseParam, DataStoreUploadCourseRecordParam
 };
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::qbuffer::QBuffer;
@@ -1670,5 +1667,70 @@ impl DataStore for User {
     ) -> Result<bool, ErrorCode> {
         // official servers always return true? application ID is always 0 as far as i know. maybe a check is warranted for the app id?
         Ok(true)
+    }
+
+    async fn report_course(&self, report_course_param: DataStoreReportCourseParam) -> Result<(), ErrorCode> {
+        let row = sqlx::query!(
+            r#"
+                INSERT INTO datastore.reports (
+                    data_id,
+                    reporter_pid,
+                    category,
+                    reason
+                ) VALUES (
+                    $1, $2, $3, $4
+                )
+            "#,
+            report_course_param.dataid,
+            self.pid,
+            report_course_param.report_category as i16,
+            report_course_param.report_reason
+        )
+            .execute(get_db())
+            .await
+            .map_err(|e| {
+                log::error!("DB Error: {:?}", e);
+                ErrorCode::Core_NotImplemented // i don't know why, but returning this makes the game show "Report sent OK" so i'll use it
+            })?;
+
+        Ok(())
+    }
+
+    async fn delete_object(&self, param: DataStoreDeleteParam) -> Result<(), ErrorCode> {
+        let row = sqlx::query!(
+            r#"
+                SELECT update_password
+                FROM datastore.objects
+                WHERE data_id = $1 AND upload_completed = TRUE AND deleted = FALSE
+            "#,
+            param.dataid
+        )
+            .fetch_one(get_db())
+            .await
+            .map_err(|e| {
+                log::error!("DB Error: {:?}", e);
+                ErrorCode::DataStore_NotFound
+            })?;
+
+        let passwd = row.update_password;
+
+        if param.update_password != passwd {
+            return Err(ErrorCode::DataStore_PermissionDenied);
+        }
+
+        log::info!("update password check passed");
+
+        let deletequery = sqlx::query!(
+            "UPDATE datastore.objects SET deleted=true WHERE data_id=$1",
+            param.dataid
+        )
+            .execute(get_db())
+            .await
+            .map_err(|e| {
+                log::error!("DB Error: {:?}", e);
+                ErrorCode::DataStore_NotFound
+            })?;
+
+        Ok(())
     }
 }
