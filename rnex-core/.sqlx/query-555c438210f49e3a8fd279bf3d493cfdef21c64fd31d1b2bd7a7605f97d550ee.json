@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                data_id,\n                value\n            FROM datastore.object_custom_rankings\n            WHERE application_id = $1\n              AND value >= $2\n              AND value <= $3\n            ORDER BY value DESC\n            LIMIT $4 OFFSET $5\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "data_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "value",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "555c438210f49e3a8fd279bf3d493cfdef21c64fd31d1b2bd7a7605f97d550ee"
+}

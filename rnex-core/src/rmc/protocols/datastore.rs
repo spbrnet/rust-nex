@@ -318,6 +318,23 @@ pub struct DataStoreDeleteParam {
     pub update_password: i64,
 }
 
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct DataStoreCustomRankingRatingCondition {
+    pub slot: i8,
+    pub min_value: i32,
+    pub max_value: i32,
+}
+
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct DataStoreGetCustomRankingParam {
+    pub application_id: u32,
+    pub condition: DataStoreCustomRankingRatingCondition,
+    pub result_option: u8,
+    pub result_range: ResultsRange,
+}
+
 #[rmc_proto(115)]
 pub trait DataStore {
     #[method_id(4)]
@@ -355,6 +372,11 @@ pub trait DataStore {
     ) -> Result<(), ErrorCode>;
     #[method_id(61)]
     async fn get_application_config(&self, appid: u32) -> Result<Vec<i32>, ErrorCode>;
+    #[method_id(49)]
+    async fn get_custom_ranking(
+        &self,
+        param: DataStoreGetCustomRankingParam,
+    ) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode>;
     #[method_id(50)]
     async fn get_custom_ranking_by_data_id(
         &self,

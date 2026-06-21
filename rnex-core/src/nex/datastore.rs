@@ -24,6 +24,7 @@ use rnex_core::rmc::protocols::datastore::{
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::qbuffer::QBuffer;
 use rnex_core::rmc::structures::qresult::QResult;
+use crate::rmc::protocols::datastore::DataStoreGetCustomRankingParam;
 
 fn map_row_to_meta_info(
     row_data_id: i64,
@@ -1306,9 +1307,10 @@ impl DataStore for User {
         // this might be good to keep as a sanity check but as long as we zip the two vecs together
         // we already avoid crashes which can be caused by this
         // (previous comment) SMM seems to work fine with this, no clue for other DTSR games
-        /*if targets.len() != params.len() {
+        // binder: we should keep it anyways, just in case. no harm no foul right?
+        if targets.len() != params.len() {
             return Err(ErrorCode::DataStore_OperationNotAllowed);
-        }*/
+        }
 
         let actions =
             targets
@@ -1732,5 +1734,80 @@ impl DataStore for User {
             })?;
 
         Ok(())
+    }
+
+    async fn get_custom_ranking(
+        &self,
+        param: DataStoreGetCustomRankingParam
+    ) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode> {
+        let mut ranking_results = Vec::new();
+
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                data_id,
+                value
+            FROM datastore.object_custom_rankings
+            WHERE application_id = $1
+              AND value >= $2
+              AND value <= $3
+            ORDER BY value DESC
+            LIMIT $4 OFFSET $5
+            "#,
+            param.application_id as i64,
+            param.condition.min_value as i64,
+            param.condition.max_value as i64,
+            param.result_range.size as i64,
+            param.result_range.offset as i64,
+        )
+            .fetch_all(get_db())
+            .await
+            .map_err(|e| {
+                log::error!("DB Error: {:?}", e);
+                ErrorCode::DataStore_NotFound
+            })?;
+
+        let mut current_order = param.result_range.offset + 1;
+
+        for row in rows {
+            let data_id = row.data_id;
+            let score = row.value.unwrap_or(0) as u32;
+
+            if let Ok(meta) = get_object_info_by_data_id(data_id, 0).await {
+                ranking_results.push(DataStoreCustomRankingResult {
+                    order: current_order,
+                    score,
+                    meta_info: meta,
+                });
+            } else {
+                log::warn!("could not find metadata for ranked object {}", data_id);
+            }
+
+            current_order += 1;
+        }
+
+        let mut q_results = Vec::with_capacity(ranking_results.len());
+
+        for result in &mut ranking_results {
+            if (param.result_option & 0x01) == 0 {
+                result.meta_info.tags = Vec::new();
+            }
+
+            if (param.result_option & 0x02) == 0 {
+                result.meta_info.ratings = Vec::new();
+            }
+
+            if (param.result_option & 0x04) == 0 {
+                result.meta_info.meta_binary = QBuffer(Vec::new());
+            }
+
+            if (param.result_option & 0x20) == 0 {
+                result.score = 0;
+            }
+
+            q_results.push(QResult::success(ErrorCode::Core_Unknown));
+        }
+
+        Ok((ranking_results, q_results))
     }
 }
