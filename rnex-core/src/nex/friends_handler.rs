@@ -4,7 +4,8 @@ use std::ops::Deref;
 use std::sync::{Arc, atomic::AtomicU32};
 use std::sync::{LazyLock, Weak};
 
-use bytemuck::bytes_of;
+use base64::{engine::general_purpose, Engine as _};
+use bytemuck::{bytes_of, Pod, Zeroable};
 use hmac::Mac;
 use log::info;
 use macros::rmc_struct;
@@ -36,6 +37,7 @@ use rnex_core::{
 };
 use sqlx::query;
 use std::sync::atomic::Ordering::Relaxed;
+use hex::decode;
 use tokio::spawn;
 use tokio::sync::RwLock;
 
@@ -52,7 +54,7 @@ use rnex_core::rmc::structures::data::Data;
 use crate::executables::common::get_db;
 
 use nex_account::derive_pid_hmac;
-use nex_account::grpc::ActCreateInfoNoPid;
+use nex_account::grpc::ActCreateInfo;
 use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
 
 define_rmc_proto!(
@@ -80,6 +82,15 @@ pub struct UserData {
     info: NNAInfo,
     presence: NintendoPresenceV2,
 }
+
+#[repr(C, packed)]
+#[derive(Pod, Zeroable, Copy, Clone)]
+pub struct NascToken {
+    pub pid: i32,
+    pub time: [u8; 14],
+    pub pwd_hash: [u8; 4],
+}
+
 
 #[rmc_struct(FriendsUser)]
 pub struct FriendsUser {
@@ -287,6 +298,20 @@ impl Secure for FriendsGuest {
     }
 }
 
+fn decode_token(encoded_str: &str) -> Result<NascToken, &'static str> {
+    let bytes = general_purpose::STANDARD
+        .decode(encoded_str)
+        .map_err(|_| "failed to decode Base64 string")?;
+
+    if bytes.len() != std::mem::size_of::<NascToken>() {
+        return Err("decoded byte length mismatch");
+    }
+
+    let token = bytemuck::from_bytes::<NascToken>(&bytes);
+
+    Ok(*token)
+}
+
 impl AccountManagement for FriendsGuest {
     async fn nintendo_create_account(
         &self,
@@ -296,8 +321,6 @@ impl AccountManagement for FriendsGuest {
         email: String,
         auth_data: Any,
     ) -> Result<(PID, String), ErrorCode> {
-        todo("fix breaking changes in the code below")
-        /*
         println!("{}, {}, {}, {}", principal_name, key, groups, email);
 
         if let Ok(data) = auth_data.try_get_as::<NintendoCreateAccountData>() {
@@ -318,6 +341,9 @@ impl AccountManagement for FriendsGuest {
 
         if let Ok(extra_info) = auth_data.try_get_as::<AccountExtraInfo>() {
             info!("create account via extra info");
+
+            let decoded_token = decode_token(&*extra_info.nex_token).map_err(|_| ErrorCode::Authentication_InvalidParam)?;
+
             let mut client = NexAccountServiceClient::connect(NEX_ACCOUNT_URL.as_str())
                 .await
                 .map_err(|e| {
@@ -325,31 +351,36 @@ impl AccountManagement for FriendsGuest {
                     ErrorCode::Core_Unknown
                 })?;
 
-            let nexkey: [u8; 16] = hex::decode(key)
-                .map_err(|_| ErrorCode::Authentication_InvalidParam)?
-                .as_slice()
-                .try_into()
-                .map_err(|_| ErrorCode::Authentication_InvalidParam)?;
+            let pid = decoded_token.pid;
 
-            let new_account: ActCreateInfoNoPid = ActCreateInfoNoPid {
+            let new_account: ActCreateInfo = ActCreateInfo {
                 principal_name,
+                key: vec![],
                 email,
-
+                pid: 0,
             };
 
-            let pid = client
+            let nexkey = client
                 .create_new_sequential_or_update_and_get_account(new_account)
                 .await
                 .map_err(|_| ErrorCode::Core_Unknown)?
                 .into_inner();
 
-            let mac = derive_pid_hmac(pid.pid, &nexkey);
+            if nexkey.key.len() != 16 {
+                log::error!("nex key was not 16 bytes long");
+                return Err(ErrorCode::Authentication_InvalidParam);
+            }
+
+            let nexkeyarray: [u8; 16] = nexkey.key.try_into()
+                .expect("how...?");
+
+            let mac = derive_pid_hmac(pid, &nexkeyarray);
 
             let hex_str = hex::encode(mac);
 
-            return Ok((pid.pid, hex_str));
+            return Ok((pid, hex_str));
         }
 
-        Err(ErrorCode::Authentication_InvalidParam)*/
+        Err(ErrorCode::Authentication_InvalidParam)
     }
 }
