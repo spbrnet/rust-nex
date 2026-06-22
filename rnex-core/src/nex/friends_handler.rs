@@ -84,7 +84,7 @@ pub struct UserData {
 }
 
 #[repr(C, packed)]
-#[derive(Pod, Zeroable, Copy, Clone)]
+#[derive(Pod, Zeroable, Copy, Clone, Debug)]
 pub struct NascToken {
     pub pid: i32,
     pub time: [u8; 14],
@@ -298,9 +298,18 @@ impl Secure for FriendsGuest {
     }
 }
 
+
+// this is probably a horrible way to do this. it's 1:27am. fuck off please i'll fix it later.
 fn decode_token(encoded_str: &str) -> Result<NascToken, &'static str> {
+    // i dont like the use of replace here as this will reallocate the entire string
+    // im gonna keep it though as long as noone comes up with a good alternative for this
+    // without complicating the code/making it far less readable/unnescesarily long
+    let standard_b64 = encoded_str.replace('.', "+").replace('-', "/").replace('*', "=");
+
+    let standard = general_purpose::STANDARD.decode(standard_b64).map_err(|_| "failed to convert")?;
+
     let bytes = general_purpose::STANDARD
-        .decode(encoded_str)
+        .decode(standard)
         .map_err(|_| "failed to decode Base64 string")?;
 
     if bytes.len() != std::mem::size_of::<NascToken>() {
@@ -347,6 +356,8 @@ impl AccountManagement for FriendsGuest {
                 log::info!("{:?}", extra_info.nex_token);
                 ErrorCode::Authentication_InvalidParam
             })?;
+
+            log::info!("decoded token: {:?}", decoded_token);
 
             let mut client = NexAccountServiceClient::connect(NEX_ACCOUNT_URL.as_str())
                 .await
