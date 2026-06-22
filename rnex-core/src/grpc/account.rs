@@ -1,15 +1,15 @@
 use crate::grpc::account::Error::SomethingHappened;
 use json::{JsonValue, object};
+use nex_account::grpc::Pid;
+use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
 use once_cell::sync::Lazy;
 use rnex_core::PID;
 use std::array::TryFromSliceError;
 use std::ops::Deref;
-use std::{env, result};
 use std::sync::LazyLock;
+use std::{env, result};
 use thiserror::Error;
 use tokio::task::{JoinError, spawn_blocking};
-use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
-use nex_account::grpc::Pid;
 use tonic::transport::Channel;
 
 static API_KEY: Lazy<String> = Lazy::new(|| {
@@ -52,15 +52,19 @@ pub struct Client(NexAccountServiceClient<Channel>); //(reqwest::Client);
 
 impl Client {
     pub async fn new() -> Result<Self> {
-        let client = NexAccountServiceClient::connect(NEX_ACCOUNT_URL.as_str())
-            .await?;
+        let client = NexAccountServiceClient::connect(NEX_ACCOUNT_URL.as_str()).await?;
         Ok(Self(client))
     }
 
     pub async fn get_nex_key(&mut self, pid: PID) -> Result<[u8; 16]> {
-        let prekey = self.0.get_nex_key_by_pid(Pid{pid}).await?.into_inner();
+        let prekey = self.0.get_nex_key_by_pid(Pid { pid }).await?.into_inner();
 
-        let nexkey: [u8; 16] = prekey.key.try_into().map_err(|_| Error::SomethingHappened)?;
+        println!("{:?}", prekey);
+
+        let nexkey: [u8; 16] = prekey
+            .key
+            .try_into()
+            .map_err(|_| Error::SomethingHappened)?;
 
         Ok(nexkey)
     }
