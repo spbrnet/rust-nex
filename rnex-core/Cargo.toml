@@ -38,6 +38,7 @@ futures = "0.3.32"
 async-trait = "0.1.89"
 ctor = "1.0.7"
 nex-account = { version = "0.1.3", registry = "spbr" }
+tonic = "0.14.6"
 
 [dev-dependencies]
 # criterion = "0.7.0"

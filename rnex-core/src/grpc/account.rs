@@ -5,8 +5,13 @@ use rnex_core::PID;
 use std::array::TryFromSliceError;
 use std::ops::Deref;
 use std::{env, result};
+use std::sync::LazyLock;
 use thiserror::Error;
 use tokio::task::{JoinError, spawn_blocking};
+use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
+use nex_account::grpc::Pid;
+use tonic::transport::Channel;
+
 static API_KEY: Lazy<String> = Lazy::new(|| {
     let key = env::var("ACCOUNT_GQL_API_KEY").expect("no graphql ip specified");
 
@@ -26,8 +31,10 @@ pub enum Error {
     RequestError(#[from] ureq::Error),
     #[error(transparent)]
     Json(#[from] json::Error),
-    //#[error(transparent)]
-    //Status(#[from] tonic::Status),
+    #[error(transparent)]
+    Status(#[from] tonic::Status),
+    #[error(transparent)]
+    Transport(#[from] tonic::transport::Error),
     #[error("invalid password size: {0}")]
     PasswordConversion(#[from] TryFromSliceError),
     #[error("something happened")]
@@ -38,141 +45,97 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-pub struct Client; //(reqwest::Client);
+static NEX_ACCOUNT_URL: LazyLock<String> =
+    LazyLock::new(|| env::var("NEX_ACCOUNT_ENDPOINT").expect("NEX_ACCOUNT_ENDPOINT not set"));
+
+pub struct Client(NexAccountServiceClient<Channel>); //(reqwest::Client);
 
 impl Client {
     pub async fn new() -> Result<Self> {
-        //Ok(Self(reqwest::ClientBuilder::new().build()?))
-        Ok(Self)
-    }
-
-    async fn do_request(&self, request_data: JsonValue) -> Result<JsonValue> {
-        let request = ureq::post(CLIENT_URI.as_str())
-            .header("X-API-Key", API_KEY.deref())
-            .content_type("application/json");
-        let mut response = spawn_blocking(move || request.send(request_data.to_string())).await??;
-
-        let str_body = response.body_mut().read_to_string()?;
-        Ok(json::parse(&str_body)?)
-        /*
-        let mut request = reqwest::Request::new(Method::POST, Url::from_str(CLIENT_URI.as_str()).unwrap());
-
-        *(request.body_mut()) = Some(Body::from(request_data.to_string()));
-        request.headers_mut().insert("X-API-Key", HeaderValue::from_str(&API_KEY).unwrap());
-        request.headers_mut().insert("Content-Type", HeaderValue::from_str("application/json").unwrap());
-
-        let response = self.0.execute(request).await?;
-
-        Ok(json::parse(&response.text().await?)?)
-
-         */
-    }
-
-    pub async fn get_nex_password(&mut self, pid: PID) -> Result<[u8; 16]> {
-        let req = self
-            .do_request(object! {
-                "query": r"query($pid: Int!){
-                userByPid(pid: $pid){
-                    nexPassword
-                }
-            }",
-                "variables": {
-                    "pid": pid
-                }
-            })
+        let client = NexAccountServiceClient::connect(NEX_ACCOUNT_URL.as_str())
             .await?;
+        Ok(Self(client))
+    }
 
-        let Some(val) = req
-            .entries()
-            .find(|v| v.0 == "data")
-            .ok_or(SomethingHappened)?
-            .1
-            .entries()
-            .find(|v| v.0 == "userByPid")
-            .ok_or(SomethingHappened)?
-            .1
-            .entries()
-            .find(|v| v.0 == "nexPassword")
-            .ok_or(SomethingHappened)?
-            .1
-            .as_str()
-        else {
-            return Err(SomethingHappened);
-        };
+    pub async fn get_nex_key(&mut self, pid: PID) -> Result<[u8; 16]> {
+        let prekey = self.0.get_nex_key_by_pid(Pid{pid}).await?.into_inner();
 
-        Ok(val.as_bytes().try_into().map_err(|_| SomethingHappened)?)
+        let nexkey: [u8; 16] = prekey.key.try_into().map_err(|_| Error::SomethingHappened)?;
+
+        Ok(nexkey)
     }
 
     pub async fn get_user_level(&mut self, pid: PID) -> Result<i32> {
-        let req = self
-            .do_request(object! {
-                "query": r"query($pid: Int!){
-                    userByPid(pid: $pid){
-                        accountLevel
-                    }
-                }",
-                "variables": {
-                    "pid": pid
-                }
-            })
-            .await?;
+        // let req = self
+        //     .do_request(object! {
+        //         "query": r"query($pid: Int!){
+        //             userByPid(pid: $pid){
+        //                 accountLevel
+        //             }
+        //         }",
+        //         "variables": {
+        //             "pid": pid
+        //         }
+        //     })
+        //     .await?;
+        //
+        // let Some(val) = req
+        //     .entries()
+        //     .find(|v| v.0 == "data")
+        //     .ok_or(SomethingHappened)?
+        //     .1
+        //     .entries()
+        //     .find(|v| v.0 == "userByPid")
+        //     .ok_or(SomethingHappened)?
+        //     .1
+        //     .entries()
+        //     .find(|v| v.0 == "accountLevel")
+        //     .ok_or(SomethingHappened)?
+        //     .1
+        //     .as_i32()
+        // else {
+        //     return Err(SomethingHappened);
+        // };
 
-        let Some(val) = req
-            .entries()
-            .find(|v| v.0 == "data")
-            .ok_or(SomethingHappened)?
-            .1
-            .entries()
-            .find(|v| v.0 == "userByPid")
-            .ok_or(SomethingHappened)?
-            .1
-            .entries()
-            .find(|v| v.0 == "accountLevel")
-            .ok_or(SomethingHappened)?
-            .1
-            .as_i32()
-        else {
-            return Err(SomethingHappened);
-        };
-
-        Ok(val)
+        // everyone is tester until this is implemented
+        Ok(0)
     }
 
-    pub async fn get_pid_from_token(&mut self, token: String) -> Result<PID> {
-        let req = self
-            .do_request(object! {
-                "query":
-                r"query($token: String!){
-                    token(tokenData: $token){
-                        pid
-                    }
-                }",
-                "variables": {
-                    "token": token
-                }
-            })
-            .await?;
-        // this breaks switch nex servers and should be fixed eventually
-        let Some(val) = req
-            .entries()
-            .find(|v| v.0 == "data")
-            .ok_or(SomethingHappened)?
-            .1
-            .entries()
-            .find(|v| v.0 == "token")
-            .ok_or(SomethingHappened)?
-            .1
-            .entries()
-            .find(|v| v.0 == "pid")
-            .ok_or(SomethingHappened)?
-            .1
-            .as_i32()
-        else {
-            return Err(SomethingHappened);
-        };
-
-        Ok(val)
-    }
+    // pub async fn get_pid_from_token(&mut self, token: String) -> Result<PID> {
+    //     let req = self
+    //         .do_request(object! {
+    //             "query":
+    //             r"query($token: String!){
+    //                 token(tokenData: $token){
+    //                     pid
+    //                 }
+    //             }",
+    //             "variables": {
+    //                 "token": token
+    //             }
+    //         })
+    //         .await?;
+    //     // this breaks switch nex servers and should be fixed eventually
+    //     let Some(val) = req
+    //         .entries()
+    //         .find(|v| v.0 == "data")
+    //         .ok_or(SomethingHappened)?
+    //         .1
+    //         .entries()
+    //         .find(|v| v.0 == "token")
+    //         .ok_or(SomethingHappened)?
+    //         .1
+    //         .entries()
+    //         .find(|v| v.0 == "pid")
+    //         .ok_or(SomethingHappened)?
+    //         .1
+    //         .as_i32()
+    //     else {
+    //         return Err(SomethingHappened);
+    //     };
+    //
+    //     Ok(val)
+    // }
 
     /*pub async fn get_user_data(&mut self , pid: u32) -> Result<GetUserDataResponse>{
         let req = Request::new(GetUserDataRequest{

@@ -2741,6 +2741,7 @@ dependencies = [
  "sqlx 0.8.6",
  "thiserror",
  "tokio",
+ "tonic",
  "typenum",
  "ureq",
  "urlencoding",

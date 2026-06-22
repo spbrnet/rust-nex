@@ -83,7 +83,7 @@ async fn get_login_data_by_pid(pid: PID) -> Option<(PID, Box<[u8]>)> {
         return None;
     };
 
-    let Ok(passwd) = client.get_nex_password(pid).await else {
+    let Ok(passwd) = client.get_nex_key(pid).await else {
         return None;
     };
 
@@ -128,7 +128,7 @@ impl AuthHandler {
             return Err(ErrorCode::Core_Exception);
         };
 
-        let Ok(passwd) = client.get_nex_password(pid).await else {
+        let Ok(passwd) = client.get_nex_key(pid).await else {
             warn!("unable to get nex password for pid: {}:", pid);
             return Err(ErrorCode::Core_Exception);
         };
