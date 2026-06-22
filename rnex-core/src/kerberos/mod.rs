@@ -28,17 +28,11 @@ pub const SESSION_KEY_LENGTH: usize = SessionLengthTy::USIZE;
 
 type Md5Hmac = Hmac<md5::Md5>;
 
-pub fn derive_key(pid: PID, key: &[u8]) -> [u8; 16] {
+pub fn derive_kerberos_key(pid: PID, nex_key: [u8; 16]) -> [u8; 16] {
     let iteration_count = pid % 1024;
-    // we do one iteration out here to ensure the key is always 16 bytes
+    let mut key = nex_key;
 
-    let mut key: [u8; 16] = {
-        let mut md5 = Md5::new();
-        md5.update(key);
-        md5.finalize().try_into().unwrap()
-    };
-
-    for _ in 1..iteration_count {
+    for _ in 0..iteration_count {
         let mut md5 = Md5::new();
         md5.update(key);
         key = md5.finalize().try_into().unwrap();

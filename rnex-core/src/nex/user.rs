@@ -39,25 +39,29 @@ use std::str::FromStr;
 use cfg_if::cfg_if;
 use log::{error, info};
 use macros::rmc_struct;
-use rnex_core::prudp::socket_addr::PRUDPSockAddr;
-use rnex_core::rmc::protocols::message_delivery::{
-    MessageDelivery, RawMessageDelivery, RawMessageDeliveryInfo, RemoteMessageDelivery,
+use rnex_core::{
+    prudp::socket_addr::PRUDPSockAddr,
+    rmc::{
+        protocols::{
+            message_delivery::{MessageDelivery, RemoteMessageDeliveryNoResponse},
+            messaging::UserMessage,
+            notifications::{NotificationEvent, RemoteNotification},
+            ranking::{
+                CompetitionRankingGetParam, CompetitionRankingScoreData,
+                CompetitionRankingScoreInfo,
+            },
+        },
+        response::ErrorCode::{Core_InvalidArgument, RendezVous_AccountExpired},
+        structures::{
+            matchmake::{Gathering, MatchmakeSessionSearchCriteria},
+            qbuffer::QBuffer,
+            qresult::QResult,
+            ranking::UploadCompetitionData,
+        },
+    },
 };
-use rnex_core::rmc::protocols::notifications::{NotificationEvent, RemoteNotification};
-use rnex_core::rmc::protocols::ranking::{
-    CompetitionRankingGetParam, CompetitionRankingScoreData, CompetitionRankingScoreInfo,
-};
-use rnex_core::rmc::response::ErrorCode::{Core_InvalidArgument, RendezVous_AccountExpired};
-use rnex_core::rmc::structures::qbuffer::QBuffer;
-use rnex_core::rmc::structures::qresult::QResult;
-use rnex_core::rmc::structures::ranking::UploadCompetitionData;
 use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
-
-use crate::rmc::protocols::message_delivery::RemoteMessageDeliveryNoResponse;
-use crate::rmc::protocols::messaging::UserMessage;
-use crate::rmc::structures::matchmake::Gathering;
-use crate::rmc::structures::matchmake::MatchmakeSessionSearchCriteria;
 
 cfg_if! {
     if #[cfg(feature = "datastore")] {

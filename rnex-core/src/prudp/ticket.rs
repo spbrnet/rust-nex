@@ -6,7 +6,7 @@ use typenum::U16;
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 
 use crate::{
-    kerberos::{SESSION_KEY_LENGTH, SessionLengthTy, TicketInternalData, derive_key},
+    kerberos::{SESSION_KEY_LENGTH, SessionLengthTy, TicketInternalData, derive_kerberos_key},
     nex::account::Account,
     rmc::structures::RmcSerialize,
 };
@@ -26,7 +26,7 @@ pub fn read_secure_connection_data(
 
     let ticket_data = &mut ticket_data[0..ticket_data_size - 0x10];
 
-    let server_key = derive_key(act.pid, &act.kerbros_password[..]);
+    let server_key = derive_kerberos_key(act.pid, act.nex_key);
 
     let mut rc4: StreamCipherCoreWrapper<Rc4Core<U16>> =
         Rc4::new_from_slice(&server_key).expect("unable to init rc4 keystream");

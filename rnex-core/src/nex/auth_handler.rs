@@ -5,7 +5,7 @@ use cfg_if::cfg_if;
 use log::{info, warn};
 use macros::rmc_struct;
 use rnex_core::PID;
-use rnex_core::kerberos::{KerberosDateTime, Ticket, derive_key};
+use rnex_core::kerberos::{KerberosDateTime, Ticket, derive_kerberos_key};
 use rnex_core::nex::account::Account;
 use rnex_core::rmc::protocols::OnlyRemote;
 use rnex_core::rmc::protocols::auth::{Auth, RawAuth, RawAuthInfo, RemoteAuth};
@@ -34,11 +34,11 @@ pub struct AuthHandler {
 }
 
 pub fn generate_ticket(
-    source_act_login_data: (PID, &[u8]),
-    dest_act_login_data: (PID, &[u8]),
+    source_act_login_data: (PID, [u8; 16]),
+    dest_act_login_data: (PID, [u8; 16]),
 ) -> Box<[u8]> {
-    let source_key = derive_key(source_act_login_data.0, source_act_login_data.1);
-    let dest_key = derive_key(dest_act_login_data.0, dest_act_login_data.1);
+    let source_key = derive_kerberos_key(source_act_login_data.0, source_act_login_data.1);
+    let dest_key = derive_kerberos_key(dest_act_login_data.0, dest_act_login_data.1);
 
     let internal_data = kerberos::TicketInternalData::new(source_act_login_data.0);
 
@@ -53,12 +53,12 @@ pub fn generate_ticket(
 }
 pub fn generate_ticket_with_string_user_key(
     source_act: PID,
-    dest_act_login_data: (PID, &[u8]),
+    dest_act_login_data: (PID, [u8; 16]),
 ) -> (String, Box<[u8]>) {
     let source_key: [u8; 8] = rand::random();
     let key_string = hex::encode(source_key);
     let key_data: [u8; 16] = key_string.as_bytes().try_into().unwrap();
-    let dest_key = derive_key(dest_act_login_data.0, dest_act_login_data.1);
+    let dest_key = derive_kerberos_key(dest_act_login_data.0, dest_act_login_data.1);
 
     let internal_data = kerberos::TicketInternalData::new(source_act);
 
@@ -72,11 +72,11 @@ pub fn generate_ticket_with_string_user_key(
     (key_string, encrypted_session_ticket)
 }
 
-async fn get_login_data_by_pid(pid: PID) -> Option<(PID, Box<[u8]>)> {
+async fn get_login_data_by_pid(pid: PID) -> Option<(PID, [u8; 16])> {
     if pid == GUEST_ACCOUNT.pid {
         let source_login_data = GUEST_ACCOUNT.get_login_data();
 
-        return Some((source_login_data.0, source_login_data.1.into()));
+        return Some((source_login_data.0, source_login_data.1));
     }
 
     let Ok(mut client) = account::Client::new().await else {
@@ -87,7 +87,7 @@ async fn get_login_data_by_pid(pid: PID) -> Option<(PID, Box<[u8]>)> {
         return None;
     };
 
-    Some((pid, passwd.into()))
+    Some((pid, passwd))
 }
 
 fn station_url_from_sock_addr(sock_addr: SocketAddrV4) -> String {
@@ -133,7 +133,7 @@ impl AuthHandler {
             return Err(ErrorCode::Core_Exception);
         };
 
-        let source_login_data = (pid, &passwd[..]);
+        let source_login_data = (pid, passwd);
         println!("{}, {:?}", pid, passwd);
         let destination_login_data = self.destination_server_acct.get_login_data();
 
@@ -322,7 +322,7 @@ impl Auth for AuthHandler {
 
                 let result = QResult::success(Core_Unknown);
 
-                let ticket = generate_ticket((pid, &passwd[..]), desgination_login_data);
+                let ticket = generate_ticket((pid, passwd), desgination_login_data);
 
                 Ok((result, ticket.into()))
             }
