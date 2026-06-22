@@ -344,6 +344,7 @@ impl AccountManagement for FriendsGuest {
 
             let decoded_token = decode_token(&*extra_info.nex_token).map_err(|e| {
                 log::error!("failed to decode token: {}", e);
+                log::info!("{:?}", extra_info.nex_token);
                 ErrorCode::Authentication_InvalidParam
             })?;
 
