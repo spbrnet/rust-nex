@@ -43,7 +43,10 @@ use rnex_core::{
     prudp::socket_addr::PRUDPSockAddr,
     rmc::{
         protocols::{
-            message_delivery::{MessageDelivery, RemoteMessageDeliveryNoResponse},
+            message_delivery::{
+                MessageDelivery, RawMessageDelivery, RawMessageDeliveryInfo, RemoteMessageDelivery,
+                RemoteMessageDeliveryNoResponse,
+            },
             messaging::UserMessage,
             notifications::{NotificationEvent, RemoteNotification},
             ranking::{
@@ -88,7 +91,8 @@ cfg_if! {
                 Matchmake,
                 NatTraversal,
                 Utility,
-                Ranking
+                Ranking,
+                MessageDelivery
             }
         );
     }
