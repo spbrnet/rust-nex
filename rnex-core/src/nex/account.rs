@@ -12,7 +12,7 @@ pub struct Account {
 
 impl Account {
     pub fn new(pid: PID, username: &str, passwd: &str) -> Self {
-        let iteration_count = 65000;
+        let iteration_count = 65000 + pid % 1024;
         // we do one iteration out here to ensure the key is always 16 bytes
 
         let mut key: [u8; 16] = {

@@ -1,14 +1,17 @@
 use std::env;
 use std::io::{Cursor, Write};
 use std::ops::Deref;
-use std::sync::{LazyLock, Weak};
 use std::sync::{Arc, atomic::AtomicU32};
+use std::sync::{LazyLock, Weak};
 
 use bytemuck::bytes_of;
 use hmac::Mac;
 use log::info;
 use macros::rmc_struct;
-use rnex_core::rmc::protocols::account_management::{AccountExtraInfo, AccountManagement, RawAccountManagement, RawAccountManagementInfo, RemoteAccountManagement};
+use rnex_core::rmc::protocols::account_management::{
+    AccountExtraInfo, AccountManagement, RawAccountManagement, RawAccountManagementInfo,
+    RemoteAccountManagement,
+};
 use rnex_core::rmc::protocols::friends_wiiu::{
     FriendsWiiU, RawFriendsWiiU, RawFriendsWiiUInfo, RemoteFriendsWiiU,
 };
@@ -49,8 +52,8 @@ use rnex_core::rmc::structures::data::Data;
 use crate::executables::common::get_db;
 
 use nex_account::derive_pid_hmac;
-use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
 use nex_account::grpc::ActCreateInfoNoPid;
+use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
 
 define_rmc_proto!(
     proto FriendsUser{
@@ -293,6 +296,8 @@ impl AccountManagement for FriendsGuest {
         email: String,
         auth_data: Any,
     ) -> Result<(PID, String), ErrorCode> {
+        todo("fix breaking changes in the code below")
+        /*
         println!("{}, {}, {}, {}", principal_name, key, groups, email);
 
         if let Ok(data) = auth_data.try_get_as::<NintendoCreateAccountData>() {
@@ -328,11 +333,15 @@ impl AccountManagement for FriendsGuest {
 
             let new_account: ActCreateInfoNoPid = ActCreateInfoNoPid {
                 principal_name,
-                key: nexkey.into(),
                 email,
+
             };
 
-            let pid = client.create_new_sequential_or_update_and_get_account(new_account).await.map_err(|_| ErrorCode::Core_Unknown)?.into_inner();
+            let pid = client
+                .create_new_sequential_or_update_and_get_account(new_account)
+                .await
+                .map_err(|_| ErrorCode::Core_Unknown)?
+                .into_inner();
 
             let mac = derive_pid_hmac(pid.pid, &nexkey);
 
@@ -341,6 +350,6 @@ impl AccountManagement for FriendsGuest {
             return Ok((pid.pid, hex_str));
         }
 
-        Err(ErrorCode::Authentication_InvalidParam)
+        Err(ErrorCode::Authentication_InvalidParam)*/
     }
 }

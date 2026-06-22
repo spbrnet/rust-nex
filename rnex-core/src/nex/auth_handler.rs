@@ -5,7 +5,7 @@ use cfg_if::cfg_if;
 use log::{info, warn};
 use macros::rmc_struct;
 use rnex_core::PID;
-use rnex_core::kerberos::{KerberosDateTime, Ticket, derive_kerberos_key};
+use rnex_core::kerberos::{KerberosDateTime, Ticket};
 use rnex_core::nex::account::Account;
 use rnex_core::rmc::protocols::OnlyRemote;
 use rnex_core::rmc::protocols::auth::{Auth, RawAuth, RawAuthInfo, RemoteAuth};
@@ -37,8 +37,8 @@ pub fn generate_ticket(
     source_act_login_data: (PID, [u8; 16]),
     dest_act_login_data: (PID, [u8; 16]),
 ) -> Box<[u8]> {
-    let source_key = derive_kerberos_key(source_act_login_data.0, source_act_login_data.1);
-    let dest_key = derive_kerberos_key(dest_act_login_data.0, dest_act_login_data.1);
+    let source_key = source_act_login_data.1;
+    let dest_key = dest_act_login_data.1;
 
     let internal_data = kerberos::TicketInternalData::new(source_act_login_data.0);
 
@@ -58,7 +58,7 @@ pub fn generate_ticket_with_string_user_key(
     let source_key: [u8; 8] = rand::random();
     let key_string = hex::encode(source_key);
     let key_data: [u8; 16] = key_string.as_bytes().try_into().unwrap();
-    let dest_key = derive_kerberos_key(dest_act_login_data.0, dest_act_login_data.1);
+    let dest_key = dest_act_login_data.1;
 
     let internal_data = kerberos::TicketInternalData::new(source_act);
 
