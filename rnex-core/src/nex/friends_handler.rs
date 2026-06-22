@@ -372,13 +372,13 @@ impl AccountManagement for FriendsGuest {
                 principal_name,
                 key: vec![],
                 email,
-                pid: 0,
+                pid,
             };
 
             let nexkey = client
                 .create_new_sequential_or_update_and_get_account(new_account)
                 .await
-                .map_err(|_| ErrorCode::Core_Unknown)?
+                .map_err(|e| {ErrorCode::Core_Unknown})?
                 .into_inner();
 
             if nexkey.key.len() != 16 {
