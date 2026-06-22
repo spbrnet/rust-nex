@@ -342,7 +342,10 @@ impl AccountManagement for FriendsGuest {
         if let Ok(extra_info) = auth_data.try_get_as::<AccountExtraInfo>() {
             info!("create account via extra info");
 
-            let decoded_token = decode_token(&*extra_info.nex_token).map_err(|_| ErrorCode::Authentication_InvalidParam)?;
+            let decoded_token = decode_token(&*extra_info.nex_token).map_err(|e| {
+                log::error!("failed to decode token: {}", e);
+                ErrorCode::Authentication_InvalidParam
+            })?;
 
             let mut client = NexAccountServiceClient::connect(NEX_ACCOUNT_URL.as_str())
                 .await
