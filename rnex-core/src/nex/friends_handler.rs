@@ -1,15 +1,14 @@
+use std::env;
 use std::io::{Cursor, Write};
 use std::ops::Deref;
-use std::sync::Weak;
+use std::sync::{LazyLock, Weak};
 use std::sync::{Arc, atomic::AtomicU32};
 
 use bytemuck::bytes_of;
 use hmac::Mac;
 use log::info;
 use macros::rmc_struct;
-use rnex_core::rmc::protocols::account_management::{
-    AccountManagement, RawAccountManagement, RawAccountManagementInfo, RemoteAccountManagement,
-};
+use rnex_core::rmc::protocols::account_management::{AccountExtraInfo, AccountManagement, RawAccountManagement, RawAccountManagementInfo, RemoteAccountManagement};
 use rnex_core::rmc::protocols::friends_wiiu::{
     FriendsWiiU, RawFriendsWiiU, RawFriendsWiiUInfo, RemoteFriendsWiiU,
 };
@@ -49,6 +48,10 @@ use rnex_core::rmc::structures::data::Data;
 
 use crate::executables::common::get_db;
 
+use nex_account::derive_pid_hmac;
+use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
+use nex_account::grpc::ActCreateInfoNoPid;
+
 define_rmc_proto!(
     proto FriendsUser{
         Secure,
@@ -66,6 +69,9 @@ define_rmc_proto!(
         AccountManagement
     }
 );
+
+static NEX_ACCOUNT_URL: LazyLock<String> =
+    LazyLock::new(|| env::var("NEX_ACCOUNT_ENDPOINT").expect("NEX_ACCOUNT_ENDPOINT not set"));
 
 pub struct UserData {
     info: NNAInfo,
@@ -288,28 +294,53 @@ impl AccountManagement for FriendsGuest {
         auth_data: Any,
     ) -> Result<(PID, String), ErrorCode> {
         println!("{}, {}, {}, {}", principal_name, key, groups, email);
-        if auth_data.name == "NintendoCreateAccountData" {
-            let Ok(data) =
-                NintendoCreateAccountData::deserialize(&mut Cursor::new(&auth_data.data))
-            else {
-                return Err(ErrorCode::Authentication_InvalidParam);
-            };
 
+        if let Ok(data) = auth_data.try_get_as::<NintendoCreateAccountData>() {
             let pid = data.nna_info.principal_basic_info.pid;
-            info!("create account: {}", pid);
+            info!("create account via standard data: {}", pid);
 
-            let Ok(mut mac) = HMacMd5::new_from_slice(key.as_bytes()) else {
-                return Err(ErrorCode::Authentication_InvalidParam);
+            let nexkey: [u8; 16] = hex::decode(key)
+                .map_err(|_| ErrorCode::Authentication_InvalidParam)?
+                .as_slice()
+                .try_into()
+                .map_err(|_| ErrorCode::Authentication_InvalidParam)?;
+
+            let mac = derive_pid_hmac(data.nna_info.principal_basic_info.pid, &nexkey);
+
+            let hex_str = hex::encode(mac);
+            return Ok((pid, hex_str));
+        }
+
+        if let Ok(extra_info) = auth_data.try_get_as::<AccountExtraInfo>() {
+            info!("create account via extra info");
+            let mut client = NexAccountServiceClient::connect(NEX_ACCOUNT_URL.as_str())
+                .await
+                .map_err(|e| {
+                    eprintln!("error occurred: {:?}", e);
+                    ErrorCode::Core_Unknown
+                })?;
+
+            let nexkey: [u8; 16] = hex::decode(key)
+                .map_err(|_| ErrorCode::Authentication_InvalidParam)?
+                .as_slice()
+                .try_into()
+                .map_err(|_| ErrorCode::Authentication_InvalidParam)?;
+
+            let new_account: ActCreateInfoNoPid = ActCreateInfoNoPid {
+                principal_name,
+                key: nexkey.into(),
+                email,
             };
 
-            mac.write_all(bytes_of(&pid))
-                .expect("failed to write to hmac???");
-            let mac = mac.finalize().into_bytes();
+            let pid = client.create_new_sequential_or_update_and_get_account(new_account).await.map_err(|_| ErrorCode::Core_Unknown)?.into_inner();
+
+            let mac = derive_pid_hmac(pid.pid, &nexkey);
 
             let hex_str = hex::encode(mac);
 
-            return Ok((pid, hex_str));
+            return Ok((pid.pid, hex_str));
         }
-        Err(ErrorCode::Core_NotImplemented)
+
+        Err(ErrorCode::Authentication_InvalidParam)
     }
 }
