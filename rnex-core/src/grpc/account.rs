@@ -59,7 +59,7 @@ impl Client {
     pub async fn get_nex_key(&mut self, pid: PID) -> Result<[u8; 16]> {
         let prekey = self.0.get_nex_key_by_pid(Pid { pid }).await?.into_inner();
 
-        println!("{:?}", prekey);
+        log::warn!("prekey is {:?}", prekey);
 
         let nexkey: [u8; 16] = prekey
             .key
