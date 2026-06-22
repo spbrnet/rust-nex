@@ -109,6 +109,7 @@ impl AuthHandler {
         #[cfg(feature = "guest_login")]
         {
             if name == GUEST_ACCOUNT.username {
+                log::info!("guest account login");
                 let source_login_data = GUEST_ACCOUNT.get_login_data();
                 let destination_login_data = self.destination_server_acct.get_login_data();
 
@@ -118,25 +119,31 @@ impl AuthHandler {
                 ));
             }
         }
+
+        log::info!("parsing pid");
         let Ok(pid) = name.parse() else {
             warn!("unable to connect to parse pid: {}", name);
             return Err(ErrorCode::Core_InvalidArgument);
         };
 
+        log::info!("creating account grpc client");
         let Ok(mut client) = account::Client::new().await else {
             warn!("unable to connect to grpc");
             return Err(ErrorCode::Core_Exception);
         };
 
+        log::info!("grabbing nex key");
         let Ok(passwd) = client.get_nex_key(pid).await else {
             warn!("unable to get nex password for pid: {}:", pid);
             return Err(ErrorCode::Core_Exception);
         };
 
+        log::info!("source login data");
         let source_login_data = (pid, passwd);
         println!("{}, {:?}", pid, passwd);
         let destination_login_data = self.destination_server_acct.get_login_data();
 
+        log::info!("we are a-ok here");
         Ok((
             pid,
             generate_ticket(source_login_data, destination_login_data),
