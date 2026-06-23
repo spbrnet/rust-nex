@@ -41,7 +41,7 @@ pub struct MiiList {
     pub mii_data: Vec<Vec<u8>>,
 }
 
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Debug)]
 #[rmc_struct(0)]
 pub struct GameKey {
     #[extends]

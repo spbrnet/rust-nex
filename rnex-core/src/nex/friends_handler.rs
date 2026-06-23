@@ -236,6 +236,8 @@ impl Friends3DS for FriendsUser {
     }
 
     async fn sync_friend(&self, unk1: u64, unk2: Vec<u32>, unk3: Vec<u64>) -> Result<Vec<FriendRelationship>, ErrorCode> {
+        log::info!("params: {:?}, {:?}, {:?}", unk1, unk2, unk3);
+
         let dummy = FriendRelationship {
             data: Data {},
             pid: 69,
@@ -250,7 +252,9 @@ impl Friends3DS for FriendsUser {
         Ok(())
     }
 
-    async fn update_favorite_game_key(&self, game_key: crate::rmc::protocols::friends_3ds::GameKey) -> Result<(), ErrorCode> {
+    async fn update_favorite_game_key(&self, game_key: rnex_core::rmc::protocols::friends_3ds::GameKey) -> Result<(), ErrorCode> {
+        log::info!("favorite game key: {:?}", game_key);
+
         Ok(())
     }
 
