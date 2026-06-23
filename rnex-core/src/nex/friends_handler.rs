@@ -193,7 +193,7 @@ impl Friends3DS for FriendsUser {
     }
 
     async fn sync_friend(&self, unk1: u64, unk2: Vec<u32>, unk3: Vec<u64>) -> Result<Vec<FriendRelationship>, ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        Ok(vec![])
     }
 
     async fn update_presence(&self, nintendo_presence: NintendoPresence, unk: bool) -> Result<(), ErrorCode> {

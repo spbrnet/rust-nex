@@ -24,9 +24,9 @@ pub struct MyProfile {
 pub struct Mii {
     #[extends]
     pub data: Data,
-    pub unk1: String,
-    pub unk2: bool,
-    pub unk3: u8,
+    pub name: String,
+    pub profanity: bool,
+    pub char_set: u8, // 0 is JPN/USA/EUR, 1 is CHN, 2 is KOR and 3 is TWN
     pub mii_data: Vec<u8>,
 }
 
@@ -62,7 +62,7 @@ pub struct PlayedGame {
 #[derive(RmcSerialize)]
 #[rmc_struct(0)]
 pub struct FriendInfo {
-    pub unk1: u32,
+    pub pid: u32,
     pub unk2: KerberosDateTime,
 }
 
@@ -91,9 +91,9 @@ pub struct FriendMiiList {
 pub struct FriendRelationship {
     #[extends]
     pub data: Data,
-    pub unk1: u32,
-    pub unk2: u64,
-    pub unk3: u8,
+    pub pid: u32,
+    pub local_friend_code: u64,
+    pub relationship_type: u8,
 }
 
 #[derive(RmcSerialize)]
@@ -117,7 +117,7 @@ pub struct NintendoPresence {
 pub struct FriendPresence {
     #[extends]
     pub data: Data,
-    pub unk: u32,
+    pub pid: u32,
     pub presence: NintendoPresence,
 }
 #[derive(RmcSerialize)]
