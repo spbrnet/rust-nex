@@ -453,6 +453,12 @@ pub trait DataStore {
         &self,
         application_id: u32,
     ) -> Result<bool, ErrorCode>;
+    #[method_id(82)]
+    async fn ctr_pickup_course_search_object(
+        &self,
+        course_search_param: DataStoreSearchParam,
+        extra_data: Vec<String>,
+    ) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode>;
     #[method_id(87)]
     async fn report_course(
         &self,
