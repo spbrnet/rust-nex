@@ -285,7 +285,7 @@ impl Friends3DS for FriendsUser {
             },
         };
 
-        Ok(vec![])
+        Ok(vec![presence])
     }
 
     async fn get_friend_comment(&self, unk: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>) -> Result<Vec<FriendComment>, ErrorCode> {
