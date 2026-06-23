@@ -132,11 +132,11 @@ impl Friends3DS for FriendsUser {
     }
 
     async fn update_mii(&self, profile: Mii) -> Result<(), ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        Ok(())
     }
 
     async fn update_mii_list(&self, profile: MiiList) -> Result<(), ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        Ok(())
     }
 
     async fn update_played_games(&self, profile: Vec<PlayedGame>) -> Result<(), ErrorCode> {
