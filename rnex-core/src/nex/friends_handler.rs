@@ -167,7 +167,7 @@ impl Friends3DS for FriendsUser {
 
         let dummymii = FriendMii {
             data: Data {},
-            pid: 0,
+            pid: 69,
             mii: Mii {
                 data: Data {},
                 name: "test".to_string(),
