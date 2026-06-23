@@ -128,7 +128,7 @@ impl FriendsManager {
 // ALL of this is stubbed
 impl Friends3DS for FriendsUser {
     async fn update_profile(&self, profile: MyProfile) -> Result<(), ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        Ok(())
     }
 
     async fn update_mii(&self, profile: Mii) -> Result<(), ErrorCode> {
@@ -140,7 +140,7 @@ impl Friends3DS for FriendsUser {
     }
 
     async fn update_played_games(&self, profile: Vec<PlayedGame>) -> Result<(), ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        Ok(())
     }
 
     async fn update_preference(&self, show_online_status: bool, show_current_title: bool, block_friend_requests: bool) -> Result<(), ErrorCode> {
