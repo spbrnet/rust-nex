@@ -197,7 +197,7 @@ impl Friends3DS for FriendsUser {
         let dummy = FriendRelationship {
             data: Data {},
             pid: 69,
-            local_friend_code: 1,
+            local_friend_code: 3268487429723707977,
             relationship_type: 1,
         };
 
@@ -224,7 +224,7 @@ impl Friends3DS for FriendsUser {
         let dummy = FriendRelationship {
             data: Data {},
             pid: 69,
-            local_friend_code: 1,
+            local_friend_code: 3268487429723707977,
             relationship_type: 1,
         };
 
@@ -241,7 +241,7 @@ impl Friends3DS for FriendsUser {
         let dummy = FriendRelationship {
             data: Data {},
             pid: 69,
-            local_friend_code: 1,
+            local_friend_code: 3268487429723707977,
             relationship_type: 1,
         };
 
@@ -267,6 +267,8 @@ impl Friends3DS for FriendsUser {
     }
 
     async fn get_friend_presence(&self, unk: Vec<u32>) -> Result<Vec<FriendPresence>, ErrorCode> {
+        log::info!("pids: {:?}", unk);
+
         let presence = FriendPresence {
             data: Data {},
             pid: 69,
@@ -275,8 +277,8 @@ impl Friends3DS for FriendsUser {
                 changed_bit_flag: 0,
                 game_key: rnex_core::rmc::protocols::friends_3ds::GameKey {
                     data: Data {},
-                    title_id: 0x0005000010176900,
-                    version: 0,
+                    title_id: 1125899907457280,
+                    version: 2064,
                 },
                 game_mode_desctiption: "".to_string(),
                 join_availibility_flag: 0,
@@ -311,8 +313,8 @@ impl Friends3DS for FriendsUser {
             platform: 0,
             game_key: rnex_core::rmc::protocols::friends_3ds::GameKey {
                 data: Data {},
-                title_id: 0x0005000010176900,
-                version: 0,
+                title_id: 1125899907457280,
+                version: 2064,
             },
             message: "yo whats up".to_string(),
             msg_updated_at: KerberosDateTime::now(),
