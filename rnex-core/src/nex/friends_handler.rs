@@ -274,7 +274,7 @@ impl Friends3DS for FriendsUser {
             pid: 69,
             presence: NintendoPresence {
                 data: Data {},
-                changed_bit_flag: 0,
+                changed_bit_flag: 0xFFFFFFFF,
                 game_key: rnex_core::rmc::protocols::friends_3ds::GameKey {
                     data: Data {},
                     title_id: 1125899907457280,
