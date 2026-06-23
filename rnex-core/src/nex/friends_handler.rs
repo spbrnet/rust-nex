@@ -16,6 +16,9 @@ use rnex_core::rmc::protocols::account_management::{
 use rnex_core::rmc::protocols::friends_wiiu::{
     FriendsWiiU, RawFriendsWiiU, RawFriendsWiiUInfo, RemoteFriendsWiiU,
 };
+use rnex_core::rmc::protocols::friends_3ds::{
+    Friends3DS, RawFriends3DS, RawFriends3DSInfo, RemoteFriends3DS,
+};
 use rnex_core::rmc::protocols::nintendo_notification::{
     NintendoNotification, RawNintendoNotification, RawNintendoNotificationInfo,
     RemoteNintendoNotification,
@@ -56,11 +59,13 @@ use crate::executables::common::get_db;
 use nex_account::derive_pid_hmac;
 use nex_account::grpc::ActCreateInfo;
 use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
+use crate::rmc::protocols::friends_3ds::{FriendComment, FriendMii, FriendMiiList, FriendPersistentInfo, FriendPicture, FriendPresence, FriendRelationship, Mii, MiiList, MyProfile, NintendoPresence, PlayedGame};
 
 define_rmc_proto!(
     proto FriendsUser{
         Secure,
-        FriendsWiiU
+        FriendsWiiU,
+        Friends3DS
     }
 );
 define_rmc_proto!(
@@ -117,6 +122,114 @@ pub struct FriendsManager {
 impl FriendsManager {
     pub fn next_cid(&self) -> u32 {
         self.cid_counter.fetch_add(1, Relaxed)
+    }
+}
+
+// ALL of this is stubbed
+impl Friends3DS for FriendsUser {
+    async fn update_profile(&self, profile: MyProfile) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn update_mii(&self, profile: Mii) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn update_mii_list(&self, profile: MiiList) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn update_played_games(&self, profile: Vec<PlayedGame>) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn update_preference(&self, show_online_status: bool, show_current_title: bool, block_friend_requests: bool) -> Result<(), ErrorCode> {
+        // stubbed
+        Ok(())
+    }
+
+    async fn get_friend_mii(&self, friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>) -> Result<Vec<FriendMii>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_friend_mii_list(&self, friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>) -> Result<Vec<FriendMiiList>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn is_active_game(&self, unk: Vec<u32>, game_key: crate::rmc::protocols::friends_3ds::GameKey) -> Result<Vec<u32>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_principal_id_by_local_friend_code(&self, unk1: u64, unk2: Vec<u64>) -> Result<Vec<FriendRelationship>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_friend_relationships(&self, unk2: Vec<u32>) -> Result<Vec<FriendRelationship>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn add_friend_by_pid(&self, unk: u64, pid: PID) -> Result<FriendRelationship, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn add_friend_by_lst_pid(&self, unk: u64, pid: Vec<PID>) -> Result<Vec<FriendRelationship>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn remove_friend_by_local_code(&self, local_code: u64) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn remove_friend_by_pid(&self, pid: PID) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_all_friends(&self) -> Result<Vec<FriendRelationship>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn update_blacklist(&self) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    async fn sync_friend(&self, unk1: u64, unk2: Vec<u32>, unk3: Vec<u64>) -> Result<Vec<FriendRelationship>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn update_presence(&self, nintendo_presence: NintendoPresence, unk: bool) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    async fn update_favorite_game_key(&self, game_key: crate::rmc::protocols::friends_3ds::GameKey) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    async fn update_comment(&self, comment: String) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    async fn update_picture(&self, unk: u32, picture: Vec<u8>) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_friend_presence(&self, unk: Vec<u32>) -> Result<Vec<FriendPresence>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_friend_comment(&self, unk: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>) -> Result<Vec<FriendComment>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_friend_picture(&self, unk: Vec<u32>) -> Result<Vec<FriendPicture>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_friend_persistent_info(&self, unk: Vec<u32>) -> Result<Vec<FriendPersistentInfo>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn send_invitation(&self, unk: Vec<u32>) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
     }
 }
 

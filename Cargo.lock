@@ -1693,7 +1693,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "tokio",
  "tower-service",
  "tracing",
@@ -2091,9 +2091,9 @@ checksum = "1d87ecb2933e8aeadb3e3a02b828fed80a7528047e68b4f424523a0981a3a084"
 
 [[package]]
 name = "nex-account"
-version = "0.2.0"
+version = "0.2.1"
 source = "sparse+https://crates.spbr.net/api/v1/crates/"
-checksum = "10e60c4ce2c2fd11862b85dd0176e0de57b4e9057b78ee98d9b00c82fa978601"
+checksum = "51215ae67dfb36017956435ee4935bd62d64b62a8dd716c4614e11c8c29f941e"
 dependencies = [
  "hmac 0.13.0",
  "log",
@@ -3595,7 +3595,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.2",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -4237,7 +4237,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
