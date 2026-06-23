@@ -20,7 +20,7 @@ jobs:
           submodules: recursive
 
       - name: Cache container storage
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /var/lib/containers/storage
@@ -50,7 +50,7 @@ jobs:
           submodules: recursive
 
       - name: Cache container storage
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /var/lib/containers/storage
@@ -80,7 +80,7 @@ jobs:
           submodules: recursive
 
       - name: Cache container storage
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /var/lib/containers/storage
@@ -110,7 +110,7 @@ jobs:
           submodules: recursive
 
       - name: Cache container storage
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /var/lib/containers/storage
@@ -140,7 +140,7 @@ jobs:
           submodules: recursive
 
       - name: Cache container storage
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /var/lib/containers/storage
@@ -170,7 +170,7 @@ jobs:
           submodules: recursive
 
       - name: Cache container storage
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /var/lib/containers/storage
@@ -200,7 +200,7 @@ jobs:
           submodules: recursive
 
       - name: Cache container storage
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /var/lib/containers/storage
@@ -230,7 +230,7 @@ jobs:
           submodules: recursive
 
       - name: Cache container storage
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /var/lib/containers/storage
@@ -260,7 +260,7 @@ jobs:
           submodules: recursive
 
       - name: Cache container storage
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /var/lib/containers/storage
@@ -290,7 +290,7 @@ jobs:
           submodules: recursive
 
       - name: Cache container storage
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /var/lib/containers/storage
@@ -321,7 +321,7 @@ jobs:
           submodules: recursive
 
       - name: Cache container storage
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /var/lib/containers/storage
