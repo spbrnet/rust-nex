@@ -149,7 +149,36 @@ impl Friends3DS for FriendsUser {
     }
 
     async fn get_friend_mii(&self, friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>) -> Result<Vec<FriendMii>, ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        // sorry for the copying pretendo but i don't have a mii on hand rn
+        let data: Vec<u8> = vec![
+            0x03, 0x00, 0x00, 0x40, 0xE9, 0x55, 0xA2, 0x09,
+            0xE7, 0xC7, 0x41, 0x82, 0xD9, 0x7D, 0x0B, 0x2D,
+            0x03, 0xB3, 0xB8, 0x8D, 0x27, 0xD9, 0x00, 0x00,
+            0x01, 0x40, 0x62, 0x00, 0x65, 0x00, 0x6C, 0x00,
+            0x6C, 0x00, 0x61, 0x00, 0x00, 0x00, 0x45, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x40,
+            0x12, 0x00, 0x81, 0x01, 0x04, 0x68, 0x43, 0x18,
+            0x20, 0x34, 0x46, 0x14, 0x81, 0x12, 0x17, 0x68,
+            0x0D, 0x00, 0x00, 0x29, 0x03, 0x52, 0x48, 0x50,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFE, 0x86,
+        ];
+
+        let dummymii = FriendMii {
+            data: Data {},
+            pid: 0,
+            mii: Mii {
+                data: Data {},
+                name: "test".to_string(),
+                profanity: false,
+                char_set: 0,
+                mii_data: data,
+            },
+            modified_at: Default::default(),
+        };
+
+        Ok(vec![dummymii])
     }
 
     async fn get_friend_mii_list(&self, friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>) -> Result<Vec<FriendMiiList>, ErrorCode> {
@@ -165,7 +194,14 @@ impl Friends3DS for FriendsUser {
     }
 
     async fn get_friend_relationships(&self, unk2: Vec<u32>) -> Result<Vec<FriendRelationship>, ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        let dummy = FriendRelationship {
+            data: Data {},
+            pid: 69,
+            local_friend_code: 1,
+            relationship_type: 1,
+        };
+
+        Ok(vec![dummy])
     }
 
     async fn add_friend_by_pid(&self, unk: u64, pid: PID) -> Result<FriendRelationship, ErrorCode> {
@@ -185,7 +221,14 @@ impl Friends3DS for FriendsUser {
     }
 
     async fn get_all_friends(&self) -> Result<Vec<FriendRelationship>, ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        let dummy = FriendRelationship {
+            data: Data {},
+            pid: 69,
+            local_friend_code: 1,
+            relationship_type: 1,
+        };
+
+        Ok(vec![dummy])
     }
 
     async fn update_blacklist(&self) -> Result<(), ErrorCode> {
@@ -193,7 +236,14 @@ impl Friends3DS for FriendsUser {
     }
 
     async fn sync_friend(&self, unk1: u64, unk2: Vec<u32>, unk3: Vec<u64>) -> Result<Vec<FriendRelationship>, ErrorCode> {
-        Ok(vec![])
+        let dummy = FriendRelationship {
+            data: Data {},
+            pid: 69,
+            local_friend_code: 1,
+            relationship_type: 1,
+        };
+
+        Ok(vec![dummy])
     }
 
     async fn update_presence(&self, nintendo_presence: NintendoPresence, unk: bool) -> Result<(), ErrorCode> {
@@ -213,7 +263,29 @@ impl Friends3DS for FriendsUser {
     }
 
     async fn get_friend_presence(&self, unk: Vec<u32>) -> Result<Vec<FriendPresence>, ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        let presence = FriendPresence {
+            data: Data {},
+            pid: 69,
+            presence: NintendoPresence {
+                data: Data {},
+                changed_bit_flag: 0,
+                game_key: rnex_core::rmc::protocols::friends_3ds::GameKey {
+                    data: Data {},
+                    title_id: 0x0005000010176900,
+                    version: 0,
+                },
+                game_mode_desctiption: "".to_string(),
+                join_availibility_flag: 0,
+                mm_system_type: 0,
+                join_game_id: 0,
+                join_game_mode: 0,
+                owner_pid: 0,
+                join_group_id: 0,
+                application_arg: vec![],
+            },
+        };
+
+        Ok(vec![])
     }
 
     async fn get_friend_comment(&self, unk: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>) -> Result<Vec<FriendComment>, ErrorCode> {
@@ -225,7 +297,26 @@ impl Friends3DS for FriendsUser {
     }
 
     async fn get_friend_persistent_info(&self, unk: Vec<u32>) -> Result<Vec<FriendPersistentInfo>, ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        let dummypersistentinfo = FriendPersistentInfo {
+            data: Data {},
+            pid: 69,
+            region: 0,
+            country: 0,
+            area: 0,
+            language: 0,
+            platform: 0,
+            game_key: rnex_core::rmc::protocols::friends_3ds::GameKey {
+                data: Data {},
+                title_id: 0x0005000010176900,
+                version: 0,
+            },
+            message: "yo whats up".to_string(),
+            msg_updated_at: KerberosDateTime::now(),
+            friended_at: KerberosDateTime::now(),
+            last_online: KerberosDateTime::now(),
+        };
+
+        Ok(vec![dummypersistentinfo])
     }
 
     async fn send_invitation(&self, unk: Vec<u32>) -> Result<(), ErrorCode> {
