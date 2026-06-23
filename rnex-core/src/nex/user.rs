@@ -813,6 +813,15 @@ impl Utility for User {
     async fn acquire_nex_unique_id(&self) -> Result<u64, ErrorCode> {
         return Ok(rand::random());
     }
+
+    async fn get_integer_settings(&self, index: u32) -> Result<Vec<(u16, i32)>, ErrorCode> {
+        Ok(vec![
+            (0, 1),
+            (1, 2),
+            (2, 0),
+            (3, 4)
+        ])
+    }
 }
 
 impl Ranking for User {
