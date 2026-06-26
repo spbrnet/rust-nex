@@ -1,7 +1,7 @@
 use crate::prudp::station_url::Type::{PRUDP, PRUDPS, UDP};
 use crate::prudp::station_url::UrlOptions::{
     Address, ConnectionID, NatFiltering, NatMapping, NatType, PID, PMP, Platform, Port,
-    PrincipalID, RVConnectionID, StreamID, StreamType, UPNP,
+    PrincipalID, ProbeInit, RVConnectionID, StreamID, StreamType, UPNP,
 };
 use crate::rmc::structures::Error::StationUrlInvalid;
 use crate::rmc::structures::RmcSerialize;
@@ -29,6 +29,7 @@ pub enum UrlOptions {
     StreamType(u8),
     StreamID(u8),
     ConnectionID(u32),
+    ProbeInit(u32),
     PrincipalID(rnex_core::PID),
     NatType(u8),
     NatMapping(u8),
@@ -75,6 +76,7 @@ impl StationUrl {
                 "pmp" => options_out.push(PMP(option_value.parse().ok()?)),
                 "pid" => options_out.push(PID(option_value.parse().ok()?)),
                 "PID" => options_out.push(PID(option_value.parse().ok()?)),
+                "probeinit" => options_out.push(ProbeInit(option_value.parse().ok()?)),
                 _ => {
                     error!("unimplemented option type, skipping: {}", option_name);
                 }
@@ -131,6 +133,7 @@ impl Display for StationUrl {
                 Platform(v) => write!(f, "pl={}", v)?,
                 PMP(v) => write!(f, "pmp={}", v)?,
                 PID(v) => write!(f, "PID={}", v)?,
+                ProbeInit(v) => write!(f, "probeinit={}", v)?,
             }
             write!(f, ";")?;
         }

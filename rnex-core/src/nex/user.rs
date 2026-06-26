@@ -394,7 +394,7 @@ impl MatchmakeExtension for User {
                 .await
                 .iter()
                 .copied()
-                .fold(true, |a, b| a || b);
+                .fold(true, |a, b| a && b);
                 if is_joinable_by_all {
                     warn!(
                         "tripped unreachable host detection for one of the users who were trying to join"
