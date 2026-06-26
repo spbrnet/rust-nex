@@ -10,6 +10,8 @@ use rnex_core::rmc::response::ErrorCode;
 
 use rnex_core::PID;
 
+use crate::prudp::station_url::UrlOptions::ConnectionID;
+
 pub async fn get_station_urls(
     station_urls: &[StationUrl],
     addr: PRUDPSockAddr,
@@ -89,6 +91,7 @@ pub async fn get_station_urls(
 
         station.options.push(PrincipalID(pid));
         station.options.push(RVConnectionID(cid));
+        station.options.push(ConnectionID(cid));
     }
 
     Ok(vec![public_station])
