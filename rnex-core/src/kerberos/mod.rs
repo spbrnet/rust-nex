@@ -232,3 +232,31 @@ mod test {
         assert_eq!(KerberosDateTime::PRACTICALLY_NEVER, time)
     }
 }
+
+#[test]
+fn test() {
+    let key = *b"my password";
+    let nkey = hex::decode("c3ef03044c6937d30e6b179f610ea190").unwrap();
+
+    let mut key: [u8; 16] = {
+        let mut md5 = Md5::new();
+        md5.update(key);
+        md5.finalize().try_into().unwrap()
+    };
+
+    loop {
+        if &nkey[..] == &key[..] {
+            println!("success");
+            return;
+        }
+        let mut md5 = Md5::new();
+        md5.update(key);
+        key = md5.finalize().try_into().unwrap();
+    }
+}
+
+struct NexToken {
+    pub pid: u32,
+    pub time: u64,
+    pub pw_hash: [u8; 4],
+}

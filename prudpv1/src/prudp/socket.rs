@@ -558,6 +558,14 @@ impl<T: CryptoHandler> InternalSocket<T> {
 
         let mut conn = conn.lock().await;
 
+        let mut response = packet.base_acknowledgement_packet();
+        response.header.types_and_flags.set_flag(HAS_SIZE | ACK);
+        response.header.session_id = conn.session_id;
+
+        conn.crypto_handler_instance.sign_packet(&mut response);
+
+        self.send_packet_unbuffered(address, &response).await;
+
         conn.packet_queue.insert(packet.header.sequence_id, packet);
 
         let mut counter = conn.reliable_client_counter;
@@ -565,14 +573,6 @@ impl<T: CryptoHandler> InternalSocket<T> {
         while let Some(mut packet) = conn.packet_queue.remove(&counter) {
             conn.crypto_handler_instance
                 .decrypt_incoming(packet.header.substream_id, &mut packet.payload[..]);
-
-            let mut response = packet.base_acknowledgement_packet();
-            response.header.types_and_flags.set_flag(HAS_SIZE | ACK);
-            response.header.session_id = conn.session_id;
-
-            conn.crypto_handler_instance.sign_packet(&mut response);
-
-            self.send_packet_unbuffered(address, &response).await;
 
             conn.data_sender.send(packet.payload).await.ok();
 
