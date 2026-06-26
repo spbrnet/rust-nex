@@ -1,4 +1,4 @@
-use log::info;
+use log::{info, warn};
 use rand::random;
 use rnex_core::PID;
 use rnex_core::nex::user::User;
@@ -19,7 +19,9 @@ use std::sync::atomic::Ordering::Relaxed;
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 use tokio::sync::{Mutex, RwLock};
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
+
+use crate::rmc::protocols::nat_traversal::RemoteNatTraversalConsole;
 
 pub struct MatchmakeManager {
     //pub gid_counter: AtomicU32,
@@ -314,6 +316,12 @@ impl ExtendedMatchmakeSession {
     }
 
     #[inline]
+    pub fn get_host(&self) -> Option<Arc<User>> {
+        self.get_active_players()
+            .find(|v| v.pid == self.session.gathering.host_pid)
+    }
+
+    #[inline]
     pub fn is_reachable(&self) -> bool {
         self.get_active_players()
             .any(|v| v.pid == self.session.gathering.host_pid)
@@ -338,6 +346,89 @@ impl ExtendedMatchmakeSession {
             self.session.open_participation
         };
         self.is_reachable() && is_open
+    }
+
+    pub async fn is_joinable_by(&self, user: Arc<User>) -> bool {
+        let Some(host) = self.get_host() else {
+            return false;
+        };
+
+        let Some(user_station_url) = user.station_url.read().await.first().cloned() else {
+            return false;
+        };
+        let Some(host_station_url) = host.station_url.read().await.first().cloned() else {
+            return false;
+        };
+
+        let mut tickets_requesters = host.remote_join_ticket_requesters.lock().await;
+        tickets_requesters.insert(user.cid, Arc::downgrade(&user));
+        drop(tickets_requesters);
+
+        host.remote
+            .request_probe_initiation(user_station_url.to_string())
+            .await;
+
+        let Some(_) = timeout(Duration::from_secs(5), async {
+            loop {
+                let mut stage1_recv = user.join_tickets_stage1_recv.lock().await;
+
+                let Some(ticket) = stage1_recv.recv().await else {
+                    return None;
+                };
+
+                if ticket.cid != host.cid {
+                    user.join_tickets_stage1_sender.send(ticket).await.ok();
+                    drop(stage1_recv);
+                    warn!("got incorrect ticket sleeping for 500 millis whilest leaving ticket reciever open for use");
+
+                    sleep(Duration::from_millis(500)).await;
+                    continue;
+                }
+
+                return Some(ticket);
+            }
+        })
+        .await
+        .ok()
+        .flatten() else {
+            return false;
+        };
+
+        let mut ticket_requesters = user.self_join_ticket_requesters.lock().await;
+        ticket_requesters.insert(host.cid);
+        drop(ticket_requesters);
+
+        user.remote
+            .request_probe_initiation(host_station_url.to_string())
+            .await;
+
+        let Some(stage2_ticket) = timeout(Duration::from_secs(5), async {
+            loop {
+                let mut stage2_recv = user.join_tickets_stage2_recv.lock().await;
+
+                let Some(ticket) = stage2_recv.recv().await else {
+                    return None;
+                };
+
+                if ticket.cid != host.cid {
+                    user.join_tickets_stage2_sender.send(ticket).await.ok();
+                    drop(stage2_recv);
+                    warn!("got incorrect ticket sleeping for 500 millis whilest leaving ticket reciever open for use");
+
+                    sleep(Duration::from_millis(500)).await;
+                    continue;
+                }
+
+                return Some(ticket);
+            }
+        })
+        .await
+        .ok()
+        .flatten() else {
+            return false;
+        };
+
+        stage2_ticket.result
     }
 
     pub fn matches_criteria(

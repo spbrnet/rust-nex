@@ -1,3 +1,5 @@
+use futures::future::join_all;
+use log::warn;
 use rnex_core::PID;
 use rnex_core::define_rmc_proto;
 use rnex_core::kerberos::KerberosDateTime;
@@ -33,8 +35,12 @@ use rnex_core::rmc::structures::matchmake::{
     AutoMatchmakeParam, CreateMatchmakeSessionParam, JoinMatchmakeSessionParam, MatchmakeSession,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::env;
 use std::str::FromStr;
+use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::Sender;
 
 use cfg_if::cfg_if;
 use log::{error, info};
@@ -54,6 +60,7 @@ use rnex_core::rmc::structures::ranking::UploadCompetitionData;
 use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
 
+use crate::kerberos::Ticket;
 use crate::rmc::protocols::message_delivery::RemoteMessageDeliveryNoResponse;
 use crate::rmc::protocols::messaging::UserMessage;
 use crate::rmc::structures::matchmake::Gathering;
@@ -90,14 +97,29 @@ cfg_if! {
     }
 }
 
+/// Connection tickets are allowances to join a specific lobby, they are given out as soon as nat checks pass,
+/// there are 2 stages of tickets because both sides have to do nat checking before we let the player join
+/// the lobby
+pub struct ConnectionTicket {
+    pub cid: u32,
+    pub result: bool,
+}
+
 #[rmc_struct(UserProtocol)]
 pub struct User {
     pub pid: PID,
+    pub cid: u32,
     pub ip: PRUDPSockAddr,
     pub this: Weak<User>,
     pub remote: RemoteConsole,
     pub station_url: RwLock<Vec<StationUrl>>,
     pub matchmake_manager: Arc<MatchmakeManager>,
+    pub remote_join_ticket_requesters: Mutex<HashMap<u32, Weak<User>>>,
+    pub self_join_ticket_requesters: Mutex<HashSet<u32>>,
+    pub join_tickets_stage1_sender: Sender<ConnectionTicket>,
+    pub join_tickets_stage1_recv: Mutex<Receiver<ConnectionTicket>>,
+    pub join_tickets_stage2_sender: Sender<ConnectionTicket>,
+    pub join_tickets_stage2_recv: Mutex<Receiver<ConnectionTicket>>,
 }
 
 impl Secure for User {
@@ -105,8 +127,7 @@ impl Secure for User {
         &self,
         station_urls: Vec<StationUrl>,
     ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
-        let cid = self.matchmake_manager.next_cid();
-
+        let cid = self.cid;
         println!("{:?}", station_urls);
 
         let mut users = self.matchmake_manager.users.write().await;
@@ -364,6 +385,21 @@ impl MatchmakeExtension for User {
 
             if bool_matched_criteria {
                 println!("matched session: {:?}", session);
+                let is_joinable_by_all = join_all(
+                    joining_players
+                        .iter()
+                        .filter_map(|f| f.upgrade())
+                        .map(|v| session.is_joinable_by(v)),
+                )
+                .await
+                .iter()
+                .copied()
+                .fold(true, |a, b| a || b);
+                if is_joinable_by_all {
+                    warn!(
+                        "tripped unreachable host detection for one of the users who were trying to join"
+                    );
+                }
                 session
                     .add_players(&joining_players, param.join_message)
                     .await;
@@ -709,10 +745,33 @@ impl NatTraversal for User {
 
     async fn report_nat_traversal_result(
         &self,
-        _cid: u32,
-        _result: bool,
+        cid: u32,
+        result: bool,
         _rtt: u32,
     ) -> Result<(), ErrorCode> {
+        if let Some(user) = self
+            .remote_join_ticket_requesters
+            .lock()
+            .await
+            .remove(&cid)
+            .map(|u| u.upgrade())
+            .flatten()
+        {
+            user.join_tickets_stage1_sender
+                .send(ConnectionTicket {
+                    cid: self.cid,
+                    result,
+                })
+                .await
+                .ok();
+        }
+        if let Some(user) = self.self_join_ticket_requesters.lock().await.take(&cid) {
+            self.join_tickets_stage2_sender
+                .send(ConnectionTicket { cid, result })
+                .await
+                .ok();
+        }
+
         Ok(())
     }
 
