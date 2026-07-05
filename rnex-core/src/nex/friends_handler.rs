@@ -4,8 +4,9 @@ use std::ops::Deref;
 use std::sync::{Arc, atomic::AtomicU32};
 use std::sync::{LazyLock, Weak};
 
-use base64::{engine::general_purpose, Engine as _};
-use bytemuck::{bytes_of, Pod, Zeroable};
+use base64::{Engine as _, engine::general_purpose};
+use bytemuck::{Pod, Zeroable, bytes_of};
+use hex::decode;
 use hmac::Mac;
 use log::info;
 use macros::rmc_struct;
@@ -13,11 +14,11 @@ use rnex_core::rmc::protocols::account_management::{
     AccountExtraInfo, AccountManagement, RawAccountManagement, RawAccountManagementInfo,
     RemoteAccountManagement,
 };
-use rnex_core::rmc::protocols::friends_wiiu::{
-    FriendsWiiU, RawFriendsWiiU, RawFriendsWiiUInfo, RemoteFriendsWiiU,
-};
 use rnex_core::rmc::protocols::friends_3ds::{
     Friends3DS, RawFriends3DS, RawFriends3DSInfo, RemoteFriends3DS,
+};
+use rnex_core::rmc::protocols::friends_wiiu::{
+    FriendsWiiU, RawFriendsWiiU, RawFriendsWiiUInfo, RemoteFriendsWiiU,
 };
 use rnex_core::rmc::protocols::nintendo_notification::{
     NintendoNotification, RawNintendoNotification, RawNintendoNotificationInfo,
@@ -40,7 +41,6 @@ use rnex_core::{
 };
 use sqlx::query;
 use std::sync::atomic::Ordering::Relaxed;
-use hex::decode;
 use tokio::spawn;
 use tokio::sync::RwLock;
 
@@ -56,10 +56,13 @@ use rnex_core::rmc::structures::data::Data;
 
 use crate::executables::common::get_db;
 
-use nex_account::derive_pid_hmac;
+use crate::rmc::protocols::friends_3ds::{
+    FriendComment, FriendMii, FriendMiiList, FriendPersistentInfo, FriendPicture, FriendPresence,
+    FriendRelationship, Mii, MiiList, MyProfile, NintendoPresence, PlayedGame,
+};
 use nex_account::grpc::ActCreateInfo;
 use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
-use crate::rmc::protocols::friends_3ds::{FriendComment, FriendMii, FriendMiiList, FriendPersistentInfo, FriendPicture, FriendPresence, FriendRelationship, Mii, MiiList, MyProfile, NintendoPresence, PlayedGame};
+use nex_account::{derive_pid_hmac, grpc_client};
 
 define_rmc_proto!(
     proto FriendsUser{
@@ -95,7 +98,6 @@ pub struct NascToken {
     pub time: [u8; 14],
     pub pwd_hash: [u8; 4],
 }
-
 
 #[rmc_struct(FriendsUser)]
 pub struct FriendsUser {
@@ -143,26 +145,29 @@ impl Friends3DS for FriendsUser {
         Ok(())
     }
 
-    async fn update_preference(&self, show_online_status: bool, show_current_title: bool, block_friend_requests: bool) -> Result<(), ErrorCode> {
+    async fn update_preference(
+        &self,
+        show_online_status: bool,
+        show_current_title: bool,
+        block_friend_requests: bool,
+    ) -> Result<(), ErrorCode> {
         // stubbed
         Ok(())
     }
 
-    async fn get_friend_mii(&self, friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>) -> Result<Vec<FriendMii>, ErrorCode> {
+    async fn get_friend_mii(
+        &self,
+        friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
+    ) -> Result<Vec<FriendMii>, ErrorCode> {
         // sorry for the copying pretendo but i don't have a mii on hand rn
         let data: Vec<u8> = vec![
-            0x03, 0x00, 0x00, 0x40, 0xE9, 0x55, 0xA2, 0x09,
-            0xE7, 0xC7, 0x41, 0x82, 0xD9, 0x7D, 0x0B, 0x2D,
-            0x03, 0xB3, 0xB8, 0x8D, 0x27, 0xD9, 0x00, 0x00,
-            0x01, 0x40, 0x62, 0x00, 0x65, 0x00, 0x6C, 0x00,
-            0x6C, 0x00, 0x61, 0x00, 0x00, 0x00, 0x45, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x40,
-            0x12, 0x00, 0x81, 0x01, 0x04, 0x68, 0x43, 0x18,
-            0x20, 0x34, 0x46, 0x14, 0x81, 0x12, 0x17, 0x68,
-            0x0D, 0x00, 0x00, 0x29, 0x03, 0x52, 0x48, 0x50,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFE, 0x86,
+            0x03, 0x00, 0x00, 0x40, 0xE9, 0x55, 0xA2, 0x09, 0xE7, 0xC7, 0x41, 0x82, 0xD9, 0x7D,
+            0x0B, 0x2D, 0x03, 0xB3, 0xB8, 0x8D, 0x27, 0xD9, 0x00, 0x00, 0x01, 0x40, 0x62, 0x00,
+            0x65, 0x00, 0x6C, 0x00, 0x6C, 0x00, 0x61, 0x00, 0x00, 0x00, 0x45, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x40, 0x40, 0x12, 0x00, 0x81, 0x01, 0x04, 0x68, 0x43, 0x18,
+            0x20, 0x34, 0x46, 0x14, 0x81, 0x12, 0x17, 0x68, 0x0D, 0x00, 0x00, 0x29, 0x03, 0x52,
+            0x48, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFE, 0x86,
         ];
 
         let dummymii = FriendMii {
@@ -181,19 +186,33 @@ impl Friends3DS for FriendsUser {
         Ok(vec![dummymii])
     }
 
-    async fn get_friend_mii_list(&self, friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>) -> Result<Vec<FriendMiiList>, ErrorCode> {
+    async fn get_friend_mii_list(
+        &self,
+        friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
+    ) -> Result<Vec<FriendMiiList>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
-    async fn is_active_game(&self, unk: Vec<u32>, game_key: crate::rmc::protocols::friends_3ds::GameKey) -> Result<Vec<u32>, ErrorCode> {
+    async fn is_active_game(
+        &self,
+        unk: Vec<u32>,
+        game_key: crate::rmc::protocols::friends_3ds::GameKey,
+    ) -> Result<Vec<u32>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
-    async fn get_principal_id_by_local_friend_code(&self, unk1: u64, unk2: Vec<u64>) -> Result<Vec<FriendRelationship>, ErrorCode> {
+    async fn get_principal_id_by_local_friend_code(
+        &self,
+        unk1: u64,
+        unk2: Vec<u64>,
+    ) -> Result<Vec<FriendRelationship>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
-    async fn get_friend_relationships(&self, unk2: Vec<u32>) -> Result<Vec<FriendRelationship>, ErrorCode> {
+    async fn get_friend_relationships(
+        &self,
+        unk2: Vec<u32>,
+    ) -> Result<Vec<FriendRelationship>, ErrorCode> {
         let dummy = FriendRelationship {
             data: Data {},
             pid: 69,
@@ -208,7 +227,11 @@ impl Friends3DS for FriendsUser {
         Err(ErrorCode::Core_NotImplemented)
     }
 
-    async fn add_friend_by_lst_pid(&self, unk: u64, pid: Vec<PID>) -> Result<Vec<FriendRelationship>, ErrorCode> {
+    async fn add_friend_by_lst_pid(
+        &self,
+        unk: u64,
+        pid: Vec<PID>,
+    ) -> Result<Vec<FriendRelationship>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
@@ -235,7 +258,12 @@ impl Friends3DS for FriendsUser {
         Ok(())
     }
 
-    async fn sync_friend(&self, unk1: u64, unk2: Vec<u32>, unk3: Vec<u64>) -> Result<Vec<FriendRelationship>, ErrorCode> {
+    async fn sync_friend(
+        &self,
+        unk1: u64,
+        unk2: Vec<u32>,
+        unk3: Vec<u64>,
+    ) -> Result<Vec<FriendRelationship>, ErrorCode> {
         log::info!("params: {:?}, {:?}, {:?}", unk1, unk2, unk3);
 
         let dummy = FriendRelationship {
@@ -248,11 +276,18 @@ impl Friends3DS for FriendsUser {
         Ok(vec![dummy])
     }
 
-    async fn update_presence(&self, nintendo_presence: NintendoPresence, unk: bool) -> Result<(), ErrorCode> {
+    async fn update_presence(
+        &self,
+        nintendo_presence: NintendoPresence,
+        unk: bool,
+    ) -> Result<(), ErrorCode> {
         Ok(())
     }
 
-    async fn update_favorite_game_key(&self, game_key: rnex_core::rmc::protocols::friends_3ds::GameKey) -> Result<(), ErrorCode> {
+    async fn update_favorite_game_key(
+        &self,
+        game_key: rnex_core::rmc::protocols::friends_3ds::GameKey,
+    ) -> Result<(), ErrorCode> {
         log::info!("favorite game key: {:?}", game_key);
 
         Ok(())
@@ -294,7 +329,10 @@ impl Friends3DS for FriendsUser {
         Ok(vec![presence])
     }
 
-    async fn get_friend_comment(&self, unk: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>) -> Result<Vec<FriendComment>, ErrorCode> {
+    async fn get_friend_comment(
+        &self,
+        unk: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
+    ) -> Result<Vec<FriendComment>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
@@ -302,7 +340,10 @@ impl Friends3DS for FriendsUser {
         Err(ErrorCode::Core_NotImplemented)
     }
 
-    async fn get_friend_persistent_info(&self, unk: Vec<u32>) -> Result<Vec<FriendPersistentInfo>, ErrorCode> {
+    async fn get_friend_persistent_info(
+        &self,
+        unk: Vec<u32>,
+    ) -> Result<Vec<FriendPersistentInfo>, ErrorCode> {
         let dummypersistentinfo = FriendPersistentInfo {
             data: Data {},
             pid: 69,
@@ -508,29 +549,6 @@ impl Secure for FriendsGuest {
     }
 }
 
-
-// this is probably a horrible way to do this. it's 1:27am. fuck off please i'll fix it later.
-fn decode_token(encoded_str: &str) -> Result<NascToken, &'static str> {
-    // i dont like the use of replace here as this will reallocate the entire string
-    // im gonna keep it though as long as noone comes up with a good alternative for this
-    // without complicating the code/making it far less readable/unnescesarily long
-    let standard_b64 = encoded_str.replace('.', "+").replace('-', "/").replace('*', "=");
-
-    let standard = general_purpose::STANDARD.decode(standard_b64).map_err(|_| "failed to convert")?;
-
-    let bytes = general_purpose::STANDARD
-        .decode(standard)
-        .map_err(|_| "failed to decode Base64 string")?;
-
-    if bytes.len() != std::mem::size_of::<NascToken>() {
-        return Err("decoded byte length mismatch");
-    }
-
-    let token = bytemuck::from_bytes::<NascToken>(&bytes);
-
-    Ok(*token)
-}
-
 impl AccountManagement for FriendsGuest {
     async fn nintendo_create_account(
         &self,
@@ -542,70 +560,50 @@ impl AccountManagement for FriendsGuest {
     ) -> Result<(PID, String), ErrorCode> {
         println!("{}, {}, {}, {}", principal_name, key, groups, email);
 
-        if let Ok(data) = auth_data.try_get_as::<NintendoCreateAccountData>() {
-            let pid = data.nna_info.principal_basic_info.pid;
-            info!("create account via standard data: {}", pid);
+        let nex_token = if let Ok(extra_info) = auth_data.try_get_as::<AccountExtraInfo>() {
+            extra_info.nex_token
+        } else if let Ok(data) = auth_data.try_get_as::<NintendoCreateAccountData>() {
+            data.nex_token
+        } else {
+            return Err(ErrorCode::Authentication_InvalidParam);
+        };
+        let (pid, nex_key) = nex_account::decode_nexact_token(&nex_token).map_err(|e| {
+            log::error!("failed to decode token: {}", e);
+            log::info!("{:?}", nex_token);
+            ErrorCode::Authentication_InvalidParam
+        })?;
 
-            let nexkey: [u8; 16] = hex::decode(key)
-                .map_err(|_| ErrorCode::Authentication_InvalidParam)?
-                .as_slice()
-                .try_into()
-                .map_err(|_| ErrorCode::Authentication_InvalidParam)?;
+        //let mac = derive_pid_hmac(data.nna_info.principal_basic_info.pid, &nexkey);
 
-            let mac = derive_pid_hmac(data.nna_info.principal_basic_info.pid, &nexkey);
+        let mut client = grpc_client().await.map_err(|e| {
+            eprintln!("error occurred: {:?}", e);
+            ErrorCode::Core_Unknown
+        })?;
 
-            let hex_str = hex::encode(mac);
-            return Ok((pid, hex_str));
+        let new_account: ActCreateInfo = ActCreateInfo {
+            principal_name,
+            key: nex_key.into(),
+            email,
+            pid,
+        };
+
+        let nexkey = client
+            .create_new_sequential_or_update_and_get_account(new_account)
+            .await
+            .map_err(|e| ErrorCode::Core_Unknown)?
+            .into_inner();
+
+        if nexkey.key.len() != 16 {
+            log::error!("nex key was not 16 bytes long");
+            return Err(ErrorCode::Authentication_InvalidParam);
         }
 
-        if let Ok(extra_info) = auth_data.try_get_as::<AccountExtraInfo>() {
-            info!("create account via extra info");
+        let nexkeyarray: [u8; 16] = nexkey.key.try_into().expect("how...?");
 
-            let decoded_token = decode_token(&*extra_info.nex_token).map_err(|e| {
-                log::error!("failed to decode token: {}", e);
-                log::info!("{:?}", extra_info.nex_token);
-                ErrorCode::Authentication_InvalidParam
-            })?;
+        let mac = derive_pid_hmac(pid, &nexkeyarray);
 
-            log::info!("decoded token: {:?}", decoded_token);
+        let hex_str = hex::encode(mac);
 
-            let mut client = NexAccountServiceClient::connect(NEX_ACCOUNT_URL.as_str())
-                .await
-                .map_err(|e| {
-                    eprintln!("error occurred: {:?}", e);
-                    ErrorCode::Core_Unknown
-                })?;
-
-            let pid = decoded_token.pid;
-
-            let new_account: ActCreateInfo = ActCreateInfo {
-                principal_name,
-                key: vec![],
-                email,
-                pid,
-            };
-
-            let nexkey = client
-                .create_new_sequential_or_update_and_get_account(new_account)
-                .await
-                .map_err(|e| {ErrorCode::Core_Unknown})?
-                .into_inner();
-
-            if nexkey.key.len() != 16 {
-                log::error!("nex key was not 16 bytes long");
-                return Err(ErrorCode::Authentication_InvalidParam);
-            }
-
-            let nexkeyarray: [u8; 16] = nexkey.key.try_into()
-                .expect("how...?");
-
-            let mac = derive_pid_hmac(pid, &nexkeyarray);
-
-            let hex_str = hex::encode(mac);
-
-            return Ok((pid, hex_str));
-        }
-
-        Err(ErrorCode::Authentication_InvalidParam)
+        return Ok((pid, hex_str));
     }
 }
