@@ -1,10 +1,26 @@
-use macros::{method_id, rmc_proto};
+use macros::{RmcSerialize, method_id, rmc_proto};
 use rnex_core::prudp::station_url::StationUrl;
 use rnex_core::rmc::response::ErrorCode;
 use rnex_core::rmc::structures::qresult::QResult;
 
 use crate::rmc::structures::any::Any;
 use crate::rmc::structures::data::Data;
+
+#[derive(RmcSerialize)]
+#[rmc_struct(0)]
+struct NintendoLoginData {
+    #[extends]
+    data: Data,
+    token: String,
+}
+
+#[derive(RmcSerialize)]
+#[rmc_struct(0)]
+struct AccountExtraInfo {
+    #[extends]
+    data: Data,
+    token: String,
+}
 
 #[rmc_proto(11)]
 pub trait Secure {
