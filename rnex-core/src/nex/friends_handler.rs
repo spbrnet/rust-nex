@@ -1,14 +1,21 @@
+use std::env;
 use std::io::{Cursor, Write};
 use std::ops::Deref;
-use std::sync::Weak;
 use std::sync::{Arc, atomic::AtomicU32};
+use std::sync::{LazyLock, Weak};
 
-use bytemuck::bytes_of;
+use base64::{Engine as _, engine::general_purpose};
+use bytemuck::{Pod, Zeroable, bytes_of};
+use hex::decode;
 use hmac::Mac;
 use log::info;
 use macros::rmc_struct;
 use rnex_core::rmc::protocols::account_management::{
-    AccountManagement, RawAccountManagement, RawAccountManagementInfo, RemoteAccountManagement,
+    AccountExtraInfo, AccountManagement, RawAccountManagement, RawAccountManagementInfo,
+    RemoteAccountManagement,
+};
+use rnex_core::rmc::protocols::friends_3ds::{
+    Friends3DS, RawFriends3DS, RawFriends3DSInfo, RemoteFriends3DS,
 };
 use rnex_core::rmc::protocols::friends_wiiu::{
     FriendsWiiU, RawFriendsWiiU, RawFriendsWiiUInfo, RemoteFriendsWiiU,
@@ -49,10 +56,19 @@ use rnex_core::rmc::structures::data::Data;
 
 use crate::executables::common::get_db;
 
+use crate::rmc::protocols::friends_3ds::{
+    FriendComment, FriendMii, FriendMiiList, FriendPersistentInfo, FriendPicture, FriendPresence,
+    FriendRelationship, Mii, MiiList, MyProfile, NintendoPresence, PlayedGame,
+};
+use nex_account::grpc::ActCreateInfo;
+use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
+use nex_account::{derive_pid_hmac, grpc_client};
+
 define_rmc_proto!(
     proto FriendsUser{
         Secure,
-        FriendsWiiU
+        FriendsWiiU,
+        Friends3DS
     }
 );
 define_rmc_proto!(
@@ -67,9 +83,20 @@ define_rmc_proto!(
     }
 );
 
+static NEX_ACCOUNT_URL: LazyLock<String> =
+    LazyLock::new(|| env::var("NEX_ACCOUNT_ENDPOINT").expect("NEX_ACCOUNT_ENDPOINT not set"));
+
 pub struct UserData {
     info: NNAInfo,
     presence: NintendoPresenceV2,
+}
+
+#[repr(C, packed)]
+#[derive(Pod, Zeroable, Copy, Clone, Debug)]
+pub struct NascToken {
+    pub pid: i32,
+    pub time: [u8; 14],
+    pub pwd_hash: [u8; 4],
 }
 
 #[rmc_struct(FriendsUser)]
@@ -100,6 +127,250 @@ impl FriendsManager {
     }
 }
 
+// ALL of this is stubbed
+impl Friends3DS for FriendsUser {
+    async fn update_profile(&self, profile: MyProfile) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    async fn update_mii(&self, profile: Mii) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    async fn update_mii_list(&self, profile: MiiList) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    async fn update_played_games(&self, profile: Vec<PlayedGame>) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    async fn update_preference(
+        &self,
+        show_online_status: bool,
+        show_current_title: bool,
+        block_friend_requests: bool,
+    ) -> Result<(), ErrorCode> {
+        // stubbed
+        Ok(())
+    }
+
+    async fn get_friend_mii(
+        &self,
+        friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
+    ) -> Result<Vec<FriendMii>, ErrorCode> {
+        // sorry for the copying pretendo but i don't have a mii on hand rn
+        let data: Vec<u8> = vec![
+            0x03, 0x00, 0x00, 0x40, 0xE9, 0x55, 0xA2, 0x09, 0xE7, 0xC7, 0x41, 0x82, 0xD9, 0x7D,
+            0x0B, 0x2D, 0x03, 0xB3, 0xB8, 0x8D, 0x27, 0xD9, 0x00, 0x00, 0x01, 0x40, 0x62, 0x00,
+            0x65, 0x00, 0x6C, 0x00, 0x6C, 0x00, 0x61, 0x00, 0x00, 0x00, 0x45, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x40, 0x40, 0x12, 0x00, 0x81, 0x01, 0x04, 0x68, 0x43, 0x18,
+            0x20, 0x34, 0x46, 0x14, 0x81, 0x12, 0x17, 0x68, 0x0D, 0x00, 0x00, 0x29, 0x03, 0x52,
+            0x48, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFE, 0x86,
+        ];
+
+        let dummymii = FriendMii {
+            data: Data {},
+            pid: 69,
+            mii: Mii {
+                data: Data {},
+                name: "test".to_string(),
+                profanity: false,
+                char_set: 0,
+                mii_data: data,
+            },
+            modified_at: Default::default(),
+        };
+
+        Ok(vec![dummymii])
+    }
+
+    async fn get_friend_mii_list(
+        &self,
+        friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
+    ) -> Result<Vec<FriendMiiList>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn is_active_game(
+        &self,
+        unk: Vec<u32>,
+        game_key: crate::rmc::protocols::friends_3ds::GameKey,
+    ) -> Result<Vec<u32>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_principal_id_by_local_friend_code(
+        &self,
+        unk1: u64,
+        unk2: Vec<u64>,
+    ) -> Result<Vec<FriendRelationship>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_friend_relationships(
+        &self,
+        unk2: Vec<u32>,
+    ) -> Result<Vec<FriendRelationship>, ErrorCode> {
+        let dummy = FriendRelationship {
+            data: Data {},
+            pid: 69,
+            local_friend_code: 3268487429723707977,
+            relationship_type: 1,
+        };
+
+        Ok(vec![dummy])
+    }
+
+    async fn add_friend_by_pid(&self, unk: u64, pid: PID) -> Result<FriendRelationship, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn add_friend_by_lst_pid(
+        &self,
+        unk: u64,
+        pid: Vec<PID>,
+    ) -> Result<Vec<FriendRelationship>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn remove_friend_by_local_code(&self, local_code: u64) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn remove_friend_by_pid(&self, pid: PID) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_all_friends(&self) -> Result<Vec<FriendRelationship>, ErrorCode> {
+        let dummy = FriendRelationship {
+            data: Data {},
+            pid: 69,
+            local_friend_code: 3268487429723707977,
+            relationship_type: 1,
+        };
+
+        Ok(vec![dummy])
+    }
+
+    async fn update_blacklist(&self) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    async fn sync_friend(
+        &self,
+        unk1: u64,
+        unk2: Vec<u32>,
+        unk3: Vec<u64>,
+    ) -> Result<Vec<FriendRelationship>, ErrorCode> {
+        log::info!("params: {:?}, {:?}, {:?}", unk1, unk2, unk3);
+
+        let dummy = FriendRelationship {
+            data: Data {},
+            pid: 69,
+            local_friend_code: 3268487429723707977,
+            relationship_type: 1,
+        };
+
+        Ok(vec![dummy])
+    }
+
+    async fn update_presence(
+        &self,
+        nintendo_presence: NintendoPresence,
+        unk: bool,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    async fn update_favorite_game_key(
+        &self,
+        game_key: rnex_core::rmc::protocols::friends_3ds::GameKey,
+    ) -> Result<(), ErrorCode> {
+        log::info!("favorite game key: {:?}", game_key);
+
+        Ok(())
+    }
+
+    async fn update_comment(&self, comment: String) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    async fn update_picture(&self, unk: u32, picture: Vec<u8>) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_friend_presence(&self, unk: Vec<u32>) -> Result<Vec<FriendPresence>, ErrorCode> {
+        log::info!("pids: {:?}", unk);
+
+        let presence = FriendPresence {
+            data: Data {},
+            pid: 69,
+            presence: NintendoPresence {
+                data: Data {},
+                changed_bit_flag: 0xFFFFFFFF,
+                game_key: rnex_core::rmc::protocols::friends_3ds::GameKey {
+                    data: Data {},
+                    title_id: 1125899907457280,
+                    version: 2064,
+                },
+                game_mode_desctiption: "".to_string(),
+                join_availibility_flag: 0,
+                mm_system_type: 0,
+                join_game_id: 0,
+                join_game_mode: 0,
+                owner_pid: 0,
+                join_group_id: 0,
+                application_arg: vec![],
+            },
+        };
+
+        Ok(vec![presence])
+    }
+
+    async fn get_friend_comment(
+        &self,
+        unk: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
+    ) -> Result<Vec<FriendComment>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_friend_picture(&self, unk: Vec<u32>) -> Result<Vec<FriendPicture>, ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+
+    async fn get_friend_persistent_info(
+        &self,
+        unk: Vec<u32>,
+    ) -> Result<Vec<FriendPersistentInfo>, ErrorCode> {
+        let dummypersistentinfo = FriendPersistentInfo {
+            data: Data {},
+            pid: 69,
+            region: 0,
+            country: 0,
+            area: 0,
+            language: 0,
+            platform: 0,
+            game_key: rnex_core::rmc::protocols::friends_3ds::GameKey {
+                data: Data {},
+                title_id: 1125899907457280,
+                version: 2064,
+            },
+            message: "yo whats up".to_string(),
+            msg_updated_at: KerberosDateTime::now(),
+            friended_at: KerberosDateTime::now(),
+            last_online: KerberosDateTime::now(),
+        };
+
+        Ok(vec![dummypersistentinfo])
+    }
+
+    async fn send_invitation(&self, unk: Vec<u32>) -> Result<(), ErrorCode> {
+        Err(ErrorCode::Core_NotImplemented)
+    }
+}
+
 impl FriendsWiiU for FriendsUser {
     async fn update_and_get_all_information(
         &self,
@@ -121,7 +392,27 @@ impl FriendsWiiU for FriendsUser {
         ErrorCode,
     > {
         // let query = query!("select ", self.pid).fetch_all(get_db()).await;
-        Err(ErrorCode::Core_NotImplemented)
+        Ok((
+            PrincipalPreference {
+                data: Data {},
+                block_friend_request: false,
+                show_online: true,
+                show_playing_title: false,
+            },
+            Comment {
+                data: Data {},
+                last_changed: KerberosDateTime::now(),
+                message: "stub(will be impl'd later)".into(),
+                unk: 0,
+            },
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            false,
+            vec![],
+            false,
+        ))
     }
 
     async fn add_friend(&self, friend: PID) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
@@ -288,28 +579,51 @@ impl AccountManagement for FriendsGuest {
         auth_data: Any,
     ) -> Result<(PID, String), ErrorCode> {
         println!("{}, {}, {}, {}", principal_name, key, groups, email);
-        if auth_data.name == "NintendoCreateAccountData" {
-            let Ok(data) =
-                NintendoCreateAccountData::deserialize(&mut Cursor::new(&auth_data.data))
-            else {
-                return Err(ErrorCode::Authentication_InvalidParam);
-            };
 
-            let pid = data.nna_info.principal_basic_info.pid;
-            info!("create account: {}", pid);
+        let nex_token = if let Ok(extra_info) = auth_data.try_get_as::<AccountExtraInfo>() {
+            extra_info.nex_token
+        } else if let Ok(data) = auth_data.try_get_as::<NintendoCreateAccountData>() {
+            data.nex_token
+        } else {
+            return Err(ErrorCode::Authentication_InvalidParam);
+        };
+        let (pid, nex_key) = nex_account::decode_nexact_token(&nex_token).map_err(|e| {
+            log::error!("failed to decode token: {}", e);
+            log::info!("{:?}", nex_token);
+            ErrorCode::Authentication_InvalidParam
+        })?;
 
-            let Ok(mut mac) = HMacMd5::new_from_slice(key.as_bytes()) else {
-                return Err(ErrorCode::Authentication_InvalidParam);
-            };
+        //let mac = derive_pid_hmac(data.nna_info.principal_basic_info.pid, &nexkey);
 
-            mac.write_all(bytes_of(&pid))
-                .expect("failed to write to hmac???");
-            let mac = mac.finalize().into_bytes();
+        let mut client = grpc_client().await.map_err(|e| {
+            eprintln!("error occurred: {:?}", e);
+            ErrorCode::Core_Unknown
+        })?;
 
-            let hex_str = hex::encode(mac);
+        let new_account: ActCreateInfo = ActCreateInfo {
+            principal_name,
+            key: nex_key.into(),
+            email,
+            pid,
+        };
 
-            return Ok((pid, hex_str));
+        let nexkey = client
+            .create_new_sequential_or_update_and_get_account(new_account)
+            .await
+            .map_err(|e| ErrorCode::Core_Unknown)?
+            .into_inner();
+
+        if nexkey.key.len() != 16 {
+            log::error!("nex key was not 16 bytes long");
+            return Err(ErrorCode::Authentication_InvalidParam);
         }
-        Err(ErrorCode::Core_NotImplemented)
+
+        let nexkeyarray: [u8; 16] = nexkey.key.try_into().expect("how...?");
+
+        let mac = derive_pid_hmac(pid, &nexkeyarray);
+
+        let hex_str = hex::encode(mac);
+
+        return Ok((pid, hex_str));
     }
 }

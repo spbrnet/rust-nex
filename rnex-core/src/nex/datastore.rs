@@ -1810,4 +1810,112 @@ impl DataStore for User {
 
         Ok((ranking_results, q_results))
     }
+
+    async fn ctr_pickup_course_search_object(&self, course_search_param: DataStoreSearchParam, extra_data: Vec<String>) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode> {
+        let mut courses = Vec::new();
+
+        let mut stream = sqlx::query!(
+            r#"
+            SELECT
+                object.data_id,
+                object.owner,
+                object.size,
+                object.name,
+                object.data_type,
+                object.meta_binary,
+                object.permission,
+                object.permission_recipients,
+                object.delete_permission,
+                object.delete_permission_recipients,
+                object.period,
+                object.refer_data_id,
+                object.flag,
+                object.tags,
+                object.creation_date,
+                object.update_date,
+                ranking.value
+            FROM (
+                SELECT * FROM datastore.objects object
+                WHERE
+                    object.upload_completed = TRUE AND
+                    object.deleted = FALSE AND
+                    object.under_review = FALSE
+            ) object
+            JOIN (
+                SELECT data_id, value
+                FROM datastore.object_custom_rankings ranking
+                WHERE ranking.application_id = 0
+            ) ranking
+            ON
+                object.data_id = ranking.data_id
+            ORDER BY RANDOM()
+            LIMIT 100
+        "#
+        )
+            .fetch(get_db());
+
+        while let Some(row) = stream.try_next().await.map_err(|e| {
+            eprintln!("stream error: {:?}", e);
+            ErrorCode::DataStore_NotFound
+        })? {
+            let permission = Permission {
+                permission: row.permission.unwrap_or(0) as u8,
+                recipient_ids: row.permission_recipients.unwrap_or_default(),
+            };
+
+            let del_permission = Permission {
+                permission: row.delete_permission.unwrap_or(0) as u8,
+                recipient_ids: row.delete_permission_recipients.unwrap_or_default(),
+            };
+
+            let meta_binary = row.meta_binary.map(QBuffer).unwrap_or_default();
+
+            let created_time = row
+                .creation_date
+                .map(KerberosDateTime::from_naive)
+                .unwrap_or_default();
+
+            let updated_time = row
+                .update_date
+                .map(KerberosDateTime::from_naive)
+                .unwrap_or_default();
+
+            let referred_time = row
+                .creation_date
+                .map(KerberosDateTime::from_naive)
+                .unwrap_or_default();
+
+            let mut meta_info = GetMetaInfo {
+                dataid: row.data_id,
+                owner: row.owner.unwrap_or(0),
+                size: row.size.unwrap_or(0) as u32,
+                name: row.name,
+                data_type: row.data_type.unwrap_or(0) as u16,
+                meta_binary,
+                permission,
+                del_permission,
+                period: row.period.unwrap_or(0) as u16,
+                status: 0,
+                referred_count: 0,
+                refer_dat_id: row.refer_data_id.unwrap_or(0) as u32,
+                flag: row.flag.unwrap_or(0) as u32,
+                tags: row.tags.unwrap_or_default(),
+                expire_time: KerberosDateTime::PRACTICALLY_NEVER,
+                created_time,
+                updated_time,
+                referred_time,
+                ratings: get_rating_with_slot_data_id(row.data_id).await?,
+            };
+
+            let course = DataStoreCustomRankingResult {
+                order: 0,
+                score: row.value.unwrap_or(0) as u32,
+                meta_info,
+            };
+
+            courses.push(course);
+        }
+
+        Ok(courses)
+    }
 }

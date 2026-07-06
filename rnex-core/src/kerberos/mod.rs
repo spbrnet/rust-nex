@@ -3,6 +3,7 @@ use cfg_if::cfg_if;
 use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 use hmac::Hmac;
 use hmac::Mac;
+use md5::digest::generic_array::GenericArray;
 use md5::{Digest, Md5};
 use rc4::KeyInit;
 use rc4::cipher::StreamCipherCoreWrapper;
@@ -28,24 +29,6 @@ pub const SESSION_KEY_LENGTH: usize = SessionLengthTy::USIZE;
 
 type Md5Hmac = Hmac<md5::Md5>;
 
-pub fn derive_key(pid: PID, password: &[u8]) -> [u8; 16] {
-    let iteration_count = 65000 + pid % 1024;
-    // we do one iteration out here to ensure the key is always 16 bytes
-
-    let mut key: [u8; 16] = {
-        let mut md5 = Md5::new();
-        md5.update(password);
-        md5.finalize().try_into().unwrap()
-    };
-
-    for _ in 1..iteration_count {
-        let mut md5 = Md5::new();
-        md5.update(key);
-        key = md5.finalize().try_into().unwrap();
-    }
-
-    key
-}
 #[derive(Pod, Zeroable, Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct KerberosDateTime(pub u64);
