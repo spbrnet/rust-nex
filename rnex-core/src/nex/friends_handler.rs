@@ -392,7 +392,27 @@ impl FriendsWiiU for FriendsUser {
         ErrorCode,
     > {
         // let query = query!("select ", self.pid).fetch_all(get_db()).await;
-        Err(ErrorCode::Core_NotImplemented)
+        Ok((
+            PrincipalPreference {
+                data: Data {},
+                block_friend_request: false,
+                show_online: true,
+                show_playing_title: false,
+            },
+            Comment {
+                data: Data {},
+                last_changed: KerberosDateTime::now(),
+                message: "stub(will be impl'd later)".into(),
+                unk: 0,
+            },
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            false,
+            vec![],
+            false,
+        ))
     }
 
     async fn add_friend(&self, friend: PID) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
