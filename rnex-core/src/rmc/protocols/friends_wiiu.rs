@@ -6,7 +6,7 @@ use rnex_core::rmc::structures::data::Data;
 
 use rnex_core::PID;
 
-#[derive(RmcSerialize, Debug, Clone)]
+#[derive(RmcSerialize, Debug, Clone, Default)]
 #[rmc_struct(0)]
 pub struct MiiV2 {
     #[extends]
@@ -18,7 +18,7 @@ pub struct MiiV2 {
     pub date_time: KerberosDateTime,
 }
 
-#[derive(RmcSerialize, Debug, Clone)]
+#[derive(RmcSerialize, Debug, Clone, Default)]
 #[rmc_struct(0)]
 pub struct PrincipalBasicInfo {
     #[extends]
@@ -29,7 +29,7 @@ pub struct PrincipalBasicInfo {
     pub unk: u8,
 }
 
-#[derive(RmcSerialize, Debug, Clone)]
+#[derive(RmcSerialize, Debug, Clone, Default)]
 #[rmc_struct(0)]
 pub struct NNAInfo {
     #[extends]
@@ -39,16 +39,16 @@ pub struct NNAInfo {
     pub unk2: u8,
 }
 
-#[derive(RmcSerialize, Clone, Copy, Debug)]
+#[derive(RmcSerialize, Clone, Copy, Debug, Default)]
 #[rmc_struct(0)]
 pub struct GameKey {
     #[extends]
     pub data: Data,
-    pub tid: u64,
-    pub version: u16,
+    pub tid: i64,
+    pub version: i16,
 }
 
-#[derive(RmcSerialize, Clone, Debug)]
+#[derive(RmcSerialize, Clone, Debug, Default)]
 #[rmc_struct(0)]
 pub struct NintendoPresenceV2 {
     #[extends]
@@ -79,7 +79,7 @@ pub struct PrincipalPreference {
     pub block_friend_request: bool,
 }
 
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Default)]
 #[rmc_struct(0)]
 pub struct Comment {
     #[extends]
@@ -89,7 +89,7 @@ pub struct Comment {
     pub last_changed: KerberosDateTime,
 }
 
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Default)]
 #[rmc_struct(0)]
 pub struct FriendInfo {
     #[extends]
@@ -107,8 +107,8 @@ pub struct FriendInfo {
 pub struct FriendRequestMessage {
     #[extends]
     pub data: Data,
-    pub friend_request_id: u64,
-    pub is_recieved: u8,
+    pub friend_request_id: i64,
+    pub is_recieved: bool,
     pub unk: u8,
     pub message: String,
     pub unk2: u8,

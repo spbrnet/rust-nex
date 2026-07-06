@@ -3,6 +3,8 @@ use macros::{RmcSerialize, method_id, rmc_proto};
 use rnex_core::PID;
 use rnex_core::rmc::structures::any::Any;
 
+use crate::rmc::structures::data::Data;
+
 #[derive(RmcSerialize)]
 #[rmc_struct(0)]
 pub struct NintendoNotificationEvent {
@@ -11,9 +13,11 @@ pub struct NintendoNotificationEvent {
     pub data: Any,
 }
 
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Default)]
 #[rmc_struct(0)]
 pub struct NintendoNotificationEventGeneral {
+    #[extends]
+    pub data: Data,
     pub param1: u32,
     pub param2: u64,
     pub param3: u64,
@@ -23,6 +27,8 @@ pub struct NintendoNotificationEventGeneral {
 #[derive(RmcSerialize)]
 #[rmc_struct(0)]
 pub struct NintendoNotificationEventProfile {
+    #[extends]
+    pub data: Data,
     pub region: u8,
     pub country: u8,
     pub area: u8,

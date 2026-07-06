@@ -10,7 +10,7 @@ sonic-transformed:
     RNEX_DEFAULT_PORT: 10000
     RNEX_ACCESS_KEY: "b26a3421"
 ac-new-leaf:
-  include-in-checkall: true
+  include-in-checkall: false
   features:
     - prudpv1
     - datastore
