@@ -52,7 +52,7 @@ pub struct Client(NexAccountServiceClient<Channel>); //(reqwest::Client);
 
 impl Client {
     pub async fn new() -> Result<Self> {
-        let client = NexAccountServiceClient::connect(NEX_ACCOUNT_URL.as_str()).await?;
+        let client = nex_account::grpc_client().await.unwrap();
         Ok(Self(client))
     }
 
