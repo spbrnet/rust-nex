@@ -85,20 +85,20 @@ impl KerberosDateTime {
     pub const fn get_year(&self) -> u64 {
         (self.0 >> 26) & 0xFFFFFFFF
     }
-    pub const fn to_regular_time(&self) -> chrono::DateTime<Utc> {
+    pub fn to_regular_time(&self) -> chrono::DateTime<Utc> {
         NaiveDateTime::new(
             NaiveDate::from_ymd_opt(
                 self.get_year() as i32,
                 self.get_month() as u32,
                 self.get_days() as u32,
             )
-            .unwrap(),
+            .unwrap_or_default(),
             NaiveTime::from_hms_opt(
                 self.get_hours() as u32,
                 self.get_minutes() as u32,
                 self.get_seconds() as u32,
             )
-            .unwrap(),
+            .unwrap_or_default(),
         )
         .and_utc()
     }
