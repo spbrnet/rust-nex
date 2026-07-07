@@ -887,7 +887,7 @@ impl FriendsWiiU for FriendsUser {
             .execute(get_db())
             .await;
         }
-        Err(ErrorCode::Core_NotImplemented)
+        Ok(())
     }
 
     async fn add_blacklist(
