@@ -9,6 +9,7 @@ use rc4::KeyInit;
 use rc4::cipher::StreamCipherCoreWrapper;
 use rc4::{Rc4, Rc4Core, StreamCipher};
 use rnex_core::rmc::structures::RmcSerialize;
+use std::fmt::Display;
 use std::io::{Read, Write};
 use typenum::U16;
 use typenum::Unsigned;
@@ -32,6 +33,21 @@ type Md5Hmac = Hmac<md5::Md5>;
 #[derive(Pod, Zeroable, Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct KerberosDateTime(pub u64);
+
+impl Display for KerberosDateTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}.{}.{} {}:{}:{}",
+            self.get_year(),
+            self.get_month(),
+            self.get_days(),
+            self.get_hours(),
+            self.get_minutes(),
+            self.get_seconds()
+        )
+    }
+}
 
 impl KerberosDateTime {
     // this is the time which smm returned as the expriy date, we use it as a
@@ -86,13 +102,20 @@ impl KerberosDateTime {
         (self.0 >> 26) & 0xFFFFFFFF
     }
     pub fn to_regular_time(&self) -> chrono::DateTime<Utc> {
+        let date = match NaiveDate::from_ymd_opt(
+            self.get_year() as i32,
+            self.get_month() as u32,
+            self.get_days() as u32,
+        ) {
+            Some(v) => v,
+            None => {
+                println!("invalid datetime...: {}", self);
+                Default::default()
+            }
+        };
+
         NaiveDateTime::new(
-            NaiveDate::from_ymd_opt(
-                self.get_year() as i32,
-                self.get_month() as u32,
-                self.get_days() as u32,
-            )
-            .unwrap_or_default(),
+            date,
             NaiveTime::from_hms_opt(
                 self.get_hours() as u32,
                 self.get_minutes() as u32,
@@ -106,7 +129,7 @@ impl KerberosDateTime {
 
 impl Default for KerberosDateTime {
     fn default() -> Self {
-        Self::now()
+        KerberosDateTime(0)
     }
 }
 

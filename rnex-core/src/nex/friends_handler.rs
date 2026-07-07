@@ -627,7 +627,7 @@ impl FriendsWiiU for FriendsUser {
             .insert(self.pid, self.this.clone());
 
         <Self as FriendsWiiU>::update_presence(self, presence).await?;
-        Ok((
+        dbg!(Ok((
             PrincipalPreference {
                 data: Data {},
                 block_friend_request: query.principal_preference_block_friend_requests,
@@ -649,7 +649,7 @@ impl FriendsWiiU for FriendsUser {
             // todo: persistent notifications
             vec![],
             false,
-        ))
+        )))
     }
 
     async fn add_friend(&self, friend: PID) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
@@ -791,7 +791,17 @@ impl FriendsWiiU for FriendsUser {
                 .await;
         }
 
-        Ok((fr, Default::default()))
+        Ok((
+            fr,
+            FriendInfo {
+                presence: NintendoPresenceV2 {
+                    game_key,
+                    app_data: vec![0x00],
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ))
     }
 
     async fn cancel_friend_request(&self, id: u64) -> Result<(), ErrorCode> {

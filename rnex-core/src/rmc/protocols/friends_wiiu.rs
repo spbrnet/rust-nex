@@ -79,7 +79,7 @@ pub struct PrincipalPreference {
     pub block_friend_request: bool,
 }
 
-#[derive(RmcSerialize, Default)]
+#[derive(RmcSerialize, Default, Debug)]
 #[rmc_struct(0)]
 pub struct Comment {
     #[extends]
@@ -89,7 +89,7 @@ pub struct Comment {
     pub last_changed: KerberosDateTime,
 }
 
-#[derive(RmcSerialize, Default)]
+#[derive(RmcSerialize, Default, Debug)]
 #[rmc_struct(0)]
 pub struct FriendInfo {
     #[extends]
@@ -102,7 +102,7 @@ pub struct FriendInfo {
     pub unk: u64,
 }
 
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Debug)]
 #[rmc_struct(0)]
 pub struct FriendRequestMessage {
     #[extends]
@@ -118,7 +118,7 @@ pub struct FriendRequestMessage {
     pub expires_on: KerberosDateTime,
 }
 
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Debug)]
 #[rmc_struct(0)]
 pub struct FriendRequest {
     #[extends]
@@ -128,7 +128,7 @@ pub struct FriendRequest {
     pub sent_on: KerberosDateTime,
 }
 
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Debug)]
 #[rmc_struct(0)]
 pub struct BlacklistedPrincipal {
     #[extends]
@@ -137,7 +137,7 @@ pub struct BlacklistedPrincipal {
     pub game_key: GameKey,
     pub since: KerberosDateTime,
 }
-#[derive(RmcSerialize)]
+#[derive(RmcSerialize, Debug)]
 #[rmc_struct(0)]
 pub struct PersistentNotification {
     #[extends]
