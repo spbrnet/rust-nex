@@ -1054,7 +1054,7 @@ impl FriendsWiiU for FriendsUser {
             .fetch_one(get_db())
             .await
             else {
-                return Err(ErrorCode::FPD_InvalidPrincipalID);
+                return Err(ErrorCode::FPD_InvalidAccount);
             };
 
             principal_infos.push(basic_principal_from_record!(user));
