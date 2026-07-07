@@ -459,7 +459,7 @@ impl FriendsWiiU for FriendsUser {
         ),
         ErrorCode,
     > {
-        if info.principal_basic_info.pid == self.pid {
+        if info.principal_basic_info.pid != self.pid {
             return Err(ErrorCode::FPD_InvalidArgument);
         }
 
