@@ -1046,6 +1046,7 @@ impl FriendsWiiU for FriendsUser {
         let mut principal_infos = Vec::with_capacity(pids.len());
 
         for pid in pids {
+            println!("looking up pid: {}", pid);
             let Ok(user) = query!(
                 "select * from nintendo_network_accounts where pid = $1",
                 pid
@@ -1066,18 +1067,18 @@ impl FriendsWiiU for FriendsUser {
         &self,
         notifs: Vec<PersistentNotification>,
     ) -> Result<(), ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        Ok(())
     }
 
     async fn check_setting_status(&self) -> Result<u8, ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        Ok(0)
     }
 
     async fn get_request_block_settings(
         &self,
         unk: Vec<u32>,
     ) -> Result<Vec<PrincipalRequestBlockSetting>, ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        Ok(vec![])
     }
 }
 
