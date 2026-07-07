@@ -54,10 +54,11 @@ pub async fn start_friends_backend() {
                     fm,
                     addr: c.prudpsock_addr,
                     pid: c.pid,
-                    data: Default::default(),
-                    current_friends: Default::default(),
                     this: this.clone(),
                     remote: RemoteFriendRemote::new(r),
+                    friend_pids: Default::default(),
+                    maybe_remote_friend: Default::default(),
+                    presence: Default::default(),
                 })
             });
         } else {
