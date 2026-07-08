@@ -11,7 +11,7 @@ use rnex_core::PID;
 pub struct MiiV2 {
     #[extends]
     pub data: Data,
-    pub name: String,
+    pub name: Vec<u8>,
     pub unk: u8,
     pub unk2: u8,
     pub mii_data: Vec<u8>,
@@ -128,7 +128,7 @@ pub struct FriendRequest {
     pub sent_on: KerberosDateTime,
 }
 
-#[derive(RmcSerialize, Debug)]
+#[derive(RmcSerialize, Debug, Default)]
 #[rmc_struct(0)]
 pub struct BlacklistedPrincipal {
     #[extends]
@@ -237,6 +237,6 @@ pub trait FriendsWiiU {
     #[method_id(20)]
     async fn get_request_block_settings(
         &self,
-        unk: Vec<u32>,
+        pids: Vec<PID>,
     ) -> Result<Vec<PrincipalRequestBlockSetting>, ErrorCode>;
 }

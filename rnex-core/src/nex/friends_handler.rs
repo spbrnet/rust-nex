@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::io::{Cursor, Write};
 use std::ops::Deref;
 use std::process::id;
 use std::sync::{Arc, atomic::AtomicU32};
 use std::sync::{LazyLock, Weak};
+use std::{env, mem};
 
 use base64::{Engine as _, engine::general_purpose};
 use bytemuck::{Pod, Zeroable, bytes_of};
@@ -67,6 +67,7 @@ use crate::rmc::protocols::friends_3ds::{
 };
 use crate::rmc::protocols::friends_wiiu::FriendRequestMessage;
 use crate::rmc::protocols::nintendo_notification::NintendoNotificationEventGeneral;
+use crate::rmc::response::ErrorCode::FPD_InvalidArgument;
 use nex_account::grpc::ActCreateInfo;
 use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
 use nex_account::{derive_pid_hmac, grpc_client};
@@ -413,6 +414,16 @@ macro_rules! nna_info_from_record {
     }};
 }
 
+macro_rules! game_key_from_record {
+    ($record:expr) => {
+        GameKey {
+            data: Data {},
+            tid: $record.game_key_tid,
+            version: $record.game_key_version,
+        }
+    };
+}
+
 macro_rules! friend_request_from_record {
     ($record:expr) => {{
         let (unk, unk2) = unsmoosh_from_i16($record.unks_1);
@@ -427,11 +438,7 @@ macro_rules! friend_request_from_record {
                         .naive_utc(),
                 ),
                 friend_request_id: $record.id,
-                game_key: GameKey {
-                    data: Data {},
-                    tid: $record.game_key_tid,
-                    version: $record.game_key_version,
-                },
+                game_key: game_key_from_record!($record),
                 is_recieved: $record.is_recieved,
                 message: $record.message,
                 unk,
@@ -625,6 +632,31 @@ impl FriendsWiiU for FriendsUser {
             });
         }
 
+        let Ok(denylist) = query!(
+            "
+            select
+                *
+            from denylist
+            inner join nintendo_network_accounts on other = nintendo_network_accounts.pid
+            where initiator = $1
+            ",
+            self.pid
+        )
+        .fetch_all(get_db())
+        .await
+        .map(|v| {
+            v.into_iter()
+                .map(|v| BlacklistedPrincipal {
+                    basic_info: basic_principal_from_record!(v),
+                    since: KerberosDateTime::from_naive(v.since),
+                    ..Default::default()
+                })
+                .collect::<Vec<_>>()
+        }) else {
+            println!("error whilest getting friend requests");
+            return Err(ErrorCode::Core_SystemError);
+        };
+
         self.fm
             .users
             .write()
@@ -649,7 +681,7 @@ impl FriendsWiiU for FriendsUser {
             outgoing_friend_requests,
             incoming_friend_requests,
             // todo: blacklisted principals
-            vec![],
+            denylist,
             false,
             // todo: persistent notifications
             vec![],
@@ -755,6 +787,22 @@ impl FriendsWiiU for FriendsUser {
     ) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
         unk1 = 0;
         unk2 = 1;
+
+        let Ok(q) = query!(
+            "select * from denylist where initiator = $1 and other = $2",
+            friend,
+            self.pid
+        )
+        .fetch_optional(get_db())
+        .await
+        else {
+            return Err(ErrorCode::Authentication_AccountLibraryError);
+        };
+
+        if q.is_some() {
+            return Err(ErrorCode::FPD_FriendRequestBlocked);
+        }
+
         // check for too many friend requests both ways
         let Ok(query) = query!(
             "select count(recipient) from friend_requests where sender = $1",
@@ -875,7 +923,7 @@ impl FriendsWiiU for FriendsUser {
 
     async fn cancel_friend_request(&self, id: u64) -> Result<(), ErrorCode> {
         let Ok(query) = query!(
-            "delete from friend_requests where id = $1 and recipient = $2 returning recipient, sender",
+            "delete from friend_requests where id = $1 and sender = $2 returning recipient",
             bytemuck::cast::<_, i64>(id),
             self.pid
         )
@@ -886,7 +934,7 @@ impl FriendsWiiU for FriendsUser {
         };
 
         let users = self.fm.users.read().await;
-        if let Some(user) = users.get(&query.sender).and_then(|v| v.upgrade()) {
+        if let Some(user) = users.get(&query.recipient).and_then(|v| v.upgrade()) {
             drop(users);
 
             user.remote
@@ -895,6 +943,7 @@ impl FriendsWiiU for FriendsUser {
                     sender: self.pid,
                     data: Any::new(&NintendoNotificationEventGeneral {
                         param1: bytemuck::cast(self.pid),
+                        param2: id,
                         ..Default::default()
                     })
                     .expect("type error"),
@@ -1017,11 +1066,97 @@ impl FriendsWiiU for FriendsUser {
     }
 
     async fn delete_friend_request(&self, id: u64) -> Result<(), ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        let Ok(query) = query!(
+            "delete from friend_requests where id = $1 and recipient = $2 returning sender",
+            bytemuck::cast::<_, i64>(id),
+            self.pid
+        )
+        .fetch_one(get_db())
+        .await
+        else {
+            return Err(ErrorCode::FPD_InvalidMessageID);
+        };
+
+        let users = self.fm.users.read().await;
+        if let Some(user) = users.get(&query.sender).and_then(|v| v.upgrade()) {
+            drop(users);
+
+            user.remote
+                .process_nintendo_notification_event_1(NintendoNotificationEvent {
+                    event_type: 26,
+                    sender: self.pid,
+                    data: Any::new(&NintendoNotificationEventGeneral {
+                        param1: bytemuck::cast(self.pid),
+                        param2: id,
+                        ..Default::default()
+                    })
+                    .expect("type error"),
+                })
+                .await;
+        }
+
+        Ok(())
     }
 
     async fn deny_friend_request(&self, id: u64) -> Result<BlacklistedPrincipal, ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        let Ok(query) = query!(
+            "delete from friend_requests where id = $1 and recipient = $2 returning sender",
+            bytemuck::cast::<_, i64>(id),
+            self.pid
+        )
+        .fetch_one(get_db())
+        .await
+        else {
+            return Err(ErrorCode::FPD_InvalidMessageID);
+        };
+
+        if let Err(e) = query!(
+            "insert into denylist(initiator, other) VALUES ($1, $2)",
+            self.pid,
+            query.sender
+        )
+        .execute(get_db())
+        .await
+        {
+            println!("{}", e);
+            return Err(ErrorCode::FPD_InvalidMessageID);
+        };
+
+        let users = self.fm.users.read().await;
+        if let Some(user) = users.get(&query.sender).and_then(|v| v.upgrade()) {
+            drop(users);
+
+            user.remote
+                .process_nintendo_notification_event_1(NintendoNotificationEvent {
+                    event_type: 26,
+                    sender: self.pid,
+                    data: Any::new(&NintendoNotificationEventGeneral {
+                        param1: bytemuck::cast(self.pid),
+                        param2: id,
+                        ..Default::default()
+                    })
+                    .expect("type error"),
+                })
+                .await;
+        }
+
+        let Ok(user) = query!(
+            "select * from nintendo_network_accounts where pid = $1",
+            query.sender
+        )
+        .fetch_one(get_db())
+        .await
+        else {
+            println!("attempt to get invalid user which is in friend request");
+            return Err(FPD_InvalidArgument);
+        };
+
+        Ok(BlacklistedPrincipal {
+            data: Data {},
+            basic_info: basic_principal_from_record!(user),
+            game_key: GameKey::default(),
+            since: KerberosDateTime::now(),
+        })
     }
 
     async fn mark_friend_requests_as_received(&self, ids: Vec<u64>) -> Result<(), ErrorCode> {
@@ -1031,7 +1166,8 @@ impl FriendsWiiU for FriendsUser {
                 bytemuck::cast::<_, i64>(id)
             )
             .execute(get_db())
-            .await;
+            .await
+            .ok();
         }
         Ok(())
     }
@@ -1040,11 +1176,50 @@ impl FriendsWiiU for FriendsUser {
         &self,
         principal: BlacklistedPrincipal,
     ) -> Result<BlacklistedPrincipal, ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        if let Err(e) = query!(
+            "insert into denylist(initiator, other) VALUES ($1, $2)",
+            self.pid,
+            principal.basic_info.pid
+        )
+        .execute(get_db())
+        .await
+        {
+            println!("{}", e);
+            return Err(ErrorCode::FPD_InvalidMessageID);
+        };
+
+        let Ok(user) = query!(
+            "select * from nintendo_network_accounts where pid = $1",
+            principal.basic_info.pid
+        )
+        .fetch_one(get_db())
+        .await
+        else {
+            println!("attempt to get invalid user which is in friend request");
+            return Err(FPD_InvalidArgument);
+        };
+
+        Ok(BlacklistedPrincipal {
+            data: Data {},
+            basic_info: basic_principal_from_record!(user),
+            game_key: GameKey::default(),
+            since: KerberosDateTime::now(),
+        })
     }
 
     async fn remove_blacklist(&self, id: PID) -> Result<(), ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        if let Err(e) = query!(
+            "delete from denylist where initiator = $1 and other = $2",
+            self.pid,
+            id
+        )
+        .execute(get_db())
+        .await
+        {
+            println!("{}", e);
+            return Err(ErrorCode::FPD_InvalidMessageID);
+        };
+        Ok(())
     }
 
     async fn update_presence(&self, mut presence: NintendoPresenceV2) -> Result<(), ErrorCode> {
@@ -1223,9 +1398,44 @@ impl FriendsWiiU for FriendsUser {
 
     async fn get_request_block_settings(
         &self,
-        unk: Vec<u32>,
+        pids: Vec<PID>,
     ) -> Result<Vec<PrincipalRequestBlockSetting>, ErrorCode> {
-        Ok(vec![])
+        let mut blocked: Vec<_> = Vec::with_capacity(pids.len());
+
+        for pid in pids {
+            let Ok(denylist) = query!(
+                "
+                select
+                    since
+                from denylist
+                where initiator = $1 and other = $2
+                ",
+                pid,
+                self.pid
+            )
+            .fetch_optional(get_db())
+            .await
+            else {
+                println!("error whilest getting friend requests");
+                return Err(ErrorCode::Core_SystemError);
+            };
+
+            if denylist.is_some() {
+                blocked.push(PrincipalRequestBlockSetting {
+                    data: Data {},
+                    pid,
+                    blocked: true,
+                });
+            } else {
+                blocked.push(PrincipalRequestBlockSetting {
+                    data: Data {},
+                    pid,
+                    blocked: false,
+                });
+            }
+        }
+
+        Ok(blocked)
     }
 }
 
@@ -1278,6 +1488,33 @@ impl Secure for FriendsGuest {
     }
     async fn replace_url(&self, _target: StationUrl, _dest: StationUrl) -> Result<(), ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
+    }
+}
+
+impl Drop for FriendsUser {
+    fn drop(&mut self) {
+        let friends = mem::take(&mut self.maybe_remote_friend);
+        let users = friends.into_inner();
+        let pid = self.pid;
+        for user in users {
+            let Some(user) = user.1.upgrade() else {
+                continue;
+            };
+
+            tokio::spawn(async move {
+                user.remote
+                    .process_nintendo_notification_event_2(NintendoNotificationEvent {
+                        event_type: 10,
+                        sender: pid,
+                        data: Any::new(&NintendoNotificationEventGeneral {
+                            param1: bytemuck::cast(pid),
+                            ..Default::default()
+                        })
+                        .expect("type error"),
+                    })
+                    .await;
+            });
+        }
     }
 }
 
