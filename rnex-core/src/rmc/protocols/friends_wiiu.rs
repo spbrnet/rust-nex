@@ -102,7 +102,7 @@ pub struct FriendInfo {
     pub unk: u64,
 }
 
-#[derive(RmcSerialize, Debug)]
+#[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
 pub struct FriendRequestMessage {
     #[extends]
@@ -118,7 +118,7 @@ pub struct FriendRequestMessage {
     pub expires_on: KerberosDateTime,
 }
 
-#[derive(RmcSerialize, Debug)]
+#[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
 pub struct FriendRequest {
     #[extends]

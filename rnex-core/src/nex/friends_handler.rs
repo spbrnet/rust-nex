@@ -837,6 +837,20 @@ impl FriendsWiiU for FriendsUser {
 
         let users = self.fm.users.read().await;
         if let Some(user) = users.get(&friend).and_then(|v| v.upgrade()) {
+            let mut fr = fr.clone();
+
+            let Ok(query) = query!(
+                "select * from nintendo_network_accounts where pid = $1",
+                self.pid
+            )
+            .fetch_one(get_db())
+            .await
+            else {
+                println!("failed to acquire account info after adding friend");
+                return Err(ErrorCode::FPD_InvalidMessageID);
+            };
+            fr.basic_info = basic_principal_from_record!(query);
+
             user.remote
                 .process_nintendo_notification_event_2(NintendoNotificationEvent {
                     event_type: 27,
