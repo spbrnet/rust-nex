@@ -301,7 +301,7 @@ impl MatchmakeExtension for User {
 
         #[cfg(feature = "v3-5-0")]
         if join_session_param.user_password != session.session.user_password {
-            return Err(ErrorCode::RendezVous_InvalidPassword);
+            return Err(ErrorCode::RendezVous_MatchmakeSessionUserPasswordUnmatch);
         }
 
         session
@@ -873,12 +873,7 @@ impl Utility for User {
     }
 
     async fn get_integer_settings(&self, index: u32) -> Result<Vec<(u16, i32)>, ErrorCode> {
-        Ok(vec![
-            (0, 1),
-            (1, 2),
-            (2, 0),
-            (3, 4)
-        ])
+        Ok(vec![(0, 1), (1, 2), (2, 0), (3, 4)])
     }
 }
 
