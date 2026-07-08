@@ -56,7 +56,7 @@ v3-8-15 = ["v3-5-0"]
 v3-10-22 = ["v3-8-15"]
 v4-3-11 = ["v3-8-15"]
 nx = ["big_pid"]
-splatoon = []
+splatoon = ["v3-5-0"]
 datastore = ["database-support", "v3-8-15", "dep:aws-sdk-s3", "dep:aws-config"]
 database-support = ["dep:sqlx"]
 

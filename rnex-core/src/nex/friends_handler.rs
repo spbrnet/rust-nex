@@ -4,6 +4,7 @@ use std::ops::Deref;
 use std::process::id;
 use std::sync::{Arc, atomic::AtomicU32};
 use std::sync::{LazyLock, Weak};
+use std::time::Duration;
 use std::{env, mem};
 
 use base64::{Engine as _, engine::general_purpose};
@@ -47,6 +48,7 @@ use sqlx::query;
 use std::sync::atomic::Ordering::Relaxed;
 use tokio::spawn;
 use tokio::sync::RwLock;
+use tokio::time::sleep;
 
 use rnex_core::rmc::protocols::friends_wiiu::{GameKey, MiiV2, PrincipalBasicInfo};
 
@@ -389,12 +391,12 @@ macro_rules! basic_principal_from_record {
         PrincipalBasicInfo {
             data: Data {},
             pid: $record.pid,
-            nnid: $record.nnid,
+            nnid: $record.nnid.clone(),
             mii: MiiV2 {
                 data: Data {},
                 date_time: KerberosDateTime(bytemuck::cast($record.mii_unk_datetime)),
-                mii_data: $record.mii_ffl_data,
-                name: QBuffer($record.mii_name),
+                mii_data: $record.mii_ffl_data.clone(),
+                name: QBuffer($record.mii_name.clone()),
                 unk: mii_unk1,
                 unk2: mii_unk2,
             },
@@ -788,6 +790,97 @@ impl FriendsWiiU for FriendsUser {
     ) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
         unk1 = 0;
         unk2 = 1;
+
+        if friend == 99 {
+            query!(
+                "insert into friendships (pid_a, pid_b) values(99, $1)",
+                self.pid
+            )
+            .execute(get_db())
+            .await
+            .ok();
+
+            let Ok(v) = query!("select * from nintendo_network_accounts where pid = 99")
+                .fetch_one(get_db())
+                .await
+            else {
+                return Err(ErrorCode::Core_Exception);
+            };
+            let Some(this) = self.this.upgrade() else {
+                return Err(ErrorCode::Core_Exception);
+            };
+
+            let pid = self.pid;
+
+            spawn(async move {
+                sleep(Duration::from_secs(15)).await;
+
+                let mut friends = this.friend_pids.write().await;
+                friends.push(99);
+                drop(friends);
+
+                let Ok(r) = query!("select * from nintendo_network_accounts where pid = 99")
+                    .fetch_one(get_db())
+                    .await
+                else {
+                    return;
+                };
+                let data = Any::new(&FriendInfo {
+                    data: Data {},
+                    nna_info: nna_info_from_record!(r),
+                    became_friends: KerberosDateTime::now(),
+                    comment: Comment {
+                        data: Data {},
+                        last_changed: KerberosDateTime::from_naive(r.comment_lastchanged),
+                        message: r.comment_message,
+                        unk: (bytemuck::cast::<_, u16>(r.comment_unk) & 0xFF) as u8,
+                    },
+                    last_online: KerberosDateTime::now(),
+                    presence: NintendoPresenceV2::default(),
+                    unk: 0,
+                })
+                .expect("type error");
+                this.remote
+                    .process_nintendo_notification_event_1(NintendoNotificationEvent {
+                        event_type: 30,
+                        sender: pid,
+                        data: data,
+                    })
+                    .await;
+            });
+
+            return Ok((
+                FriendRequest {
+                    basic_info: basic_principal_from_record!(v),
+                    request_message: FriendRequestMessage {
+                        data: Data {},
+                        friend_request_id: i64::MAX,
+                        is_recieved: true,
+                        unk: 0,
+                        message: message,
+                        unk2: 1,
+                        unk3: "Dummy".into(),
+                        game_key,
+                        unk4: KerberosDateTime::now(),
+                        expires_on: KerberosDateTime::now(),
+                    },
+                    data: Data {},
+                    sent_on: KerberosDateTime::now(),
+                },
+                FriendInfo {
+                    became_friends: KerberosDateTime::now(),
+                    comment: Comment {
+                        data: Data {},
+                        unk: bytemuck::cast::<_, u16>(v.comment_unk & 0xFF) as u8,
+                        message: v.comment_message,
+                        last_changed: KerberosDateTime::from_naive(v.comment_lastchanged),
+                    },
+                    last_online: KerberosDateTime::now(),
+                    nna_info: nna_info_from_record!(v),
+                    ..Default::default()
+                },
+            ));
+        }
 
         let Ok(q) = query!(
             "select * from denylist where initiator = $1 and other = $2",

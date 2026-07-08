@@ -300,8 +300,10 @@ impl MatchmakeExtension for User {
         let mut session = session.lock().await;
 
         #[cfg(feature = "v3-5-0")]
-        if join_session_param.user_password != session.session.user_password {
-            return Err(ErrorCode::RendezVous_MatchmakeSessionUserPasswordUnmatch);
+        {
+            if join_session_param.user_password != session.session.user_password {
+                return Err(ErrorCode::RendezVous_MatchmakeSessionUserPasswordUnmatch);
+            }
         }
 
         session
