@@ -135,7 +135,7 @@ impl FriendsManager {
 }
 
 impl FriendsManager {
-    async fn accepts_friend_requests(&self, pid: PID) -> Result<bool, ErrorCode> {
+    async fn denies_friend_requests(&self, pid: PID) -> Result<bool, ErrorCode> {
         query!("select principal_preference_block_friend_requests from nintendo_network_accounts where pid = $1", pid)
             .fetch_one(get_db())
             .await
@@ -801,7 +801,7 @@ impl FriendsWiiU for FriendsUser {
         unk1 = 0;
         unk2 = 1;
 
-        if !self.fm.accepts_friend_requests(friend).await? {
+        if self.fm.denies_friend_requests(friend).await? {
             return Err(ErrorCode::FPD_FriendRequestNotAllowed);
         }
 
