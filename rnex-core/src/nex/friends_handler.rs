@@ -1614,7 +1614,6 @@ impl Drop for FriendsUser {
                         event_type: 10,
                         sender: pid,
                         data: Any::new(&NintendoNotificationEventGeneral {
-                            param1: bytemuck::cast(pid),
                             ..Default::default()
                         })
                         .expect("type error"),
