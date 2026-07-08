@@ -93,7 +93,7 @@ impl KerberosDateTime {
         ((self.0 >> 12) & 0b11111) as u8
     }
     pub const fn get_days(&self) -> u8 {
-        ((self.0 >> 17) & 0b11111) as u8
+        ((self.0 >> 17) & 0b111111) as u8
     }
     pub const fn get_month(&self) -> u8 {
         ((self.0 >> 22) & 0b1111) as u8

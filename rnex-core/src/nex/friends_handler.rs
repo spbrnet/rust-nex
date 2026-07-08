@@ -698,13 +698,15 @@ impl FriendsWiiU for FriendsUser {
     async fn add_friend_request(
         &self,
         friend: PID,
-        unk1: u8,
+        mut unk1: u8,
         message: String,
-        unk2: u8,
+        mut unk2: u8,
         unk3: String,
         game_key: GameKey,
         unk4: KerberosDateTime,
     ) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
+        unk1 = 0;
+        unk2 = 1;
         // check for too many friend requests both ways
         let Ok(query) = query!(
             "select count(recipient) from friend_requests where sender = $1",
@@ -789,7 +791,7 @@ impl FriendsWiiU for FriendsUser {
         if let Some(user) = users.get(&friend).and_then(|v| v.upgrade()) {
             user.remote
                 .process_nintendo_notification_event_2(NintendoNotificationEvent {
-                    event_type: 25,
+                    event_type: 27,
                     sender: self.pid,
                     data: Any::new(&fr).expect("type check failed"),
                 })
@@ -857,6 +859,45 @@ impl FriendsWiiU for FriendsUser {
         drop(users);
         if let Some(user) = user {
             if let Some(user) = user.upgrade() {
+                let mut friends = user.friend_pids.write().await;
+                friends.push(self.pid);
+                drop(friends);
+                let mut friends = user.maybe_remote_friend.write().await;
+                friends.insert(self.pid, self.this.clone());
+                drop(friends);
+
+                let Ok(r) = query!(
+                    "select * from nintendo_network_accounts where pid = $1",
+                    self.pid
+                )
+                .fetch_one(get_db())
+                .await
+                else {
+                    println!("internal server error whilest getting nna info");
+                    return Err(ErrorCode::Core_Exception);
+                };
+                let data = Any::new(&FriendInfo {
+                    data: Data {},
+                    nna_info: nna_info_from_record!(r),
+                    became_friends: KerberosDateTime::now(),
+                    comment: Comment {
+                        data: Data {},
+                        last_changed: KerberosDateTime::from_naive(r.comment_lastchanged),
+                        message: r.comment_message,
+                        unk: (bytemuck::cast::<_, u16>(r.comment_unk) & 0xFF) as u8,
+                    },
+                    last_online: KerberosDateTime::now(),
+                    presence: self.presence.read().await.clone().unwrap_or_default(),
+                    unk: 0,
+                })
+                .expect("type error");
+                user.remote
+                    .process_nintendo_notification_event_1(NintendoNotificationEvent {
+                        event_type: 30,
+                        sender: self.pid,
+                        data: data,
+                    })
+                    .await;
                 let online_presence = user.presence.read().await;
                 if let Some(online_presence) = online_presence.as_ref() {
                     presence = online_presence.clone();
