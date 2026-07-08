@@ -593,7 +593,7 @@ impl FriendsWiiU for FriendsUser {
             current_friends.push(friend.pid);
             drop(current_friends);
 
-            let mut users = self.fm.users.read().await;
+            let users = self.fm.users.read().await;
             let user = users.get(&friend.pid).cloned();
             drop(users);
             if let Some(user) = user {
@@ -1067,9 +1067,8 @@ impl FriendsWiiU for FriendsUser {
 
     async fn delete_friend_request(&self, id: u64) -> Result<(), ErrorCode> {
         let Ok(query) = query!(
-            "delete from friend_requests where id = $1 and recipient = $2 returning sender",
+            "delete from friend_requests where id = $1 returning sender, recipient",
             bytemuck::cast::<_, i64>(id),
-            self.pid
         )
         .fetch_one(get_db())
         .await
@@ -1077,8 +1076,16 @@ impl FriendsWiiU for FriendsUser {
             return Err(ErrorCode::FPD_InvalidMessageID);
         };
 
+        let other = if query.recipient == self.pid {
+            query.sender
+        } else if query.sender == self.pid {
+            query.recipient
+        } else {
+            return Err(ErrorCode::FPD_InvalidMessageID);
+        };
+
         let users = self.fm.users.read().await;
-        if let Some(user) = users.get(&query.sender).and_then(|v| v.upgrade()) {
+        if let Some(user) = users.get(&other).and_then(|v| v.upgrade()) {
             drop(users);
 
             user.remote
