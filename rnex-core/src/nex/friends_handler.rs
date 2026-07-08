@@ -827,7 +827,7 @@ impl FriendsWiiU for FriendsUser {
             let pid = self.pid;
 
             spawn(async move {
-                sleep(Duration::from_secs(15)).await;
+                sleep(Duration::from_secs(5)).await;
 
                 let mut friends = this.friend_pids.write().await;
                 friends.push(99);
@@ -1493,6 +1493,23 @@ impl FriendsWiiU for FriendsUser {
             return Err(ErrorCode::Core_Exception);
         }
 
+        let mut presence = self.presence.write().await;
+        let Some(presence) = presence.as_mut() else {
+            return Err(ErrorCode::FPD_InvalidState);
+        };
+
+        if !preference.show_playing_title {
+            presence.game_server_id = 0;
+            presence.game_key = GameKey::default();
+            presence.app_data = vec![];
+        }
+        query!(
+            "update nintendo_network_accounts set last_online = now() where pid = $1",
+            self.pid
+        )
+        .execute(get_db())
+        .await
+        .ok();
         let friends = self.maybe_remote_friend.read().await;
         for friend in friends.iter().filter_map(|f| f.1.upgrade()) {
             friend
@@ -1503,7 +1520,31 @@ impl FriendsWiiU for FriendsUser {
                     data: data.clone(),
                 })
                 .await;
+            if preference.show_online {
+                friend
+                    .remote
+                    .process_nintendo_notification_event_2(NintendoNotificationEvent {
+                        event_type: 24,
+                        sender: self.pid,
+                        data: Any::new(presence).expect("type error"),
+                    })
+                    .await;
+            } else {
+                friend
+                    .remote
+                    .process_nintendo_notification_event_2(NintendoNotificationEvent {
+                        event_type: 10,
+                        sender: self.pid,
+                        data: Any::new(&NintendoNotificationEventGeneral {
+                            param3: KerberosDateTime::now().0,
+                            ..Default::default()
+                        })
+                        .expect("type error"),
+                    })
+                    .await;
+            }
         }
+
         Ok(())
     }
 
@@ -1639,12 +1680,12 @@ impl Drop for FriendsUser {
         let friends = mem::take(&mut self.maybe_remote_friend);
         let users = friends.into_inner();
         let pid = self.pid;
-        for user in users {
-            let Some(user) = user.1.upgrade() else {
-                continue;
-            };
+        tokio::spawn(async move {
+            for user in users {
+                let Some(user) = user.1.upgrade() else {
+                    continue;
+                };
 
-            tokio::spawn(async move {
                 user.remote
                     .process_nintendo_notification_event_2(NintendoNotificationEvent {
                         event_type: 10,
@@ -1656,9 +1697,7 @@ impl Drop for FriendsUser {
                         .expect("type error"),
                     })
                     .await;
-            });
-        }
-        tokio::spawn(async move {
+            }
             query!(
                 "update nintendo_network_accounts set last_online = now() where pid = $1",
                 pid
