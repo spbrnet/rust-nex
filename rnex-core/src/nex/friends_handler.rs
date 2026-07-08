@@ -692,7 +692,55 @@ impl FriendsWiiU for FriendsUser {
     }
 
     async fn remove_friend(&self, friend: PID) -> Result<(), ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        let Ok(query) = query!(
+            "delete from friendships where (pid_a = $1 AND pid_b = $2) OR (pid_a = $2 AND pid_b = $1)",
+            self.pid,
+            friend
+        )
+        .fetch_one(get_db())
+        .await
+        else {
+            return Err(ErrorCode::FPD_InvalidMessageID);
+        };
+
+        let mut friends = self.friend_pids.write().await;
+        friends.retain(|v| *v != friend);
+        drop(friends);
+        let mut friends = self.maybe_remote_friend.write().await;
+        friends.remove(&friend);
+        drop(friends);
+
+        let users = self.fm.users.read().await;
+        if let Some(user) = users.get(&friend).and_then(|v| v.upgrade()) {
+            drop(users);
+            let mut friends = user.friend_pids.write().await;
+            friends.retain(|v| *v != self.pid);
+            drop(friends);
+            let mut friends = user.maybe_remote_friend.write().await;
+            friends.remove(&self.pid);
+            drop(friends);
+
+            user.remote
+                .process_nintendo_notification_event_1(NintendoNotificationEvent {
+                    event_type: 26,
+                    sender: self.pid,
+                    data: Any::new(&NintendoNotificationEventGeneral {
+                        param1: bytemuck::cast(self.pid),
+                        ..Default::default()
+                    })
+                    .expect("type error"),
+                })
+                .await;
+        }
+
+        let mut friends = self.friend_pids.write().await;
+        friends.retain(|v| *v != friend);
+        drop(friends);
+        let mut friends = self.maybe_remote_friend.write().await;
+        friends.remove(&friend);
+        drop(friends);
+
+        Ok(())
     }
 
     async fn add_friend_request(
@@ -812,7 +860,35 @@ impl FriendsWiiU for FriendsUser {
     }
 
     async fn cancel_friend_request(&self, id: u64) -> Result<(), ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
+        let Ok(query) = query!(
+            "delete from friend_requests where id = $1 and recipient = $2 returning recipient, sender",
+            bytemuck::cast::<_, i64>(id),
+            self.pid
+        )
+        .fetch_one(get_db())
+        .await
+        else {
+            return Err(ErrorCode::FPD_InvalidMessageID);
+        };
+
+        let users = self.fm.users.read().await;
+        if let Some(user) = users.get(&query.sender).and_then(|v| v.upgrade()) {
+            drop(users);
+
+            user.remote
+                .process_nintendo_notification_event_1(NintendoNotificationEvent {
+                    event_type: 26,
+                    sender: self.pid,
+                    data: Any::new(&NintendoNotificationEventGeneral {
+                        param1: bytemuck::cast(self.pid),
+                        ..Default::default()
+                    })
+                    .expect("type error"),
+                })
+                .await;
+        }
+
+        Ok(())
     }
 
     async fn accept_friend_request(&self, id: u64) -> Result<FriendInfo, ErrorCode> {
