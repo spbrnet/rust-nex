@@ -8,6 +8,7 @@ use std::sync::{LazyLock, Weak};
 
 use base64::{Engine as _, engine::general_purpose};
 use bytemuck::{Pod, Zeroable, bytes_of};
+use chrono::{NaiveDateTime, Utc};
 use futures::StreamExt;
 use hex::decode;
 use hmac::Mac;
@@ -389,7 +390,7 @@ macro_rules! basic_principal_from_record {
             nnid: $record.nnid,
             mii: MiiV2 {
                 data: Data {},
-                date_time: KerberosDateTime::from_naive($record.mii_unk_datetime),
+                date_time: KerberosDateTime(bytemuck::cast($record.mii_unk_datetime)),
                 mii_data: $record.mii_ffl_data,
                 name: $record.mii_name,
                 unk: mii_unk1,
@@ -432,7 +433,7 @@ macro_rules! friend_request_from_record {
                 unk,
                 unk2,
                 unk3: $record.unk_2,
-                unk4: KerberosDateTime::from_naive($record.unk_3),
+                unk4: KerberosDateTime(bytemuck::cast($record.unk_3)),
             },
             sent_on: KerberosDateTime::from_naive($record.creation_time),
         }
@@ -487,10 +488,10 @@ impl FriendsWiiU for FriendsUser {
                 info.principal_basic_info.mii.name,
                 smoosh_to_i16(info.principal_basic_info.mii.unk, info.principal_basic_info.mii.unk2),
                 info.principal_basic_info.mii.mii_data,
-                info.principal_basic_info.mii.date_time.to_regular_time().naive_utc(),
+                bytemuck::cast::<_, i64>(info.principal_basic_info.mii.date_time.0),
                 info.principal_basic_info.unk as i16,
                 smoosh_to_i16(info.unk, info.unk2),
-                birthday.to_regular_time().naive_utc()
+                bytemuck::cast::<_, i64>(birthday)
             )
             .fetch_one(get_db())
             .await else {
@@ -737,7 +738,7 @@ impl FriendsWiiU for FriendsUser {
             select *
                 from fr_base
                 inner join nintendo_network_accounts
-                on recipient = pid
+                on recipient=pid
             ",
             //inner join on recipient = pid
             self.pid,
@@ -745,7 +746,7 @@ impl FriendsWiiU for FriendsUser {
             message,
             unks_1,
             unk3,
-            unk4.to_regular_time().naive_utc(),
+            bytemuck::cast::<_, i64>(unk4.0),
             game_key.tid,
             game_key.version
         )
@@ -791,7 +792,7 @@ impl FriendsWiiU for FriendsUser {
                 .await;
         }
 
-        Ok((
+        dbg!(Ok((
             fr,
             FriendInfo {
                 presence: NintendoPresenceV2 {
@@ -801,7 +802,7 @@ impl FriendsWiiU for FriendsUser {
                 },
                 ..Default::default()
             },
-        ))
+        )))
     }
 
     async fn cancel_friend_request(&self, id: u64) -> Result<(), ErrorCode> {
@@ -911,7 +912,8 @@ impl FriendsWiiU for FriendsUser {
         Err(ErrorCode::Core_NotImplemented)
     }
 
-    async fn update_presence(&self, presence: NintendoPresenceV2) -> Result<(), ErrorCode> {
+    async fn update_presence(&self, mut presence: NintendoPresenceV2) -> Result<(), ErrorCode> {
+        presence.is_online = true;
         let data = Any::new(&presence).expect("type error");
         let mut user_presence = self.presence.write().await;
         *user_presence = Some(presence);
@@ -940,7 +942,7 @@ impl FriendsWiiU for FriendsUser {
             mii.name,
             smoosh_to_i16(mii.unk, mii.unk2),
             mii.mii_data,
-            mii.date_time.to_regular_time().naive_utc(),
+            bytemuck::cast::<_, i64>(mii.date_time.0),
             self.pid
         )
         .execute(get_db())
@@ -1064,7 +1066,7 @@ impl FriendsWiiU for FriendsUser {
             .fetch_one(get_db())
             .await
             else {
-                return Err(ErrorCode::FPD_InvalidAccount);
+                return Err(ErrorCode::FPD_NotFriend);
             };
 
             principal_infos.push(basic_principal_from_record!(user));
