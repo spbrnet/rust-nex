@@ -100,6 +100,38 @@ impl MatchmakeManager {
             }
         });
     }
+
+    // this could be far more efficient but it is INCREDIBLY difficult to iterate over something
+    // asyncronously propperly
+    pub async fn search_by_criteria(
+        &self,
+        criterias: &[MatchmakeSessionSearchCriteria],
+    ) -> Result<Vec<Arc<Mutex<ExtendedMatchmakeSession>>>, ErrorCode> {
+        let sessions = self.sessions.read().await;
+        let mut list = Vec::with_capacity(sessions.len());
+        for session in sessions.values() {
+            let inner_session = session.lock().await;
+            if !inner_session.is_joinable() {
+                continue;
+            }
+
+            let mut bool_matched_criteria = false;
+
+            for criteria in criterias {
+                if inner_session.matches_criteria(criteria)? {
+                    bool_matched_criteria = true;
+                }
+            }
+
+            if bool_matched_criteria {
+                println!("matched session: {:?}", session);
+                list.push(session.clone());
+            }
+        }
+
+        drop(sessions);
+        Ok(list)
+    }
 }
 
 #[derive(Default, Debug)]

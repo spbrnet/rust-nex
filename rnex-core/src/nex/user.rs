@@ -72,6 +72,8 @@ use rnex_core::{
 use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
 
+use crate::rmc::structures::resultsrange::ResultsRange;
+
 cfg_if! {
     if #[cfg(feature = "datastore")] {
         use rnex_core::rmc::protocols::datastore::{DataStore, RawDataStore, RawDataStoreInfo, RemoteDataStore};
@@ -214,6 +216,27 @@ impl MatchmakeExtension for User {
         session.session.open_participation = true;
 
         Ok(())
+    }
+
+    async fn browse_matchmake_session(
+        &self,
+        browse_criteria: MatchmakeSessionSearchCriteria,
+        result_range: ResultsRange,
+    ) -> Result<Vec<Any<Gathering>>, ErrorCode> {
+        let results = self
+            .matchmake_manager
+            .search_by_criteria(&[browse_criteria])
+            .await?;
+        let mm_list = result_range.make_from_list(&results[..]);
+
+        let mut list = Vec::with_capacity(mm_list.len());
+
+        for mm_sess in mm_list {
+            let mm_sess = mm_sess.lock().await;
+            list.push(Any::new(&mm_sess.session).expect("type error"));
+        }
+
+        Ok(list)
     }
 
     async fn get_playing_session(&self, _pids: Vec<u32>) -> Result<Vec<()>, ErrorCode> {
@@ -376,45 +399,18 @@ impl MatchmakeExtension for User {
 
         drop(users);
 
-        let sessions = self.matchmake_manager.sessions.read().await;
-        for session in sessions.values() {
+        let sessions = self
+            .matchmake_manager
+            .search_by_criteria(&param.search_criteria[..])
+            .await?;
+
+        if let Some(session) = sessions.get(0) {
             let mut session = session.lock().await;
-            if !session.is_joinable() {
-                continue;
-            }
-            println!("checking session!");
+            session
+                .add_players(&joining_players, param.join_message)
+                .await;
 
-            let mut bool_matched_criteria = false;
-
-            for criteria in &param.search_criteria {
-                if session.matches_criteria(criteria)? {
-                    bool_matched_criteria = true;
-                }
-            }
-
-            if bool_matched_criteria {
-                println!("matched session: {:?}", session);
-                let is_joinable_by_all = join_all(
-                    joining_players
-                        .iter()
-                        .filter_map(|f| f.upgrade())
-                        .map(|v| session.is_joinable_by(v)),
-                )
-                .await
-                .iter()
-                .copied()
-                .fold(true, |a, b| a && b);
-                if is_joinable_by_all {
-                    warn!(
-                        "tripped unreachable host detection for one of the users who were trying to join"
-                    );
-                }
-                session
-                    .add_players(&joining_players, param.join_message)
-                    .await;
-
-                return Ok(session.session.clone());
-            }
+            return Ok(session.session.clone());
         }
 
         drop(sessions);
@@ -543,6 +539,27 @@ impl MatchmakeExtension for User {
                 return Err(ErrorCode::Core_InvalidArgument);
             }
         }
+        Ok(())
+    }
+
+    async fn update_application_buffer(
+        &self,
+        gid: u32,
+        application_buffer: Vec<u8>,
+    ) -> Result<(), ErrorCode> {
+        let session = self.matchmake_manager.get_session(gid).await?;
+
+        let mut session = session.lock().await;
+
+        if session.session.gathering.host_pid == self.pid {
+            return Err(ErrorCode::RendezVous_PermissionDenied);
+        }
+        if session.session.gathering.owner_pid == self.pid {
+            return Err(ErrorCode::RendezVous_PermissionDenied);
+        }
+
+        session.session.application_buffer = application_buffer;
+
         Ok(())
     }
 
