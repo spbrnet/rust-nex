@@ -134,6 +134,16 @@ impl FriendsManager {
     }
 }
 
+impl FriendsManager {
+    async fn accepts_friend_requests(&self, pid: PID) -> Result<bool, ErrorCode> {
+        query!("select principal_preference_block_friend_requests from nintendo_network_accounts where pid = $1", pid)
+            .fetch_one(get_db())
+            .await
+            .map_err(|_| ErrorCode::FPD_InvalidAccount)
+            .map(|v| v.principal_preference_block_friend_requests)
+    }
+}
+
 // ALL of this is stubbed
 impl Friends3DS for FriendsUser {
     async fn update_profile(&self, profile: MyProfile) -> Result<(), ErrorCode> {
@@ -791,6 +801,10 @@ impl FriendsWiiU for FriendsUser {
         unk1 = 0;
         unk2 = 1;
 
+        if !self.fm.accepts_friend_requests(friend).await? {
+            return Err(ErrorCode::FPD_FriendRequestNotAllowed);
+        }
+
         if friend == 99 {
             query!(
                 "insert into friendships (pid_a, pid_b) values(99, $1)",
@@ -1048,12 +1062,15 @@ impl FriendsWiiU for FriendsUser {
     }
 
     async fn accept_friend_request(&self, id: u64) -> Result<FriendInfo, ErrorCode> {
+        let Ok(mut tx) = get_db().begin().await else {
+            return Err(ErrorCode::Core_Exception);
+        };
         let Ok(query) = query!(
             "delete from friend_requests where id = $1 and recipient = $2 returning recipient, sender",
             bytemuck::cast::<_, i64>(id),
             self.pid
         )
-        .fetch_one(get_db())
+        .fetch_one(&mut *tx)
         .await
         else {
             return Err(ErrorCode::FPD_InvalidMessageID);
@@ -1066,7 +1083,7 @@ impl FriendsWiiU for FriendsUser {
             query.recipient,
             query.sender
         )
-        .execute(get_db())
+        .execute(&mut *tx)
         .await
         {
             Ok(_) => {}
@@ -1077,7 +1094,7 @@ impl FriendsWiiU for FriendsUser {
             "select * from nintendo_network_accounts where pid = $1",
             query.sender
         )
-        .fetch_one(get_db())
+        .fetch_one(&mut *tx)
         .await
         else {
             println!("failed to acquire account info after adding friend");
@@ -1102,7 +1119,7 @@ impl FriendsWiiU for FriendsUser {
                     "select * from nintendo_network_accounts where pid = $1",
                     self.pid
                 )
-                .fetch_one(get_db())
+                .fetch_one(&mut *tx)
                 .await
                 else {
                     println!("internal server error whilest getting nna info");
@@ -1141,6 +1158,8 @@ impl FriendsWiiU for FriendsUser {
                 drop(online_presence);
             }
         }
+
+        tx.commit().await.ok();
 
         Ok(FriendInfo {
             data: Data {},
@@ -1330,6 +1349,23 @@ impl FriendsWiiU for FriendsUser {
     }
 
     async fn update_presence(&self, mut presence: NintendoPresenceV2) -> Result<(), ErrorCode> {
+        if !query!("select principal_preference_show_currently_playing_title from nintendo_network_accounts where pid = $1", self.pid).fetch_one(get_db()).await.map_err(|_| ErrorCode::FPD_InvalidAccount)?.principal_preference_show_currently_playing_title{
+            presence.game_server_id = 0;
+            presence.game_key = GameKey::default();
+            presence.app_data = vec![];
+        }
+        if !query!(
+            "select principal_preference_show_online from nintendo_network_accounts where pid = $1",
+            self.pid
+        )
+        .fetch_one(get_db())
+        .await
+        .map_err(|_| ErrorCode::FPD_InvalidAccount)?
+        .principal_preference_show_online
+        {
+            presence.is_online = false;
+        }
+
         presence.is_online = true;
         let data = Any::new(&presence).expect("type error");
         let mut user_presence = self.presence.write().await;
