@@ -93,7 +93,7 @@ impl KerberosDateTime {
         ((self.0 >> 12) & 0b11111) as u8
     }
     pub const fn get_days(&self) -> u8 {
-        ((self.0 >> 17) & 0b111111) as u8
+        ((self.0 >> 17) & 0b11111) as u8
     }
     pub const fn get_month(&self) -> u8 {
         ((self.0 >> 22) & 0b1111) as u8
@@ -235,6 +235,8 @@ mod test {
         );
         println!("{}", time.to_regular_time().to_rfc2822());
 
-        assert_eq!(KerberosDateTime::PRACTICALLY_NEVER, time)
+        assert_eq!(KerberosDateTime::PRACTICALLY_NEVER, time);
+
+        println!("{}", KerberosDateTime(134222053376));
     }
 }

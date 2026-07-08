@@ -8,7 +8,7 @@ use std::sync::{LazyLock, Weak};
 
 use base64::{Engine as _, engine::general_purpose};
 use bytemuck::{Pod, Zeroable, bytes_of};
-use chrono::{NaiveDateTime, Utc};
+use chrono::{NaiveDateTime, TimeZone, Utc};
 use futures::StreamExt;
 use hex::decode;
 use hmac::Mac;
@@ -421,7 +421,11 @@ macro_rules! friend_request_from_record {
             basic_info: basic_principal_from_record!($record),
             request_message: FriendRequestMessage {
                 data: Data {},
-                expires_on: KerberosDateTime::PRACTICALLY_NEVER,
+                expires_on: KerberosDateTime::from_naive(
+                    Utc.timestamp_opt(Utc::now().timestamp() + 2592000, 0)
+                        .unwrap()
+                        .naive_utc(),
+                ),
                 friend_request_id: $record.id,
                 game_key: GameKey {
                     data: Data {},
