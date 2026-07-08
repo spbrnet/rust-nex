@@ -697,7 +697,7 @@ impl FriendsWiiU for FriendsUser {
             self.pid,
             friend
         )
-        .fetch_one(get_db())
+        .execute(get_db())
         .await
         else {
             return Err(ErrorCode::FPD_InvalidMessageID);
