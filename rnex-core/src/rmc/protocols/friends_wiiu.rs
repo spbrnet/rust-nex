@@ -6,12 +6,14 @@ use rnex_core::rmc::structures::data::Data;
 
 use rnex_core::PID;
 
+use crate::rmc::structures::qbuffer::QBuffer;
+
 #[derive(RmcSerialize, Debug, Clone, Default)]
 #[rmc_struct(0)]
 pub struct MiiV2 {
     #[extends]
     pub data: Data,
-    pub name: Vec<u8>,
+    pub name: QBuffer,
     pub unk: u8,
     pub unk2: u8,
     pub mii_data: Vec<u8>,

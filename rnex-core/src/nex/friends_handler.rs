@@ -71,6 +71,7 @@ use crate::rmc::response::ErrorCode::FPD_InvalidArgument;
 use nex_account::grpc::ActCreateInfo;
 use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
 use nex_account::{derive_pid_hmac, grpc_client};
+use rnex_core::rmc::structures::qbuffer::QBuffer;
 
 define_rmc_proto!(
     proto FriendsUser{
@@ -393,7 +394,7 @@ macro_rules! basic_principal_from_record {
                 data: Data {},
                 date_time: KerberosDateTime(bytemuck::cast($record.mii_unk_datetime)),
                 mii_data: $record.mii_ffl_data,
-                name: $record.mii_name,
+                name: QBuffer($record.mii_name),
                 unk: mii_unk1,
                 unk2: mii_unk2,
             },
@@ -496,7 +497,7 @@ impl FriendsWiiU for FriendsUser {
             ",
                 self.pid,
                 info.principal_basic_info.nnid,
-                info.principal_basic_info.mii.name,
+                info.principal_basic_info.mii.name.0,
                 smoosh_to_i16(info.principal_basic_info.mii.unk, info.principal_basic_info.mii.unk2),
                 info.principal_basic_info.mii.mii_data,
                 bytemuck::cast::<_, i64>(info.principal_basic_info.mii.date_time.0),
@@ -1256,7 +1257,7 @@ impl FriendsWiiU for FriendsUser {
             update nintendo_network_accounts
             set mii_name = $1, mii_unks = $2, mii_ffl_data = $3, mii_unk_datetime = $4
             where pid = $5",
-            mii.name,
+            mii.name.0,
             smoosh_to_i16(mii.unk, mii.unk2),
             mii.mii_data,
             bytemuck::cast::<_, i64>(mii.date_time.0),
