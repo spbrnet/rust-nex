@@ -944,7 +944,6 @@ impl FriendsWiiU for FriendsUser {
                     sender: self.pid,
                     data: Any::new(&NintendoNotificationEventGeneral {
                         param1: bytemuck::cast(self.pid),
-                        param2: id,
                         ..Default::default()
                     })
                     .expect("type error"),
@@ -1095,7 +1094,6 @@ impl FriendsWiiU for FriendsUser {
                     sender: self.pid,
                     data: Any::new(&NintendoNotificationEventGeneral {
                         param1: bytemuck::cast(self.pid),
-                        param2: id,
                         ..Default::default()
                     })
                     .expect("type error"),
@@ -1108,13 +1106,21 @@ impl FriendsWiiU for FriendsUser {
 
     async fn deny_friend_request(&self, id: u64) -> Result<BlacklistedPrincipal, ErrorCode> {
         let Ok(query) = query!(
-            "delete from friend_requests where id = $1 and recipient = $2 returning sender",
+            "delete from friend_requests where id = $1 and recipient = $2 returning sender, recipient",
             bytemuck::cast::<_, i64>(id),
             self.pid
         )
         .fetch_one(get_db())
         .await
         else {
+            return Err(ErrorCode::FPD_InvalidMessageID);
+        };
+
+        let other = if query.recipient == self.pid {
+            query.sender
+        } else if query.sender == self.pid {
+            query.recipient
+        } else {
             return Err(ErrorCode::FPD_InvalidMessageID);
         };
 
@@ -1131,7 +1137,7 @@ impl FriendsWiiU for FriendsUser {
         };
 
         let users = self.fm.users.read().await;
-        if let Some(user) = users.get(&query.sender).and_then(|v| v.upgrade()) {
+        if let Some(user) = users.get(&other).and_then(|v| v.upgrade()) {
             drop(users);
 
             user.remote
@@ -1523,6 +1529,15 @@ impl Drop for FriendsUser {
                     .await;
             });
         }
+        tokio::spawn(async move {
+            query!(
+                "update nintendo_network_accounts set last_online = now() where pid = $1",
+                pid
+            )
+            .execute(get_db())
+            .await
+            .ok();
+        });
     }
 }
 
