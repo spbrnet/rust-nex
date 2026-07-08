@@ -1614,6 +1614,7 @@ impl Drop for FriendsUser {
                         event_type: 10,
                         sender: pid,
                         data: Any::new(&NintendoNotificationEventGeneral {
+                            param3: KerberosDateTime::now().0,
                             ..Default::default()
                         })
                         .expect("type error"),
