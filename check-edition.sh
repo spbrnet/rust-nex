@@ -13,4 +13,4 @@ echo CHECKING $EDITION
 echo FEATURES:
 echo $EDITION_FEATURES
 
-cargo check --features "$EDITION_FEATURES"
+RUSTFLAGS="--deny warnings" cargo check --features "$EDITION_FEATURES"

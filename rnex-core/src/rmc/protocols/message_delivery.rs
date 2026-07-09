@@ -1,10 +1,6 @@
 use macros::{method_id, rmc_proto};
 
-use crate::rmc::{
-    protocols::messaging::UserMessage,
-    response::ErrorCode,
-    structures::{Error, any::Any},
-};
+use crate::rmc::{protocols::messaging::UserMessage, response::ErrorCode, structures::any::Any};
 
 #[rmc_proto(27)]
 pub trait MessageDelivery {

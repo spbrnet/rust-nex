@@ -162,9 +162,8 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::net::ToSocketAddrs;
 
-    use crate::executables::common::{IP_REQ_SERVICE_URLS, try_get_ip};
+    use crate::executables::common::try_get_ip;
 
     #[test]
     fn get_ip() {

@@ -1,15 +1,16 @@
 use proxy::edge_node_dc_callback;
 use proxy_common::{ProxyStartupParam, setup_edge_node_connection};
-use rnex_core::common::setup;
+use rnex_core::common::with_setup;
 
 #[tokio::main]
 async fn main() {
-    setup();
+    with_setup(async || {
+        let param = ProxyStartupParam::new(proxy_common::ProxyType::Insecure)
+            .expect("unable to get startup parameters");
 
-    let param = ProxyStartupParam::new(proxy_common::ProxyType::Insecure)
-        .expect("unable to get startup parameters");
+        setup_edge_node_connection(&param, edge_node_dc_callback).await;
 
-    setup_edge_node_connection(&param, edge_node_dc_callback).await;
-
-    proxy::start_insecure(param).await;
+        proxy::start_insecure(param).await;
+    })
+    .await;
 }

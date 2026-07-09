@@ -39,6 +39,10 @@ async-trait = "0.1.89"
 ctor = "1.0.7"
 nex-account = { version = "0.2.1", registry = "spbr" }
 tonic = "0.14.6"
+tracing = { version = "0.1.44", features = ["log"] }
+tracing-subscriber = "0.3.23"
+sentry-tracing = "0.48.4"
+sentry = { version = "0.48.4", features = ["tracing"] }
 
 [dev-dependencies]
 # criterion = "0.7.0"

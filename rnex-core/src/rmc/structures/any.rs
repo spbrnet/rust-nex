@@ -103,7 +103,7 @@ impl<T: RmcStruct> Any<T> {
 mod test {
     use std::io::Cursor;
 
-    use macros::{RmcSerialize, rmc_struct};
+    use macros::RmcSerialize;
 
     use crate::rmc::structures::RmcSerialize;
     use crate::rmc::structures::any::Any;

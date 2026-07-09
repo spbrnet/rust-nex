@@ -1,4 +1,4 @@
-use macros::{RmcSerialize, method_id, rmc_proto, rmc_struct};
+use macros::{RmcSerialize, method_id, rmc_proto};
 use rnex_core::PID;
 use rnex_core::kerberos::KerberosDateTime;
 use rnex_core::rmc::response::ErrorCode;
@@ -273,7 +273,7 @@ pub struct DataStoreChangeMetaParam {
 pub struct DataStoreUploadCourseRecordParam {
     pub dataid: i64,
     pub slot: u8,
-    pub score: i32
+    pub score: i32,
 }
 
 #[derive(RmcSerialize, Clone, Default, Debug)]
@@ -338,15 +338,9 @@ pub struct DataStoreGetCustomRankingParam {
 #[rmc_proto(115)]
 pub trait DataStore {
     #[method_id(4)]
-    async fn delete_object(
-        &self,
-        param: DataStoreDeleteParam,
-    ) -> Result<(), ErrorCode>;
+    async fn delete_object(&self, param: DataStoreDeleteParam) -> Result<(), ErrorCode>;
     #[method_id(8)]
-    async fn get_meta(
-        &self,
-        metaparam: GetMetaParam,
-    ) -> Result<GetMetaInfo, ErrorCode>;
+    async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode>;
     #[method_id(24)]
     async fn prepare_post_object(
         &self,
@@ -358,8 +352,8 @@ pub trait DataStore {
         prepare_get_param: DataStorePrepareGetParam,
     ) -> Result<DataStoreReqGetInfo, ErrorCode>;
     #[method_id(26)]
-    async fn complete_post_object(&self, completeparam: CompletePostParam
-    ) -> Result<(), ErrorCode>;
+    async fn complete_post_object(&self, completeparam: CompletePostParam)
+    -> Result<(), ErrorCode>;
     #[method_id(36)]
     async fn get_metas_multiple_param(
         &self,
@@ -411,10 +405,7 @@ pub trait DataStore {
         application_id: u32,
     ) -> Result<Vec<String>, ErrorCode>;
     #[method_id(38)]
-    async fn change_meta(
-        &self,
-        param: DataStoreChangeMetaParam
-    ) -> Result<(), ErrorCode>;
+    async fn change_meta(&self, param: DataStoreChangeMetaParam) -> Result<(), ErrorCode>;
     #[method_id(40)]
     async fn rate_objects(
         &self,
@@ -431,7 +422,7 @@ pub trait DataStore {
     #[method_id(57)]
     async fn complete_attach_file(
         &self,
-        complete_attach_param: CompletePostParam
+        complete_attach_param: CompletePostParam,
     ) -> Result<String, ErrorCode>;
     #[method_id(59)]
     async fn prepare_attach_file(
@@ -441,7 +432,7 @@ pub trait DataStore {
     #[method_id(71)]
     async fn upload_course_record(
         &self,
-        upload_course_record_param: DataStoreUploadCourseRecordParam
+        upload_course_record_param: DataStoreUploadCourseRecordParam,
     ) -> Result<(), ErrorCode>;
     #[method_id(72)]
     async fn get_course_record(
@@ -462,6 +453,6 @@ pub trait DataStore {
     #[method_id(87)]
     async fn report_course(
         &self,
-        report_course_param: DataStoreReportCourseParam
+        report_course_param: DataStoreReportCourseParam,
     ) -> Result<(), ErrorCode>;
 }

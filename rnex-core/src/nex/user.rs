@@ -1,5 +1,3 @@
-use futures::future::join_all;
-use log::warn;
 use rnex_core::PID;
 use rnex_core::define_rmc_proto;
 use rnex_core::kerberos::KerberosDateTime;
@@ -791,7 +789,7 @@ impl NatTraversal for User {
                 .await
                 .ok();
         }
-        if let Some(user) = self.self_join_ticket_requesters.lock().await.take(&cid) {
+        if let Some(_user) = self.self_join_ticket_requesters.lock().await.take(&cid) {
             self.join_tickets_stage2_sender
                 .send(ConnectionTicket { cid, result })
                 .await
@@ -891,7 +889,7 @@ impl Utility for User {
         return Ok(rand::random());
     }
 
-    async fn get_integer_settings(&self, index: u32) -> Result<Vec<(u16, i32)>, ErrorCode> {
+    async fn get_integer_settings(&self, _index: u32) -> Result<Vec<(u16, i32)>, ErrorCode> {
         Ok(vec![(0, 1), (1, 2), (2, 0), (3, 4)])
     }
 }
@@ -1017,7 +1015,7 @@ impl MessageDelivery for User {
     async fn deliver_message(&self, mut message: Any<UserMessage>) -> Result<(), ErrorCode> {
         let mut msg = message.get()?;
 
-        let users = match msg.recipient_type {
+        let _users = match msg.recipient_type {
             1 => {
                 let Some(user) = self
                     .matchmake_manager

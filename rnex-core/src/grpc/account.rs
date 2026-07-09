@@ -1,15 +1,12 @@
-use crate::grpc::account::Error::SomethingHappened;
-use json::{JsonValue, object};
 use nex_account::grpc::Pid;
 use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
 use once_cell::sync::Lazy;
 use rnex_core::PID;
 use std::array::TryFromSliceError;
-use std::ops::Deref;
 use std::sync::LazyLock;
 use std::{env, result};
 use thiserror::Error;
-use tokio::task::{JoinError, spawn_blocking};
+use tokio::task::JoinError;
 use tonic::transport::Channel;
 
 static API_KEY: Lazy<String> = Lazy::new(|| {
@@ -69,7 +66,7 @@ impl Client {
         Ok(nexkey)
     }
 
-    pub async fn get_user_level(&mut self, pid: PID) -> Result<i32> {
+    pub async fn get_user_level(&mut self, _pid: PID) -> Result<i32> {
         // let req = self
         //     .do_request(object! {
         //         "query": r"query($pid: Int!){

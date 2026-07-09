@@ -3,8 +3,6 @@ use cfg_if::cfg_if;
 use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 use hmac::Hmac;
 use hmac::Mac;
-use md5::digest::generic_array::GenericArray;
-use md5::{Digest, Md5};
 use rc4::KeyInit;
 use rc4::cipher::StreamCipherCoreWrapper;
 use rc4::{Rc4, Rc4Core, StreamCipher};

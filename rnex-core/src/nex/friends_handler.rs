@@ -1,18 +1,11 @@
-use std::collections::{HashMap, HashSet};
-use std::io::{Cursor, Write};
-use std::ops::Deref;
-use std::process::id;
+use std::collections::HashMap;
 use std::sync::{Arc, atomic::AtomicU32};
 use std::sync::{LazyLock, Weak};
 use std::time::Duration;
 use std::{env, mem};
 
-use base64::{Engine as _, engine::general_purpose};
-use bytemuck::{Pod, Zeroable, bytes_of};
-use chrono::{NaiveDateTime, TimeZone, Utc};
-use futures::StreamExt;
-use hex::decode;
-use hmac::Mac;
+use bytemuck::{Pod, Zeroable};
+use chrono::{TimeZone, Utc};
 use log::info;
 use macros::rmc_struct;
 use rnex_core::rmc::protocols::account_management::{
@@ -56,13 +49,11 @@ use rnex_core::PID;
 
 use rnex_core::rmc::protocols::account_management::NintendoCreateAccountData;
 use rnex_core::rmc::protocols::nintendo_notification::NintendoNotificationEvent;
-use rnex_core::rmc::structures::RmcSerialize;
 
 use rnex_core::rmc::structures::data::Data;
 
 use crate::executables::common::get_db;
 
-use crate::kerberos;
 use crate::rmc::protocols::friends_3ds::{
     FriendComment, FriendMii, FriendMiiList, FriendPersistentInfo, FriendPicture, FriendPresence,
     FriendRelationship, Mii, MiiList, MyProfile, NintendoPresence, PlayedGame,
@@ -71,7 +62,6 @@ use crate::rmc::protocols::friends_wiiu::FriendRequestMessage;
 use crate::rmc::protocols::nintendo_notification::NintendoNotificationEventGeneral;
 use crate::rmc::response::ErrorCode::FPD_InvalidArgument;
 use nex_account::grpc::ActCreateInfo;
-use nex_account::grpc::nex_account_service_client::NexAccountServiceClient;
 use nex_account::{derive_pid_hmac, grpc_client};
 use rnex_core::rmc::structures::qbuffer::QBuffer;
 
@@ -146,27 +136,27 @@ impl FriendsManager {
 
 // ALL of this is stubbed
 impl Friends3DS for FriendsUser {
-    async fn update_profile(&self, profile: MyProfile) -> Result<(), ErrorCode> {
+    async fn update_profile(&self, _profile: MyProfile) -> Result<(), ErrorCode> {
         Ok(())
     }
 
-    async fn update_mii(&self, profile: Mii) -> Result<(), ErrorCode> {
+    async fn update_mii(&self, _profile: Mii) -> Result<(), ErrorCode> {
         Ok(())
     }
 
-    async fn update_mii_list(&self, profile: MiiList) -> Result<(), ErrorCode> {
+    async fn update_mii_list(&self, _profile: MiiList) -> Result<(), ErrorCode> {
         Ok(())
     }
 
-    async fn update_played_games(&self, profile: Vec<PlayedGame>) -> Result<(), ErrorCode> {
+    async fn update_played_games(&self, _profile: Vec<PlayedGame>) -> Result<(), ErrorCode> {
         Ok(())
     }
 
     async fn update_preference(
         &self,
-        show_online_status: bool,
-        show_current_title: bool,
-        block_friend_requests: bool,
+        _show_online_status: bool,
+        _show_current_title: bool,
+        _block_friend_requests: bool,
     ) -> Result<(), ErrorCode> {
         // stubbed
         Ok(())
@@ -174,7 +164,7 @@ impl Friends3DS for FriendsUser {
 
     async fn get_friend_mii(
         &self,
-        friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
+        _friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
     ) -> Result<Vec<FriendMii>, ErrorCode> {
         // sorry for the copying pretendo but i don't have a mii on hand rn
         let data: Vec<u8> = vec![
@@ -205,30 +195,30 @@ impl Friends3DS for FriendsUser {
 
     async fn get_friend_mii_list(
         &self,
-        friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
+        _friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
     ) -> Result<Vec<FriendMiiList>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn is_active_game(
         &self,
-        unk: Vec<u32>,
-        game_key: crate::rmc::protocols::friends_3ds::GameKey,
+        _unk: Vec<u32>,
+        _game_key: crate::rmc::protocols::friends_3ds::GameKey,
     ) -> Result<Vec<u32>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn get_principal_id_by_local_friend_code(
         &self,
-        unk1: u64,
-        unk2: Vec<u64>,
+        _unk1: u64,
+        _unk2: Vec<u64>,
     ) -> Result<Vec<FriendRelationship>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn get_friend_relationships(
         &self,
-        unk2: Vec<u32>,
+        _unk2: Vec<u32>,
     ) -> Result<Vec<FriendRelationship>, ErrorCode> {
         let dummy = FriendRelationship {
             data: Data {},
@@ -240,23 +230,27 @@ impl Friends3DS for FriendsUser {
         Ok(vec![dummy])
     }
 
-    async fn add_friend_by_pid(&self, unk: u64, pid: PID) -> Result<FriendRelationship, ErrorCode> {
+    async fn add_friend_by_pid(
+        &self,
+        _unk: u64,
+        _pid: PID,
+    ) -> Result<FriendRelationship, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn add_friend_by_lst_pid(
         &self,
-        unk: u64,
-        pid: Vec<PID>,
+        _unk: u64,
+        _pid: Vec<PID>,
     ) -> Result<Vec<FriendRelationship>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
-    async fn remove_friend_by_local_code(&self, local_code: u64) -> Result<(), ErrorCode> {
+    async fn remove_friend_by_local_code(&self, _local_code: u64) -> Result<(), ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
-    async fn remove_friend_by_pid(&self, pid: PID) -> Result<(), ErrorCode> {
+    async fn remove_friend_by_pid(&self, _pid: PID) -> Result<(), ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
@@ -295,8 +289,8 @@ impl Friends3DS for FriendsUser {
 
     async fn update_presence(
         &self,
-        nintendo_presence: NintendoPresence,
-        unk: bool,
+        _nintendo_presence: NintendoPresence,
+        _unk: bool,
     ) -> Result<(), ErrorCode> {
         Ok(())
     }
@@ -310,11 +304,11 @@ impl Friends3DS for FriendsUser {
         Ok(())
     }
 
-    async fn update_comment(&self, comment: String) -> Result<(), ErrorCode> {
+    async fn update_comment(&self, _comment: String) -> Result<(), ErrorCode> {
         Ok(())
     }
 
-    async fn update_picture(&self, unk: u32, picture: Vec<u8>) -> Result<(), ErrorCode> {
+    async fn update_picture(&self, _unk: u32, _picture: Vec<u8>) -> Result<(), ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
@@ -348,18 +342,18 @@ impl Friends3DS for FriendsUser {
 
     async fn get_friend_comment(
         &self,
-        unk: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
+        _unk: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
     ) -> Result<Vec<FriendComment>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
-    async fn get_friend_picture(&self, unk: Vec<u32>) -> Result<Vec<FriendPicture>, ErrorCode> {
+    async fn get_friend_picture(&self, _unk: Vec<u32>) -> Result<Vec<FriendPicture>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 
     async fn get_friend_persistent_info(
         &self,
-        unk: Vec<u32>,
+        _unk: Vec<u32>,
     ) -> Result<Vec<FriendPersistentInfo>, ErrorCode> {
         let dummypersistentinfo = FriendPersistentInfo {
             data: Data {},
@@ -383,7 +377,7 @@ impl Friends3DS for FriendsUser {
         Ok(vec![dummypersistentinfo])
     }
 
-    async fn send_invitation(&self, unk: Vec<u32>) -> Result<(), ErrorCode> {
+    async fn send_invitation(&self, _unk: Vec<u32>) -> Result<(), ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
 }
@@ -594,7 +588,7 @@ impl FriendsWiiU for FriendsUser {
 
         let mut friends = Vec::with_capacity(friends_raw.len());
 
-        for mut friend in friends_raw {
+        for friend in friends_raw {
             let Some(friend_since) = friend.since else {
                 println!("this should absolutely never happen(psql messed up somehow)");
                 return Err(ErrorCode::Core_SystemError);
@@ -737,7 +731,7 @@ impl FriendsWiiU for FriendsUser {
     }
 
     async fn remove_friend(&self, friend: PID) -> Result<(), ErrorCode> {
-        let Ok(query) = query!(
+        let Ok(_) = query!(
             "delete from friendships where (pid_a = $1 AND pid_b = $2) OR (pid_a = $2 AND pid_b = $1)",
             self.pid,
             friend
@@ -791,15 +785,15 @@ impl FriendsWiiU for FriendsUser {
     async fn add_friend_request(
         &self,
         friend: PID,
-        mut unk1: u8,
+        _unk1: u8,
         message: String,
-        mut unk2: u8,
+        _unk2: u8,
         unk3: String,
         game_key: GameKey,
         unk4: KerberosDateTime,
     ) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
-        unk1 = 0;
-        unk2 = 1;
+        let unk1 = 0;
+        let unk2 = 1;
 
         if self.fm.denies_friend_requests(friend).await? {
             return Err(ErrorCode::FPD_FriendRequestNotAllowed);
@@ -1087,7 +1081,7 @@ impl FriendsWiiU for FriendsUser {
         .await
         {
             Ok(_) => {}
-            Err(e) => return Err(ErrorCode::FPD_FriendAlreadyAdded),
+            Err(_) => return Err(ErrorCode::FPD_FriendAlreadyAdded),
         };
 
         let Ok(query) = query!(
@@ -1571,7 +1565,7 @@ impl FriendsWiiU for FriendsUser {
 
     async fn delete_persistent_notification(
         &self,
-        notifs: Vec<PersistentNotification>,
+        _notifs: Vec<PersistentNotification>,
     ) -> Result<(), ErrorCode> {
         Ok(())
     }
@@ -1750,7 +1744,7 @@ impl AccountManagement for FriendsGuest {
         let nexkey = client
             .create_new_sequential_or_update_and_get_account(new_account)
             .await
-            .map_err(|e| ErrorCode::Core_Unknown)?
+            .map_err(|_| ErrorCode::Core_Unknown)?
             .into_inner();
 
         if nexkey.key.len() != 16 {

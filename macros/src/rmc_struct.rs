@@ -1,7 +1,7 @@
 use proc_macro2::{Literal, Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{
-    bracketed, ext, parse::Parse, punctuated::Punctuated, token::Bracket, DataEnum, DataStruct,
+    bracketed, parse::Parse, punctuated::Punctuated, token::Bracket, DataEnum, DataStruct,
     DeriveInput, Field, Fields, Ident, LitStr, Meta, Token, Variant,
 };
 

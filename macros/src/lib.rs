@@ -11,7 +11,7 @@ use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, Data, DeriveInput, Lit, LitStr};
+use syn::{parse_macro_input, Data, DeriveInput};
 
 #[proc_macro_derive(RmcSerialize, attributes(extends, rmc_struct))]
 pub fn rmc_serialize(input: TokenStream) -> TokenStream {
