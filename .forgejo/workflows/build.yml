@@ -341,3 +341,33 @@ jobs:
           CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
           DATABASE_URL: ${{ secrets.DATABASE_SMM }}
         run: ./.ci-scripts/make-edition.sh super-mario-maker
+
+  terraria:
+    runs-on: debian-trixie
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Cache container storage
+        uses: actions/cache@v6
+        with:
+          path: |
+            /var/lib/containers/storage
+            /run/containers/storage
+            ~/.local/share/containers/storage
+          key: image-cache
+
+      - name: Login to registry
+        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
+
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
+
+      - name: Build Terraria edition
+        env:
+          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
+          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
+        run: ./.ci-scripts/make-edition.sh terraria
