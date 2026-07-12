@@ -1,0 +1,19 @@
+[package]
+name = "rnex-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.103", features = ["backtrace"] }
+ctor = "1.0.8"
+dotenv = "0.15.0"
+paste = "1.0.15"
+rnex-rmc = { path = "../rnex-rmc" }
+rnex-util = { path = "../rnex-util" }
+sentry = { version = "0.48.4", features = ["tracing"] }
+tokio = { version = "1.52.3", features = ["net"] }
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+
+[lints]
+workspace = true

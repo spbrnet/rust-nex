@@ -1,0 +1,17 @@
+[package]
+name = "rnex-util"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.52.3", features = ["io-util", "macros", "rt", "sync"] }
+tracing = "0.1.44"
+chrono = "0.4.39"
+bytemuck = { version = "1.25.0", features = ["derive"] }
+md-5 = "0.11.0"
+
+[features]
+nx = []
+
+[lints]
+workspace = true

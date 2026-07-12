@@ -2,7 +2,6 @@ use crate::prudp::packet::PRUDPV1Packet;
 use crate::prudp::router::Error::VirtualPortTaken;
 use crate::prudp::socket::{AnyInternalSocket, CryptoHandler, ExternalSocket, new_socket_pair};
 use log::{error, info};
-use rnex_core::prudp::virtual_port::VirtualPort;
 use std::io;
 use std::io::Cursor;
 use std::marker::PhantomData;

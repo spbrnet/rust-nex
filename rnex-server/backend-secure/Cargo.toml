@@ -1,0 +1,13 @@
+[package]
+name = "backend-secure"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rnex-server = {path = ".."}
+rnex-base = {path = "../../rnex-server-nex-modules/rnex-base"}
+rnex-mm = {path = "../../rnex-server-nex-modules/rnex-mm", optional = true}
+tokio = { version = "1.52.3", features = ["time", "sync", "rt-multi-thread"] }
+
+[features]
+match-making = ["dep:rnex-mm"]

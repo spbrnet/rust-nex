@@ -1,0 +1,12 @@
+[package]
+name = "rnex-server-backend-auth"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+friends = []
+
+[dependencies]
+rnex-server = {path = ".."}
+rnex-auth = {path = "../../rnex-server-nex-modules/rnex-auth"}
+tokio = { version = "1.52.3", features = ["rt-multi-thread"] }

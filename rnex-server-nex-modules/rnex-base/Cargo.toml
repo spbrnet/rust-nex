@@ -1,0 +1,17 @@
+[package]
+name = "rnex-base"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rnex-rmc = { path = "../../rnex-rmc" }
+rnex-util = { path = "../../rnex-util" }
+rnex-base-protos = { path = "../../rnex-protocols/base-protos" }
+rnex-server = { path = "../../rnex-server" }
+tokio = { version = "1.52.3", features = ["sync"] }
+rand = "0.10.2"
+tracing = "0.1.44"
+cfg-if = "1.0.4"
+
+[lints]
+workspace = true

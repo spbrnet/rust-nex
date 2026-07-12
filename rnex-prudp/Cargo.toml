@@ -1,0 +1,22 @@
+[package]
+name = "rnex-prudp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hmac = "0.13.0"
+md-5 = "0.11.0"
+rc4 = "0.2.0"
+typenum = "1.20.1"
+cfg-if = "1.0.4"
+rnex-util = { path = "../rnex-util" }
+bytemuck = { version = "1.25.0", features = ["derive"] }
+rand = "0.10.2"
+tracing = "0.1.44"
+v-byte-helpers = { git = "https://github.com/RusticMaple/VByteMacros", version = "0.1.1" }
+
+[features]
+friends = []
+
+[lints]
+workspace = true

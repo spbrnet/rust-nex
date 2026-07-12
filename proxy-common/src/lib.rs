@@ -1,21 +1,14 @@
-use log::{error, info};
-use rnex_core::{
-    PID,
-    executables::common::try_get_ip,
-    prudp::{socket_addr::PRUDPSockAddr, virtual_port::VirtualPort},
-    reggie::{RemoteEdgeNodeHolder, UnitPacketWrite},
-    rmc::{
-        protocols::{
-            RemoteDisconnectable, RmcCallable, RmcConnection, RmcPureRemoteObject,
-            new_rmc_gateway_connection,
-        },
-        structures::RmcSerialize,
-    },
-    rnex_proxy_common::ConnectionInitData,
-    util::{SendingBufferConnection, SplittableBufferConnection},
+use rnex_prudp::{socket_addr::PRUDPSockAddr, virtual_port::VirtualPort};
+use rnex_reggie_protos::reggie::{EdgeNodeHolderConnectOption, RemoteEdgeNodeHolder};
+use rnex_rmc::{
+    RemoteDisconnectable, RmcCallable, RmcConnection, RmcPureRemoteObject,
+    new_rmc_gateway_connection, serialization::RmcSerialize,
 };
+use rnex_server::{ConnectionInitData, try_get_ip};
+use rnex_util::{PID, SendingBufferConnection, SplittableBufferConnection, UnitPacketWrite};
 use std::{
     env::{self, VarError},
+    fmt::Debug,
     net::{AddrParseError, Ipv4Addr, SocketAddr, SocketAddrV4},
     ops::Deref,
     panic,
@@ -24,6 +17,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::net::TcpStream;
+use tracing::{error, info, instrument};
 
 const RNEX_DEFAULT_PORT: u16 = match u16::from_str_radix(env!("RNEX_DEFAULT_PORT"), 10) {
     Ok(v) => v,
@@ -104,6 +98,15 @@ impl ProxyStartupParam {
 }
 
 struct OnRemoteDrop<T: RemoteDisconnectable, C: FnOnce() + Send + Sync + 'static>(T, Option<C>);
+impl<T: RemoteDisconnectable + Debug, C: FnOnce() + Send + Sync + 'static> Debug
+    for OnRemoteDrop<T, C>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut tuple_builder = f.debug_tuple("OnRemoteDrop");
+        tuple_builder.field(&self.0);
+        tuple_builder.finish_non_exhaustive()
+    }
+}
 impl<T: RemoteDisconnectable, C: FnOnce() + Send + Sync + 'static> Deref for OnRemoteDrop<T, C> {
     type Target = T;
 
@@ -136,10 +139,10 @@ impl<T: RemoteDisconnectable, C: FnOnce() + Send + Sync + 'static> RmcCallable
         _protocol_id: u16,
         _method_id: u32,
         _call_id: u32,
-        _rest: Vec<u8>,
-    ) -> impl Future<Output = ()> + Send {
+        _rest: &[u8],
+    ) -> impl Future<Output = bool> + Send {
         // maybe respond with not implemented or something
-        async {}
+        async { false }
     }
 }
 
@@ -160,7 +163,7 @@ pub async fn setup_edge_node_connection(
     let conn: SplittableBufferConnection = conn.into();
 
     conn.send(
-        rnex_core::reggie::EdgeNodeHolderConnectOption::Register(param.self_public)
+        EdgeNodeHolderConnectOption::Register(param.self_public)
             .to_data()
             .unwrap(),
     )
@@ -168,7 +171,7 @@ pub async fn setup_edge_node_connection(
 
     println!("{:?}", param.self_public);
     //leave the inner object floating so that it gets destroyed once we disconnect
-    new_rmc_gateway_connection(conn, move |r| {
+    new_rmc_gateway_connection(conn, async move |r| {
         Arc::new(OnRemoteDrop::<RemoteEdgeNodeHolder, _>::new(
             r,
             shutdown_callback,
@@ -191,7 +194,7 @@ pub async fn new_backend_connection(
     };
 
     let data = ConnectionInitData {
-        prudpsock_addr: addr,
+        addr: addr.regular_socket_addr,
         pid: pid,
     }
     .to_data()

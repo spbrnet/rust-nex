@@ -1,14 +1,14 @@
 use crate::prudp::packet::PRUDPV1Packet;
 use crate::prudp::socket::{CryptoHandler, CryptoHandlerConnectionInstance};
 use rc4::{KeyInit, Rc4, StreamCipher};
-use rnex_core::prudp::encryption::{DEFAULT_KEY, EncryptionPair};
+use rnex_prudp::encryption::{DEFAULT_KEY, EncryptionPair};
 use typenum::U5;
 
 pub struct Unsecure(pub &'static str);
 
 pub struct UnsecureInstance {
     key: &'static str,
-    streams: Vec<EncryptionPair<Rc4<U5>>>,
+    streams: Vec<EncryptionPair<Rc4>>,
     self_signature: [u8; 16],
     #[allow(dead_code)]
     remote_signature: [u8; 16],
@@ -32,7 +32,11 @@ impl CryptoHandler for Unsecure {
             Vec::new(),
             UnsecureInstance {
                 streams: (0..substream_count)
-                    .map(|_| EncryptionPair::init_both(|| Rc4::new(&DEFAULT_KEY)))
+                    .map(|_| {
+                        EncryptionPair::init_both(|| {
+                            Rc4::new_from_slice(DEFAULT_KEY).expect("invalid key length")
+                        })
+                    })
                     .collect(),
                 key: self.0,
                 remote_signature,

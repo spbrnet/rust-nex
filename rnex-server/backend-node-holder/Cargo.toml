@@ -1,0 +1,10 @@
+[package]
+name = "node-holder-backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rnex-server = {path = ".."}
+rnex-node-holder = {path = "../../rnex-server-nex-modules/rnex-node-holder"}
+rnex-reggie-protos = { path = "../../rnex-protocols/reggie-protos" }
+tokio = { version = "1.52.3", features = ["rt-multi-thread"] }
