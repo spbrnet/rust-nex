@@ -73,7 +73,7 @@ impl RmcSerialize for SocketAddrV6 {
         ))
     }
     fn serialize_write_size(&self) -> Result<u32> {
-        Ok(6)
+        Ok(26)
     }
 }
 /*

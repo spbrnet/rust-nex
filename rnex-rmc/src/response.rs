@@ -465,6 +465,6 @@ impl From<Error> for ErrorCode {
 
 impl Into<u32> for ErrorCode {
     fn into(self) -> u32 {
-        unsafe { transmute(self) }
+        self as u32
     }
 }

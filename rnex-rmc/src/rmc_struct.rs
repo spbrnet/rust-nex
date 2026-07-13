@@ -77,7 +77,7 @@ impl<'a, T: Read + ?Sized> SubRead<'a, T> {
 impl<T: Read + ?Sized> Read for SubRead<'_, T> {
     #[inline(always)]
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let max_read = usize::max(self.left_to_read, buf.len());
+        let max_read = usize::min(self.left_to_read, buf.len());
         let read = self.origin.read(&mut buf[..max_read])?;
         self.left_to_read -= read;
         Ok(read)

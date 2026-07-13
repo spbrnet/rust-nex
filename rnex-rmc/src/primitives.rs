@@ -124,7 +124,7 @@ impl RmcSerialize for u128 {
     }
     #[inline(always)]
     fn serialize_write_size(&self) -> Result<u32> {
-        Ok(8)
+        Ok(16)
     }
 }
 

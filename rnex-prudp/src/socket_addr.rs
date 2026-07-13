@@ -22,7 +22,7 @@ impl PRUDPSockAddr {
     }
 
     pub fn calculate_connection_signature(&self) -> [u8; 16] {
-        let mut hmac = Md5Hmac::new_from_slice(&[0; 16]).expect("?");
+        let mut hmac = Md5Hmac::new_from_slice(&[0; 16]).expect("incorrect slice size");
 
         let data = match self.regular_socket_addr.ip() {
             IpAddr::V4(v) => v.octets().to_vec(),
@@ -33,7 +33,7 @@ impl PRUDPSockAddr {
         hmac.update(&data);
         let result: [u8; 16] = hmac.finalize().into_bytes()[0..16]
             .try_into()
-            .expect("fuck");
+            .expect("incorrect result size");
         result
     }
 }

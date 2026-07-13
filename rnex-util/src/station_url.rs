@@ -1,8 +1,10 @@
 use std::{
     fmt::{Debug, Display, Formatter},
     net::IpAddr,
+    str::FromStr,
 };
 
+use thiserror::Error;
 use tracing::error;
 
 use crate::PID;
@@ -86,11 +88,15 @@ impl StationUrl {
     }
 }
 
-impl TryFrom<&str> for StationUrl {
-    type Error = ();
+// todo: add more specific error messages to parsing
+#[derive(Error, Debug)]
+#[error("failed to parse station url")]
+pub struct StationUrlParseError;
 
-    fn try_from(value: &str) -> Result<Self, ()> {
-        let (url_type, options) = value.split_at(value.find(":/").ok_or(())?);
+impl FromStr for StationUrl {
+    type Err = StationUrlParseError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let (url_type, options) = value.split_at(value.find(":/").ok_or(StationUrlParseError)?);
 
         let options = &options[2..];
 
@@ -100,10 +106,10 @@ impl TryFrom<&str> for StationUrl {
             "udp" => UDP,
             "prudp" => PRUDP,
             "prudps" => PRUDPS,
-            _ => return Err(()),
+            _ => return Err(StationUrlParseError),
         };
 
-        let options = Self::read_options(options).ok_or(())?;
+        let options = Self::read_options(options).ok_or(StationUrlParseError)?;
 
         Ok(Self { url_type, options })
     }
