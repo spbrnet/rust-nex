@@ -5,24 +5,22 @@ use std::{
     time::Duration,
 };
 
-use log::{error, info, warn};
 use proxy_common::{ProxyStartupParam, new_backend_connection};
-use rnex_core::{
-    prudp::{
-        socket_addr::PRUDPSockAddr,
-        types_flags::{
-            flags::{ACK, NEED_ACK, RELIABLE},
-            types::{CONNECT, DATA, DISCONNECT, PING, SYN},
-        },
+use rnex_prudp::{
+    socket_addr::PRUDPSockAddr,
+    types_flags::{
+        flags::{ACK, NEED_ACK, RELIABLE},
+        types::{CONNECT, DATA, DISCONNECT, PING, SYN},
     },
-    util::{SendingBufferConnection, SplittableBufferConnection},
 };
+use rnex_util::{SendingBufferConnection, SplittableBufferConnection};
 use tokio::{
     net::UdpSocket,
     spawn,
     sync::{Mutex, RwLock},
     time::{Instant, sleep},
 };
+use tracing::{error, info, warn};
 
 use crate::{
     crypto::{Crypto, CryptoInstance},
@@ -528,7 +526,7 @@ impl<C: Crypto> Server<C> {
             .expect("unable to bind socket");
         Self {
             socket,
-            crypto: C::new(),
+            crypto: C::new().await,
             connections: RwLock::new(HashMap::new()),
             param,
         }

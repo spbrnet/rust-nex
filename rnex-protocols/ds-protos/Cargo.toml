@@ -8,5 +8,8 @@ ctor = "1.0.8"
 rnex-rmc = { path = "../../rnex-rmc" }
 rnex-base-protos = { path = "../base-protos" }
 
+[feature]
+datastore = []
+
 [lints]
 workspace = true

@@ -1,4 +1,3 @@
-#[cfg(not(feature = "rmc_struct_header"))]
 use std::io::Read;
 use std::{
     fmt::Arguments,
@@ -102,7 +101,7 @@ pub fn read_struct<T: Sized, R: Read + ?Sized>(
     version: u8,
     pred: impl FnOnce(&mut SubRead<R>) -> Result<T>,
 ) -> Result<T> {
-    use crate::rmc::structures::Error::VersionMismatch;
+    use crate::serialization::Error::VersionMismatch;
     use v_byte_helpers::IS_BIG_ENDIAN;
     use v_byte_helpers::ReadExtensions;
     let ver: u8 = reader.read_struct(IS_BIG_ENDIAN)?;

@@ -1,7 +1,7 @@
 use cfg_if::cfg_if;
 cfg_if! {
     if #[cfg(feature = "prudpv0")] {
-        use log::info;
+        use tracing::info;
         use proxy_common::ProxyStartupParam;
         use std::env;
         use std::net::SocketAddrV4;

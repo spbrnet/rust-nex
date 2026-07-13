@@ -1,4 +1,5 @@
 use md5::{Digest, Md5};
+use nex_account::{grpc::Pid, grpc_client};
 
 use crate::PID;
 
@@ -43,5 +44,18 @@ impl Account {
 
     pub fn get_login_data(&self) -> (PID, [u8; 16]) {
         (self.pid, self.nex_key)
+    }
+    pub async fn from_nexact(pid: PID, username: &str) -> Option<Self> {
+        let key: [u8; 16] = grpc_client()
+            .await
+            .ok()?
+            .get_nex_key_by_pid(Pid { pid })
+            .await
+            .ok()?
+            .into_inner()
+            .key
+            .try_into()
+            .ok()?;
+        Some(Self::new_raw_key(pid, username, key))
     }
 }

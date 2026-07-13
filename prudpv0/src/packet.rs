@@ -1,6 +1,5 @@
 use bytemuck::{Pod, Zeroable, try_from_bytes, try_from_bytes_mut};
-use log::{info, warn};
-use rnex_core::prudp::{
+use rnex_prudp::{
     types_flags::{
         TypesFlags,
         flags::HAS_SIZE,
@@ -8,6 +7,7 @@ use rnex_core::prudp::{
     },
     virtual_port::VirtualPort,
 };
+use tracing::{info, warn};
 
 use crate::crypto::{Crypto, CryptoInstance};
 

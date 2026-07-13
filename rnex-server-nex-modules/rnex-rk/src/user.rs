@@ -1,3 +1,25 @@
+use rnex_rk_protos::{
+    LocalRankingProtocol,
+    ranking::{
+        CompetitionRankingGetParam, CompetitionRankingScoreData, CompetitionRankingScoreInfo,
+        Ranking, UploadCompetitionData,
+    },
+};
+use rnex_rmc::{qbuffer::QBuffer, response::ErrorCode, rmc_struct};
+use rnex_server::PassthroughInitModule;
+use rnex_util::{PID, date_time::DateTime};
+use serde::{Deserialize, Serialize};
+use std::{env, str::FromStr};
+use tracing::{error, info};
+
+use crate::RankingManager;
+
+#[rmc_struct(RankingProtocol)]
+pub struct RankingUser {
+    pub rm: PassthroughInitModule<RankingManager>,
+    pub pid: PID,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct CompetitionPostResults {
     pub splatfest_id: u32,
@@ -7,50 +29,20 @@ pub struct CompetitionPostResults {
     pub user: PID,
 }
 
-// Seperate function because I cannot give a fuck right now
-async fn fetch_team_votes(fest_id: u32) -> Result<Vec<u32>, ErrorCode> {
-    let endpoint_votes = env::var("RNEX_SPLATOON_RESULTS_VOTES_GET").map_err(|_| {
-        error!("RNEX_SPLATOON_RESULTS_VOTES_GET not set");
-        ErrorCode::RendezVous_InvalidConfiguration
-    })?;
-
-    let url_votes = format!("{}?splatfest_id={}", endpoint_votes, fest_id);
-    let mut response = tokio::task::spawn_blocking(|| {
-        ureq::get(&url_votes).call().map_err(|e| {
-            error!("GET for votes failed: {:?}", e);
-            ErrorCode::RendezVous_InvalidConfiguration
-        })
-    })
-    .await?;
-
-    let body = response.body_mut().read_to_string().map_err(|e| {
-        error!("failed to read votes body: {:?}", e);
-        ErrorCode::RendezVous_InvalidConfiguration
-    })?;
-
-    let body = body.trim().trim_start_matches('[').trim_end_matches(']');
-    let votes: Result<Vec<u32>, _> = body.split(',').map(|s| u32::from_str(s.trim())).collect();
-
-    votes.map_err(|e| {
-        error!("failed to parse votes: {:?}", e);
-        ErrorCode::RendezVous_InvalidConfiguration
-    })
-}
-
-impl Ranking for User {
+impl Ranking for RankingUser {
     async fn competition_ranking_get_param(
         &self,
         param: CompetitionRankingGetParam,
     ) -> Result<Vec<CompetitionRankingScoreInfo>, ErrorCode> {
         let fest_id = param.festival_ids.get(0).copied().unwrap_or(0);
 
-        let endpoint_results = env::var("RNEX_SPLATOON_RESULTS_GET").map_err(|_| {
-            error!("RNEX_SPLATOON_RESULTS_GET not set");
-            ErrorCode::RendezVous_InvalidConfiguration
-        })?;
-
-        let url_results = format!("{}?splatfest_id={}", endpoint_results, fest_id);
-        let response_results = ureq::get(&url_results).call();
+        let url_results = format!("{}?splatfest_id={}", self.rm.rnex_result_get, fest_id);
+        let Ok(response_results) =
+            tokio::task::spawn_blocking(move || ureq::get(&url_results).call()).await
+        else {
+            error!("failed to join task");
+            return Err(ErrorCode::Core_Exception);
+        };
 
         let results: Vec<CompetitionPostResults> = match response_results {
             Ok(mut res) => res.body_mut().read_json().map_err(|e| {
@@ -69,7 +61,7 @@ impl Ranking for User {
         let start = offset.min(results.len());
         let end = (start + size).min(results.len());
 
-        let team_votes = fetch_team_votes(fest_id)?;
+        let team_votes = self.rm.fetch_team_votes(fest_id).await?;
         let mut wins = vec![0u32, 0u32];
         for r in &results {
             let won_team = (r.team_id ^ (!r.team_win)) & 1;
@@ -84,7 +76,7 @@ impl Ranking for User {
                 unk: 1,
                 pid: r.user,
                 score: r.score,
-                modified: KerberosDateTime::now(),
+                modified: DateTime::now(),
                 unk2: 1,
                 appdata: QBuffer(vec![]),
             })
@@ -113,14 +105,6 @@ impl Ranking for User {
         info!("team id: {:?}", param.team_id);
         info!("did current team win: {:?}", param.team_win);
 
-        let endpoint = match env::var("RNEX_SPLATOON_RESULTS_POST") {
-            Ok(url) => url,
-            Err(_) => {
-                error!("RNEX_SPLATOON_RESULTS_POST not set");
-                return Ok(false);
-            }
-        };
-
         let payload = CompetitionPostResults {
             splatfest_id: param.splatfest_id,
             score: param.score,
@@ -137,9 +121,18 @@ impl Ranking for User {
             }
         };
 
-        let response = ureq::post(&endpoint)
-            .header("Content-Type", "application/json")
-            .send(json_body);
+        let rm = self.rm.clone();
+
+        let Ok(response) = tokio::task::spawn_blocking(move || {
+            ureq::post(&rm.rnex_result_post)
+                .header("Content-Type", "application/json")
+                .send(json_body)
+        })
+        .await
+        else {
+            error!("unable to spawn blocking");
+            return Err(ErrorCode::Core_Exception);
+        };
 
         match response {
             Ok(res) => {

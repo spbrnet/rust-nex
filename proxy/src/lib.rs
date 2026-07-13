@@ -1,7 +1,7 @@
 use std::process::abort;
 
 use cfg_if::cfg_if;
-use log::error;
+use tracing::error;
 
 cfg_if! {
     if #[cfg(feature = "prudpv0")]{

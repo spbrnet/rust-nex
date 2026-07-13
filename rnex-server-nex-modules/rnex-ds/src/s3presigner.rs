@@ -4,6 +4,7 @@ use hmac::{Hmac, KeyInit, Mac};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
+#[derive(Debug)]
 pub struct S3Presigner {
     endpoint: String,
     bucket: String,

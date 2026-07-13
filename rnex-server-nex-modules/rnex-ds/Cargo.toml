@@ -10,12 +10,10 @@ rnex-base = { path = "../rnex-base" }
 rnex-base-protos = { path = "../../rnex-protocols/base-protos" }
 rnex-ds-protos = { path = "../../rnex-protocols/ds-protos" }
 rnex-server = { path = "../../rnex-server" }
-sqlx = "0.9.0"
+sqlx = { version = "0.9.0", features = ["chrono"] }
 tracing = "0.1.44"
 thiserror = "2.0.18"
 chrono = "0.4.45"
-aws-sdk-s3 = "1.138.0"
-aws-config = "1.9.0"
 sha2 = "0.11.0"
 hmac = "0.13.0"
 base64 = "0.22.1"
@@ -23,6 +21,9 @@ serde_json = "1.0.150"
 hex = "0.4.3"
 urlencoding = "2.1.3"
 futures = "0.3.32"
+
+[features]
+datastore = []
 
 [lints]
 workspace = true

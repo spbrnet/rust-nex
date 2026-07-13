@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-
+rnex-rmc = { path = "../../rnex-rmc" }
+rnex-msg-protos = { path = "../../rnex-protocols/msg-protos" }
+rnex-server = { path = "../../rnex-server" }
+tokio = { version = "1.52.3", features = ["sync"] }
 [lints]
 workspace = true

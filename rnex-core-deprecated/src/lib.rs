@@ -4,11 +4,6 @@
 #![allow(async_fn_in_trait)]
 //#![warn(missing_docs)]
 
-#[cfg(feature = "big_pid")]
-pub type PID = i64;
-#[cfg(not(feature = "big_pid"))]
-pub type PID = i32;
-
 pub use ctor::ctor;
 
 pub mod prudp;

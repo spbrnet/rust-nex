@@ -1,3 +1,4 @@
+#![cfg(feature = "datastore")]
 use std::env;
 
 use rnex_server::{ConnectionInitData, RnexManager, RnexModule};
@@ -9,20 +10,21 @@ use crate::{datastore::DatastoreUser, s3presigner::S3Presigner};
 pub mod datastore;
 pub(crate) mod s3presigner;
 
-struct DatastoreManager {
+#[derive(Debug)]
+pub struct DatastoreManager {
     db_pool: PgPool,
     s3_presigner: S3Presigner,
 }
-struct DatastoreModule;
+pub struct DatastoreModule;
 impl RnexManager for DatastoreManager {
     type User = DatastoreUser;
     type InitData = ConnectionInitData;
     async fn init_new_user(
         this: rnex_server::PassthroughInitModule<Self>,
         mod_holder: &rnex_server::ModuleHolder,
-        remote: &rnex_rmc::RmcConnection,
-        init_data: &Self::InitData,
-        weak_user: rnex_server::WeakPassthroughInitModule<Self::User>,
+        _: &rnex_rmc::RmcConnection,
+        _: &Self::InitData,
+        _: rnex_server::WeakPassthroughInitModule<Self::User>,
     ) -> Self::User {
         DatastoreUser {
             dm: this,

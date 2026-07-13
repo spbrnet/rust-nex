@@ -3,13 +3,11 @@ use std::io::Write;
 use hmac::Mac;
 use md5::{Digest, Md5};
 use rc4::{KeyInit, Rc4, StreamCipher};
-use rnex_core::{
-    PID,
-    prudp::{
-        encryption::{DEFAULT_KEY, EncryptionPair},
-        types_flags::{TypesFlags, types::DATA},
-    },
+use rnex_prudp::{
+    encryption::{DEFAULT_KEY, EncryptionPair},
+    types_flags::{TypesFlags, types::DATA},
 };
+use rnex_util::PID;
 use typenum::U5;
 
 use crate::crypto::{
@@ -19,7 +17,7 @@ use crate::crypto::{
 };
 
 pub struct InsecureInstance {
-    pair: EncryptionPair<Rc4<U5>>,
+    pair: EncryptionPair<Rc4>,
     self_signat: [u8; 4],
     #[allow(dead_code)]
     remote_signat: [u8; 4],
@@ -41,8 +39,8 @@ impl CryptoInstance for InsecureInstance {
                 [0x78, 0x56, 0x34, 0x12]
             } else {
                 let mut hash = Md5::new();
-                hash.write(ACCESS_KEY.as_bytes()).unwrap();
-                let mut hmac = <HmacMd5 as Mac>::new_from_slice(&hash.finalize().as_slice())
+                hash.update(ACCESS_KEY.as_bytes());
+                let mut hmac = HmacMd5::new_from_slice(&hash.finalize().as_slice())
                     .expect("unable to create hmac md5");
                 hmac.update(data);
                 hmac.finalize().into_bytes()[0..4].try_into().unwrap()
@@ -57,7 +55,7 @@ pub struct Insecure();
 
 impl Crypto for Insecure {
     type Instance = InsecureInstance;
-    fn new() -> Self {
+    async fn new() -> Self {
         Self()
     }
     fn calculate_checksum(&self, data: &[u8]) -> u8 {
@@ -72,7 +70,9 @@ impl Crypto for Insecure {
     ) -> Option<(Self::Instance, Vec<u8>)> {
         Some((
             InsecureInstance {
-                pair: EncryptionPair::init_both(|| Rc4::new(&DEFAULT_KEY)),
+                pair: EncryptionPair::init_both(|| {
+                    Rc4::new_from_slice(DEFAULT_KEY).expect("incorrect key size")
+                }),
                 self_signat,
                 remote_signat,
             },

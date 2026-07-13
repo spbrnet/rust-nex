@@ -8,14 +8,17 @@ workspace = true
 
 [dependencies]
 rnex-prudp = { path = "../rnex-prudp" }
+rnex-util = { path = "../rnex-util" }
+rnex-rmc = { path = "../rnex-rmc" }
 tokio = { version =  "1.47.0", features = ["full"] }
 bytemuck = { version =  "1.23.1",  features = ["derive"] }
 typenum = "1.18.0"
-rc4 = "0.1.0"
+rc4 = "0.2.0"
 cfg-if = "1.0.4"
 proxy-common = {path = "../proxy-common"}
-hmac = "0.12.1"
-md-5 = "^0.10.6"
+hmac = "0.13.0"
+md-5 = "0.11.0"
+tracing = "0.1.44"
 
 [features]
 prudpv0 = []

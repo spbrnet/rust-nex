@@ -1,5 +1,5 @@
 use chrono::Utc;
-use futures::future::join_all;
+use futures::{TryStreamExt, future::join_all};
 use rnex_base::user::BaseUser;
 use rnex_ds_protos::{
     LocalDatastoreProtocol,
@@ -11,8 +11,8 @@ use rnex_ds_protos::{
         DataStorePrepareGetParam, DataStoreRateObjectParam, DataStoreRatingTarget,
         DataStoreReportCourseParam, DataStoreReqGetInfo, DataStoreSearchParam,
         DataStoreUploadCourseRecordParam, GetMetaInfo, GetMetaParam, KeyValue, Permission,
-        PersistenceTarget, PreparePostParam, RatingInfo, RatingInfoWithSlot,
-        RatingInitParamWithSlot, ReqPostInfo,
+        PersistenceTarget, PreparePostParam, RateCustomRankingParam, RatingInfo,
+        RatingInfoWithSlot, RatingInitParamWithSlot, ReqPostInfo,
     },
 };
 use rnex_rmc::{qbuffer::QBuffer, qresult::QResult, response::ErrorCode, rmc_struct};
@@ -20,12 +20,13 @@ use rnex_server::PassthroughInitModule;
 use rnex_util::{PID, date_time::DateTime};
 use sqlx::query;
 use std::convert;
-use tracing::{error, info, warn};
+use tracing::{error, info, instrument, warn};
 
 use crate::{DatastoreManager, s3presigner::S3Presigner};
 // todo: refactor this further to make some of the helper functions attached to the user and some to
 // the manager and also move the usages of pid into the helper functions attached to user
 
+#[derive(Debug)]
 #[rmc_struct(DatastoreProtocol)]
 pub struct DatastoreUser {
     pub base: PassthroughInitModule<BaseUser>,
@@ -33,6 +34,7 @@ pub struct DatastoreUser {
 }
 
 impl DatastoreUser {
+    #[instrument]
     fn map_row_to_meta_info(
         &self,
         row_data_id: i64,
@@ -88,6 +90,7 @@ impl DatastoreUser {
         }
     }
 
+    #[instrument]
     pub async fn check_object_availability(
         &self,
         data_id: i64,
@@ -121,6 +124,7 @@ impl DatastoreUser {
         Ok(())
     }
 
+    #[instrument]
     pub async fn get_object_ratings(
         &self,
         data_id: i64,
@@ -158,6 +162,7 @@ impl DatastoreUser {
         Ok(ratings)
     }
 
+    #[instrument]
     pub async fn get_object_info_by_data_id(
         &self,
         data_id: i64,
@@ -210,6 +215,7 @@ impl DatastoreUser {
         ))
     }
 
+    #[instrument]
     async fn get_object_info_by_persistence_target(
         &self,
         target: PersistenceTarget,
@@ -271,6 +277,7 @@ impl DatastoreUser {
         ))
     }
 
+    #[instrument]
     async fn get_buffer_queues_by_data_id_and_slot(
         &self,
         data_id: i64,
@@ -300,13 +307,13 @@ impl DatastoreUser {
         Ok(buffer_queues)
     }
 
+    #[instrument]
     fn verify_object_permission(
         &self,
         owner_id: PID,
-        viewer_id: PID,
         permission: &Permission,
     ) -> Result<(), ErrorCode> {
-        if owner_id == viewer_id {
+        if owner_id == self.base.pid {
             return Ok(());
         }
 
@@ -315,7 +322,7 @@ impl DatastoreUser {
             1 => Err(ErrorCode::DataStore_PermissionDenied), // Friends only, unimplemented
             2 => {
                 // Recipient IDs can read
-                if permission.recipient_ids.contains(&viewer_id) {
+                if permission.recipient_ids.contains(&self.base.pid) {
                     Ok(())
                 } else {
                     Err(ErrorCode::DataStore_PermissionDenied)
@@ -327,6 +334,7 @@ impl DatastoreUser {
         }
     }
 
+    #[instrument]
     fn filter_properties_by_result_option(&self, meta_info: &mut GetMetaInfo, result_option: u8) {
         if (result_option & 0x01) == 0 {
             meta_info.meta_binary = QBuffer(Vec::new());
@@ -339,6 +347,7 @@ impl DatastoreUser {
         // No idea what the other things do. :shrug:
     }
 
+    #[instrument]
     async fn init_object_rating_slot(&self, data_id: i64, rating_param: RatingInitParamWithSlot) {
         info!("running init object rating slot");
         sqlx::query!(
@@ -376,11 +385,12 @@ impl DatastoreUser {
         .map_err(|e| {
             error!("DB Error: {:?}", e);
             ErrorCode::DataStore_NotFound
-        });
+        })?;
         info!("done running");
     }
 
     // Dawg...
+    #[instrument]
     async fn get_custom_rankings_by_data_ids(
         &self,
         application_id: u32,
@@ -431,6 +441,7 @@ impl DatastoreUser {
         results
     }
 
+    #[instrument]
     async fn get_user_course_object_ids(&self, owner_pid: PID) -> Result<Vec<i64>, ErrorCode> {
         let rows = sqlx::query!(
             r#"
@@ -459,6 +470,7 @@ impl DatastoreUser {
         Ok(valid_ids)
     }
 
+    #[instrument]
     fn get_blacklist_1(&self) -> Vec<String> {
         vec![
             "けされ",
@@ -533,6 +545,7 @@ impl DatastoreUser {
         .collect()
     }
 
+    #[instrument]
     fn get_blacklist_2(&self) -> Vec<String> {
         vec![
             "ゼロから",
@@ -548,6 +561,7 @@ impl DatastoreUser {
         .collect()
     }
 
+    #[instrument]
     fn get_blacklist_3(&self) -> Vec<String> {
         vec![
             "いいね",
@@ -617,6 +631,7 @@ impl DatastoreUser {
         .collect()
     }
 
+    #[instrument]
     // couldn't find a better way to do this im going crazyy
     async fn rate_object(
         &self,
@@ -651,6 +666,7 @@ impl DatastoreUser {
         Ok(rating)
     }
 
+    #[instrument]
     async fn change_meta_object_check(
         &self,
         param: &DataStoreChangeMetaParam,
@@ -679,6 +695,7 @@ impl DatastoreUser {
         Ok(())
     }
 
+    #[instrument]
     async fn get_rating_with_slot_data_id(
         &self,
         dataid: i64,
@@ -713,6 +730,7 @@ impl DatastoreUser {
         Ok(ratings)
     }
 
+    #[instrument]
     pub async fn insert_buffer(&self, dataid: i64, slot: i32, buffer: &QBuffer) {
         let db_now = Utc::now().naive_utc();
 
@@ -756,8 +774,7 @@ impl DataStore for DatastoreUser {
             .await?
         };
 
-        let current_pid = self.pid;
-        self.verify_object_permission(meta_info.owner, current_pid, &meta_info.permission)?;
+        self.verify_object_permission(meta_info.owner, &meta_info.permission)?;
 
         self.filter_properties_by_result_option(&mut meta_info, metaparam.result_option);
 
@@ -794,7 +811,7 @@ impl DataStore for DatastoreUser {
                             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
                         ) RETURNING data_id
                         "#,
-                        self.pid as i32,
+                        self.base.pid as i32,
                         postparam.size as i32,
                         postparam.name,
                         postparam.data_type as i32,
@@ -815,7 +832,7 @@ impl DataStore for DatastoreUser {
                     .fetch_one(&self.dm.db_pool)
                     .await
                     .map_err(|e| {
-                        log::error!("DB Error: {:?}", e);
+                        error!("DB Error: {:?}", e);
                         ErrorCode::DataStore_NotFound
                     })?;
 
@@ -998,7 +1015,7 @@ impl DataStore for DatastoreUser {
             ],
             10 => vec![35, 75, 96, 40, 5, 6],
             _ => {
-                log::error!("unknown SMM app id: {}", appid);
+                error!("unknown SMM app id: {}", appid);
                 return Err(ErrorCode::DataStore_Unknown);
             }
         };
@@ -1081,7 +1098,7 @@ impl DataStore for DatastoreUser {
         };
 
         info!("verifying object permission");
-        self.verify_object_permission(meta_info.owner, self.base.pid, &meta_info.permission)?;
+        self.verify_object_permission(meta_info.owner, &meta_info.permission)?;
 
         let key = format!("data/{}.bin", meta_info.dataid);
         let download_url = self.dm.s3_presigner.generate_presigned_get(&key);
@@ -1123,8 +1140,7 @@ impl DataStore for DatastoreUser {
                     res.meta_info.ratings = Vec::new();
                 }
                 if course_search_param.result_option & 0x4 == 0 {
-                    res.meta_info.meta_binary =
-                        rnex_core::rmc::structures::qbuffer::QBuffer(Vec::new());
+                    res.meta_info.meta_binary = QBuffer(Vec::new());
                 }
                 if course_search_param.result_option & 0x20 == 0 {
                     res.score = 0;
@@ -1180,9 +1196,7 @@ impl DataStore for DatastoreUser {
 
             match info_result {
                 Ok(mut meta) => {
-                    if let Err(e) =
-                        self.verify_object_permission(meta.owner, self.base.pid, &meta.permission)
-                    {
+                    if let Err(e) = self.verify_object_permission(meta.owner, &meta.permission) {
                         metas.push(GetMetaInfo::default());
                         results.push(QResult::error(e));
                     } else {
@@ -1255,7 +1269,7 @@ impl DataStore for DatastoreUser {
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
             ) RETURNING data_id
             "#,
-            self.pid as i32,
+            self.base.pid as i32,
             param.post_param.size as i32,
             param.post_param.name,
             param.post_param.data_type as i32,
@@ -1349,11 +1363,7 @@ impl DataStore for DatastoreUser {
                         .get_object_info_by_data_id(target.dataid, param.access_password)
                         .await?;
                     info!("object info get complete");
-                    self.verify_object_permission(
-                        object_info.owner,
-                        self.base.pid,
-                        &object_info.permission,
-                    )?;
+                    self.verify_object_permission(object_info.owner, &object_info.permission)?;
                     info!("object permission complete");
 
                     if fetch_ratings {
@@ -1386,11 +1396,11 @@ impl DataStore for DatastoreUser {
     }
 
     async fn change_meta(&self, param: DataStoreChangeMetaParam) -> Result<(), ErrorCode> {
-        let object_info = get_object_info_by_data_id(param.dataid, 0).await?;
-        verify_object_permission(object_info.owner, self.pid, &object_info.permission).await?;
+        let object_info = self.get_object_info_by_data_id(param.dataid, 0).await?;
+        self.verify_object_permission(object_info.owner, &object_info.permission)?;
 
         if param.modifies_flag & 0x08 != 0 {
-            change_meta_object_check(&param).await?;
+            self.change_meta_object_check(&param).await?;
 
             sqlx::query!(
                 r#"UPDATE datastore.objects SET period=$1 WHERE data_id=$2"#,
@@ -1406,7 +1416,7 @@ impl DataStore for DatastoreUser {
         }
 
         if param.modifies_flag & 0x10 != 0 {
-            change_meta_object_check(&param).await?;
+            self.change_meta_object_check(&param).await?;
 
             sqlx::query!(
                 r#"UPDATE datastore.objects SET meta_binary=$1 WHERE data_id=$2"#,
@@ -1422,7 +1432,7 @@ impl DataStore for DatastoreUser {
         }
 
         if param.modifies_flag & 0x80 != 0 {
-            change_meta_object_check(&param).await?;
+            self.change_meta_object_check(&param).await?;
 
             sqlx::query!(
                 r#"UPDATE datastore.objects SET data_type=$1 WHERE data_id=$2"#,
@@ -1583,8 +1593,8 @@ impl DataStore for DatastoreUser {
             "#,
             upload_course_record_param.dataid,
             upload_course_record_param.slot as i16,
-            self.pid,
-            self.pid,
+            self.base.pid,
+            self.base.pid,
             upload_course_record_param.score,
             now,
             now
@@ -1641,7 +1651,7 @@ impl DataStore for DatastoreUser {
     ) -> Result<Vec<QResult>, ErrorCode> {
         let mut results = Vec::new();
 
-        let client_pid = self.pid;
+        let client_pid = self.base.pid;
 
         for (param, buffer) in bufferparam.iter().zip(buffers.iter()) {
             if param.slot == 0 {
@@ -1713,7 +1723,7 @@ impl DataStore for DatastoreUser {
                 )
             "#,
             report_course_param.dataid,
-            self.pid,
+            self.base.pid,
             report_course_param.report_category as i16,
             report_course_param.report_reason
         )

@@ -122,13 +122,7 @@ impl Secure for BaseUser {
         println!("{:?}", station_urls);
 
         /*
-        let mut users = self.matchmake_manager.users.write().await;
-        users.insert(cid, self.this.clone());
-        drop(users);
-        let mut users = self.matchmake_manager.users_by_pid.write().await;
-        users.insert(self.pid, self.this.clone());
-        drop(users);
-        */
+         */
 
         let stations = get_station_urls(&station_urls, self.addr, self.pid, cid).await?;
 

@@ -22,14 +22,14 @@ pub struct Permission {
     pub recipient_ids: Vec<PID>,
 }
 
-#[derive(RmcSerialize, Clone, Default)]
+#[derive(RmcSerialize, Clone, Default, Debug)]
 #[rmc_struct(0)]
 pub struct RatingInfoWithSlot {
     pub slot: i8,
     pub rating: RatingInfo,
 }
 
-#[derive(RmcSerialize, Clone, Default)]
+#[derive(RmcSerialize, Clone, Default, Debug)]
 #[rmc_struct(0)]
 pub struct RatingInfo {
     pub total_value: i64,
@@ -46,7 +46,7 @@ pub struct GetMetaParam {
     pub access_password: i64,
 }
 
-#[derive(RmcSerialize, Clone, Default)]
+#[derive(RmcSerialize, Clone, Default, Debug)]
 #[rmc_struct(0)]
 pub struct GetMetaInfo {
     pub dataid: i64,

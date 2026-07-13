@@ -1,92 +1,38 @@
-use std::collections::HashMap;
-use std::sync::{Arc, atomic::AtomicU32};
-use std::sync::{LazyLock, Weak};
-use std::time::Duration;
-use std::{env, mem};
+use std::{
+    collections::HashMap,
+    mem,
+    sync::{Arc, Weak},
+    time::Duration,
+};
 
-use crate::rmc::protocols::account_management::{
-    AccountExtraInfo, AccountManagement, RawAccountManagement, RawAccountManagementInfo,
-    RemoteAccountManagement,
-};
-use crate::rmc::protocols::friends_3ds::{
-    Friends3DS, RawFriends3DS, RawFriends3DSInfo, RemoteFriends3DS,
-};
-use crate::rmc::protocols::friends_wiiu::{
-    FriendsWiiU, RawFriendsWiiU, RawFriendsWiiUInfo, RemoteFriendsWiiU,
-};
-use crate::rmc::protocols::nintendo_notification::{
-    NintendoNotification, RawNintendoNotification, RawNintendoNotificationInfo,
-    RemoteNintendoNotification,
-};
-use crate::rmc::protocols::secure::{RawSecure, RawSecureInfo, RemoteSecure, Secure};
-use crate::{
-    define_rmc_proto,
-    kerberos::KerberosDateTime,
-    nex::common::get_station_urls,
-    prudp::{socket_addr::PRUDPSockAddr, station_url::StationUrl},
-    rmc::{
-        protocols::friends_wiiu::{
-            BlacklistedPrincipal, Comment, FriendInfo, FriendRequest, NNAInfo, NintendoPresenceV2,
-            PersistentNotification, PrincipalPreference, PrincipalRequestBlockSetting,
-        },
-        response::ErrorCode,
-        structures::{any::Any, qresult::QResult},
-    },
-};
 use bytemuck::{Pod, Zeroable};
 use chrono::{TimeZone, Utc};
-use rnex_rmc::rmc_struct;
-use sqlx::query;
-use std::sync::atomic::Ordering::Relaxed;
-use tokio::spawn;
-use tokio::sync::RwLock;
-use tokio::time::sleep;
-use tracing::warn;
-use tracing::{error, info};
-
-use crate::rmc::protocols::friends_wiiu::{GameKey, MiiV2, PrincipalBasicInfo};
-
-use crate::PID;
-
-use crate::rmc::protocols::account_management::NintendoCreateAccountData;
-use crate::rmc::protocols::nintendo_notification::NintendoNotificationEvent;
-
-use crate::rmc::structures::data::Data;
-
-use crate::executables::common::get_db;
-
-use crate::rmc::protocols::friends_3ds::{
-    FriendComment, FriendMii, FriendMiiList, FriendPersistentInfo, FriendPicture, FriendPresence,
-    FriendRelationship, Mii, MiiList, MyProfile, NintendoPresence, PlayedGame,
+use nex_account::{derive_pid_hmac, grpc::ActCreateInfo, grpc_client};
+use rnex_fpd_protos::{
+    LocalFriendsGuest, LocalFriendsUser, RemoteFriendRemote,
+    account_management::{AccountExtraInfo, AccountManagement, NintendoCreateAccountData},
+    friends_3ds::{
+        self, FriendComment, FriendMii, FriendMiiList, FriendPersistentInfo, FriendPicture,
+        FriendPresence, FriendRelationship, Friends3DS, Mii, MiiList, MyProfile, NintendoPresence,
+        PlayedGame,
+    },
+    friends_wiiu::{
+        self, BlacklistedPrincipal, Comment, FriendRequest, FriendRequestMessage, FriendsWiiU,
+        MiiV2, NNAInfo, NintendoPresenceV2, PersistentNotification, PrincipalBasicInfo,
+        PrincipalPreference, PrincipalRequestBlockSetting,
+    },
+    nintendo_notification::{
+        NintendoNotificationEvent, NintendoNotificationEventGeneral, RemoteNintendoNotification,
+    },
 };
-use crate::rmc::protocols::friends_wiiu::FriendRequestMessage;
-use crate::rmc::protocols::nintendo_notification::NintendoNotificationEventGeneral;
-use crate::rmc::response::ErrorCode::FPD_InvalidArgument;
-use crate::rmc::structures::qbuffer::QBuffer;
-use nex_account::grpc::ActCreateInfo;
-use nex_account::{derive_pid_hmac, grpc_client};
+use rnex_rmc::{any::Any, data::Data, qbuffer::QBuffer, response::ErrorCode, rmc_struct};
+use rnex_server::{PassthroughInitModule, WeakPassthroughInitModule};
+use rnex_util::{PID, date_time::DateTime};
+use sqlx::query;
+use tokio::{spawn, sync::RwLock, time::sleep};
+use tracing::{error, info, warn};
 
-define_rmc_proto!(
-    proto FriendsUser{
-        Secure,
-        FriendsWiiU,
-        Friends3DS
-    }
-);
-define_rmc_proto!(
-    proto FriendRemote{
-        NintendoNotification
-    }
-);
-define_rmc_proto!(
-    proto FriendsGuest{
-        Secure,
-        AccountManagement
-    }
-);
-
-static NEX_ACCOUNT_URL: LazyLock<String> =
-    LazyLock::new(|| env::var("NEX_ACCOUNT_ENDPOINT").expect("NEX_ACCOUNT_ENDPOINT not set"));
+use crate::FriendsManager;
 
 #[repr(C, packed)]
 #[derive(Pod, Zeroable, Copy, Clone, Debug)]
@@ -96,10 +42,11 @@ pub struct NascToken {
     pub pwd_hash: [u8; 4],
 }
 
+#[derive(Debug)]
 #[rmc_struct(FriendsUser)]
 pub struct FriendsUser {
-    pub fm: Arc<FriendsManager>,
-    pub addr: PRUDPSockAddr,
+    pub fm: PassthroughInitModule<FriendsManager>,
+    //pub addr: PRUDPSockAddr,
     pub pid: PID,
     pub friend_pids: RwLock<Vec<PID>>,
     pub maybe_remote_friend: RwLock<HashMap<PID, Weak<FriendsUser>>>,
@@ -108,27 +55,14 @@ pub struct FriendsUser {
     pub remote: RemoteFriendRemote,
 }
 
+#[derive(Debug)]
 #[rmc_struct(FriendsGuest)]
-pub struct FriendsGuest {
-    pub fm: Arc<FriendsManager>,
-    pub addr: PRUDPSockAddr,
-}
-
-pub struct FriendsManager {
-    pub cid_counter: AtomicU32,
-    pub users: RwLock<HashMap<PID, Weak<FriendsUser>>>,
-}
-
-impl FriendsManager {
-    pub fn next_cid(&self) -> u32 {
-        self.cid_counter.fetch_add(1, Relaxed)
-    }
-}
+pub struct FriendsGuest;
 
 impl FriendsManager {
     async fn denies_friend_requests(&self, pid: PID) -> Result<bool, ErrorCode> {
         query!("select principal_preference_block_friend_requests from nintendo_network_accounts where pid = $1", pid)
-            .fetch_one(get_db())
+            .fetch_one(&self.db)
             .await
             .map_err(|_| ErrorCode::FPD_InvalidAccount)
             .map(|v| v.principal_preference_block_friend_requests)
@@ -165,7 +99,7 @@ impl Friends3DS for FriendsUser {
 
     async fn get_friend_mii(
         &self,
-        _friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
+        _friends: Vec<friends_3ds::FriendInfo>,
     ) -> Result<Vec<FriendMii>, ErrorCode> {
         // sorry for the copying pretendo but i don't have a mii on hand rn
         let data: Vec<u8> = vec![
@@ -196,7 +130,7 @@ impl Friends3DS for FriendsUser {
 
     async fn get_friend_mii_list(
         &self,
-        _friends: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
+        _friends: Vec<friends_3ds::FriendInfo>,
     ) -> Result<Vec<FriendMiiList>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
@@ -204,7 +138,7 @@ impl Friends3DS for FriendsUser {
     async fn is_active_game(
         &self,
         _unk: Vec<u32>,
-        _game_key: crate::rmc::protocols::friends_3ds::GameKey,
+        _game_key: friends_3ds::GameKey,
     ) -> Result<Vec<u32>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
@@ -298,9 +232,9 @@ impl Friends3DS for FriendsUser {
 
     async fn update_favorite_game_key(
         &self,
-        game_key: rnex_core::rmc::protocols::friends_3ds::GameKey,
+        game_key: friends_3ds::GameKey,
     ) -> Result<(), ErrorCode> {
-        log::info!("favorite game key: {:?}", game_key);
+        info!("favorite game key: {:?}", game_key);
 
         Ok(())
     }
@@ -314,7 +248,7 @@ impl Friends3DS for FriendsUser {
     }
 
     async fn get_friend_presence(&self, unk: Vec<u32>) -> Result<Vec<FriendPresence>, ErrorCode> {
-        log::info!("pids: {:?}", unk);
+        info!("pids: {:?}", unk);
 
         let presence = FriendPresence {
             data: Data {},
@@ -322,7 +256,7 @@ impl Friends3DS for FriendsUser {
             presence: NintendoPresence {
                 data: Data {},
                 changed_bit_flag: 0xFFFF_FFFF,
-                game_key: rnex_core::rmc::protocols::friends_3ds::GameKey {
+                game_key: friends_3ds::GameKey {
                     data: Data {},
                     title_id: 1_125_899_907_457_280,
                     version: 2064,
@@ -343,7 +277,7 @@ impl Friends3DS for FriendsUser {
 
     async fn get_friend_comment(
         &self,
-        _unk: Vec<crate::rmc::protocols::friends_3ds::FriendInfo>,
+        _unk: Vec<friends_3ds::FriendInfo>,
     ) -> Result<Vec<FriendComment>, ErrorCode> {
         Err(ErrorCode::Core_NotImplemented)
     }
@@ -364,15 +298,15 @@ impl Friends3DS for FriendsUser {
             area: 0,
             language: 0,
             platform: 0,
-            game_key: rnex_core::rmc::protocols::friends_3ds::GameKey {
+            game_key: friends_3ds::GameKey {
                 data: Data {},
                 title_id: 1_125_899_907_457_280,
                 version: 2064,
             },
             message: "yo whats up".to_string(),
-            msg_updated_at: KerberosDateTime::now(),
-            friended_at: KerberosDateTime::now(),
-            last_online: KerberosDateTime::now(),
+            msg_updated_at: DateTime::now(),
+            friended_at: DateTime::now(),
+            last_online: DateTime::now(),
         };
 
         Ok(vec![dummypersistentinfo])
@@ -399,7 +333,7 @@ macro_rules! basic_principal_from_record {
             nnid: $record.nnid.clone(),
             mii: MiiV2 {
                 data: Data {},
-                date_time: KerberosDateTime(bytemuck::cast($record.mii_unk_datetime)),
+                date_time: DateTime(bytemuck::cast($record.mii_unk_datetime)),
                 mii_data: $record.mii_ffl_data.clone(),
                 name: QBuffer($record.mii_name.clone()),
                 unk: mii_unk1,
@@ -424,7 +358,7 @@ macro_rules! nna_info_from_record {
 
 macro_rules! game_key_from_record {
     ($record:expr) => {
-        GameKey {
+        friends_wiiu::GameKey {
             data: Data {},
             tid: $record.game_key_tid,
             version: $record.game_key_version,
@@ -440,7 +374,7 @@ macro_rules! friend_request_from_record {
             basic_info: basic_principal_from_record!($record),
             request_message: FriendRequestMessage {
                 data: Data {},
-                expires_on: KerberosDateTime::from_naive(
+                expires_on: DateTime::from_naive(
                     Utc.timestamp_opt(Utc::now().timestamp() + 2592000, 0)
                         .unwrap()
                         .naive_utc(),
@@ -452,9 +386,9 @@ macro_rules! friend_request_from_record {
                 unk,
                 unk2,
                 unk3: $record.unk_2,
-                unk4: KerberosDateTime(bytemuck::cast($record.unk_3)),
+                unk4: DateTime(bytemuck::cast($record.unk_3)),
             },
-            sent_on: KerberosDateTime::from_naive($record.creation_time),
+            sent_on: DateTime::from_naive($record.creation_time),
         }
     }};
 }
@@ -464,12 +398,12 @@ impl FriendsWiiU for FriendsUser {
         &self,
         info: NNAInfo,
         presence: NintendoPresenceV2,
-        birthday: KerberosDateTime,
+        birthday: DateTime,
     ) -> Result<
         (
             PrincipalPreference,
             Comment,
-            Vec<FriendInfo>,
+            Vec<friends_wiiu::FriendInfo>,
             Vec<FriendRequest>,
             Vec<FriendRequest>,
             Vec<BlacklistedPrincipal>,
@@ -512,7 +446,7 @@ impl FriendsWiiU for FriendsUser {
                 smoosh_to_i16(info.unk, info.unk2),
                 bytemuck::cast::<_, i64>(birthday)
             )
-            .fetch_one(get_db())
+            .fetch_one(&self.fm.db)
             .await else {
                 println!("psql failed(unable to update user)");
                 return Err(ErrorCode::Core_SystemError)
@@ -528,7 +462,7 @@ impl FriendsWiiU for FriendsUser {
             ",
             self.pid
         )
-        .fetch_all(get_db())
+        .fetch_all(&self.fm.db)
         .await
         .map(|v| {
             v.into_iter()
@@ -549,7 +483,7 @@ impl FriendsWiiU for FriendsUser {
             ",
             self.pid
         )
-        .fetch_all(get_db())
+        .fetch_all(&self.fm.db)
         .await
         .map(|v| {
             v.into_iter()
@@ -580,7 +514,7 @@ impl FriendsWiiU for FriendsUser {
             inner join nintendo_network_accounts on friendships.pid = nintendo_network_accounts.pid",
             self.pid
         )
-        .fetch_all(get_db())
+        .fetch_all(&self.fm.db)
         .await
         else {
             println!("error whilest getting friends");
@@ -624,7 +558,7 @@ impl FriendsWiiU for FriendsUser {
                 drop(remo_friends);
             }
 
-            friends.push(FriendInfo {
+            friends.push(friends_wiiu::FriendInfo {
                 data: Data {},
                 nna_info: nna_info_from_record!(friend),
                 presence,
@@ -632,10 +566,10 @@ impl FriendsWiiU for FriendsUser {
                     data: Data {},
                     unk: (bytemuck::cast::<_, u16>(friend.comment_unk) & 0xFF) as u8,
                     message: friend.comment_message,
-                    last_changed: KerberosDateTime::from_naive(friend.comment_lastchanged),
+                    last_changed: DateTime::from_naive(friend.comment_lastchanged),
                 },
-                became_friends: KerberosDateTime::from_naive(friend_since),
-                last_online: KerberosDateTime::from_naive(friend.last_online),
+                became_friends: DateTime::from_naive(friend_since),
+                last_online: DateTime::from_naive(friend.last_online),
                 unk: 0,
             });
         }
@@ -650,13 +584,13 @@ impl FriendsWiiU for FriendsUser {
             ",
             self.pid
         )
-        .fetch_all(get_db())
+        .fetch_all(&self.fm.db)
         .await
         .map(|v| {
             v.into_iter()
                 .map(|v| BlacklistedPrincipal {
                     basic_info: basic_principal_from_record!(v),
-                    since: KerberosDateTime::from_naive(v.since),
+                    since: DateTime::from_naive(v.since),
                     ..Default::default()
                 })
                 .collect::<Vec<_>>()
@@ -681,7 +615,7 @@ impl FriendsWiiU for FriendsUser {
             },
             Comment {
                 data: Data {},
-                last_changed: KerberosDateTime::from_naive(query.comment_lastchanged),
+                last_changed: DateTime::from_naive(query.comment_lastchanged),
                 message: query.comment_message,
                 unk: (bytemuck::cast::<_, u16>(query.comment_unk) & 0xFF) as u8,
             },
@@ -697,15 +631,18 @@ impl FriendsWiiU for FriendsUser {
         )))
     }
 
-    async fn add_friend(&self, friend: PID) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
+    async fn add_friend(
+        &self,
+        friend: PID,
+    ) -> Result<(FriendRequest, friends_wiiu::FriendInfo), ErrorCode> {
         self.add_friend_request(
             friend,
             0,
             "".into(),
             0,
             "".into(),
-            GameKey::default(),
-            KerberosDateTime::now(),
+            friends_wiiu::GameKey::default(),
+            DateTime::now(),
         )
         .await
     }
@@ -713,12 +650,12 @@ impl FriendsWiiU for FriendsUser {
     async fn add_friend_by_name(
         &self,
         name: String,
-    ) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
+    ) -> Result<(FriendRequest, friends_wiiu::FriendInfo), ErrorCode> {
         let Ok(pid) = query!(
             "select pid from nintendo_network_accounts where nnid = $1",
             name
         )
-        .fetch_optional(get_db())
+        .fetch_optional(&self.fm.db)
         .await
         else {
             println!("db error when trying to look up nnid");
@@ -737,7 +674,7 @@ impl FriendsWiiU for FriendsUser {
             self.pid,
             friend
         )
-        .execute(get_db())
+        .execute(&self.fm.db)
         .await
         else {
             return Err(ErrorCode::FPD_InvalidMessageID);
@@ -790,9 +727,9 @@ impl FriendsWiiU for FriendsUser {
         message: String,
         _unk2: u8,
         unk3: String,
-        game_key: GameKey,
-        unk4: KerberosDateTime,
-    ) -> Result<(FriendRequest, FriendInfo), ErrorCode> {
+        game_key: friends_wiiu::GameKey,
+        unk4: DateTime,
+    ) -> Result<(FriendRequest, friends_wiiu::FriendInfo), ErrorCode> {
         let unk1 = 0;
         let unk2 = 1;
 
@@ -805,12 +742,12 @@ impl FriendsWiiU for FriendsUser {
                 "insert into friendships (pid_a, pid_b) values(99, $1)",
                 self.pid
             )
-            .execute(get_db())
+            .execute(&self.fm.db)
             .await
             .ok();
 
             let Ok(v) = query!("select * from nintendo_network_accounts where pid = 99")
-                .fetch_one(get_db())
+                .fetch_one(&self.fm.db)
                 .await
             else {
                 return Err(ErrorCode::Core_Exception);
@@ -829,22 +766,22 @@ impl FriendsWiiU for FriendsUser {
                 drop(friends);
 
                 let Ok(r) = query!("select * from nintendo_network_accounts where pid = 99")
-                    .fetch_one(get_db())
+                    .fetch_one(&this.fm.db)
                     .await
                 else {
                     return;
                 };
-                let data = Any::new(&FriendInfo {
+                let data = Any::new(&friends_wiiu::FriendInfo {
                     data: Data {},
                     nna_info: nna_info_from_record!(r),
-                    became_friends: KerberosDateTime::now(),
+                    became_friends: DateTime::now(),
                     comment: Comment {
                         data: Data {},
-                        last_changed: KerberosDateTime::from_naive(r.comment_lastchanged),
+                        last_changed: DateTime::from_naive(r.comment_lastchanged),
                         message: r.comment_message,
                         unk: (bytemuck::cast::<_, u16>(r.comment_unk) & 0xFF) as u8,
                     },
-                    last_online: KerberosDateTime::now(),
+                    last_online: DateTime::now(),
                     presence: NintendoPresenceV2::default(),
                     unk: 0,
                 })
@@ -870,21 +807,21 @@ impl FriendsWiiU for FriendsUser {
                         unk2: 1,
                         unk3: "Dummy".into(),
                         game_key,
-                        unk4: KerberosDateTime::now(),
-                        expires_on: KerberosDateTime::now(),
+                        unk4: DateTime::now(),
+                        expires_on: DateTime::now(),
                     },
                     data: Data {},
-                    sent_on: KerberosDateTime::now(),
+                    sent_on: DateTime::now(),
                 },
-                FriendInfo {
-                    became_friends: KerberosDateTime::now(),
+                friends_wiiu::FriendInfo {
+                    became_friends: DateTime::now(),
                     comment: Comment {
                         data: Data {},
                         unk: bytemuck::cast::<_, u16>(v.comment_unk & 0xFF) as u8,
                         message: v.comment_message,
-                        last_changed: KerberosDateTime::from_naive(v.comment_lastchanged),
+                        last_changed: DateTime::from_naive(v.comment_lastchanged),
                     },
-                    last_online: KerberosDateTime::now(),
+                    last_online: DateTime::now(),
                     nna_info: nna_info_from_record!(v),
                     ..Default::default()
                 },
@@ -896,7 +833,7 @@ impl FriendsWiiU for FriendsUser {
             friend,
             self.pid
         )
-        .fetch_optional(get_db())
+        .fetch_optional(&self.fm.db)
         .await
         else {
             return Err(ErrorCode::Authentication_AccountLibraryError);
@@ -911,7 +848,7 @@ impl FriendsWiiU for FriendsUser {
             "select count(recipient) from friend_requests where sender = $1",
             self.pid
         )
-        .fetch_one(get_db())
+        .fetch_one(&self.fm.db)
         .await
         else {
             println!("friend request count check failed to execute on database");
@@ -924,7 +861,7 @@ impl FriendsWiiU for FriendsUser {
             "select count(recipient) from friend_requests where recipient = $1",
             friend
         )
-        .fetch_one(get_db())
+        .fetch_one(&self.fm.db)
         .await
         else {
             println!("friend request count check failed to execute on database");
@@ -955,7 +892,7 @@ impl FriendsWiiU for FriendsUser {
             game_key.tid,
             game_key.version
         )
-        .fetch_one(get_db())
+        .fetch_one(&self.fm.db)
         .await;
 
         let query = match query {
@@ -993,7 +930,7 @@ impl FriendsWiiU for FriendsUser {
                 "select * from nintendo_network_accounts where pid = $1",
                 self.pid
             )
-            .fetch_one(get_db())
+            .fetch_one(&self.fm.db)
             .await
             else {
                 println!("failed to acquire account info after adding friend");
@@ -1012,7 +949,7 @@ impl FriendsWiiU for FriendsUser {
 
         dbg!(Ok((
             fr,
-            FriendInfo {
+            friends_wiiu::FriendInfo {
                 presence: NintendoPresenceV2 {
                     game_key,
                     app_data: vec![0x00],
@@ -1029,7 +966,7 @@ impl FriendsWiiU for FriendsUser {
             bytemuck::cast::<_, i64>(id),
             self.pid
         )
-        .fetch_one(get_db())
+        .fetch_one(&self.fm.db)
         .await
         else {
             return Err(ErrorCode::FPD_InvalidMessageID);
@@ -1055,8 +992,8 @@ impl FriendsWiiU for FriendsUser {
         Ok(())
     }
 
-    async fn accept_friend_request(&self, id: u64) -> Result<FriendInfo, ErrorCode> {
-        let Ok(mut tx) = get_db().begin().await else {
+    async fn accept_friend_request(&self, id: u64) -> Result<friends_wiiu::FriendInfo, ErrorCode> {
+        let Ok(mut tx) = self.fm.db.begin().await else {
             return Err(ErrorCode::Core_Exception);
         };
         let Ok(query) = query!(
@@ -1120,17 +1057,17 @@ impl FriendsWiiU for FriendsUser {
                 println!("internal server error whilest getting nna info");
                 return Err(ErrorCode::Core_Exception);
             };
-            let data = Any::new(&FriendInfo {
+            let data = Any::new(&friends_wiiu::FriendInfo {
                 data: Data {},
                 nna_info: nna_info_from_record!(r),
-                became_friends: KerberosDateTime::now(),
+                became_friends: DateTime::now(),
                 comment: Comment {
                     data: Data {},
-                    last_changed: KerberosDateTime::from_naive(r.comment_lastchanged),
+                    last_changed: DateTime::from_naive(r.comment_lastchanged),
                     message: r.comment_message,
                     unk: (bytemuck::cast::<_, u16>(r.comment_unk) & 0xFF) as u8,
                 },
-                last_online: KerberosDateTime::now(),
+                last_online: DateTime::now(),
                 presence: self.presence.read().await.clone().unwrap_or_default(),
                 unk: 0,
             })
@@ -1155,18 +1092,18 @@ impl FriendsWiiU for FriendsUser {
 
         tx.commit().await.ok();
 
-        Ok(FriendInfo {
+        Ok(friends_wiiu::FriendInfo {
             data: Data {},
             nna_info: nna_info_from_record!(query),
             presence,
             comment: Comment {
                 data: Data {},
-                last_changed: KerberosDateTime::from_naive(query.comment_lastchanged),
+                last_changed: DateTime::from_naive(query.comment_lastchanged),
                 message: query.comment_message,
                 unk: (bytemuck::cast::<_, u16>(query.comment_unk) & 0xFF) as u8,
             },
-            became_friends: KerberosDateTime::now(),
-            last_online: KerberosDateTime::from_naive(query.last_online),
+            became_friends: DateTime::now(),
+            last_online: DateTime::from_naive(query.last_online),
             unk: 0,
         })
     }
@@ -1176,7 +1113,7 @@ impl FriendsWiiU for FriendsUser {
             "delete from friend_requests where id = $1 returning sender, recipient",
             bytemuck::cast::<_, i64>(id),
         )
-        .fetch_one(get_db())
+        .fetch_one(&self.fm.db)
         .await
         else {
             return Err(ErrorCode::FPD_InvalidMessageID);
@@ -1216,7 +1153,7 @@ impl FriendsWiiU for FriendsUser {
             bytemuck::cast::<_, i64>(id),
             self.pid
         )
-        .fetch_one(get_db())
+        .fetch_one(&self.fm.db)
         .await
         else {
             return Err(ErrorCode::FPD_InvalidMessageID);
@@ -1235,7 +1172,7 @@ impl FriendsWiiU for FriendsUser {
             self.pid,
             query.sender
         )
-        .execute(get_db())
+        .execute(&self.fm.db)
         .await
         {
             println!("{}", e);
@@ -1264,18 +1201,18 @@ impl FriendsWiiU for FriendsUser {
             "select * from nintendo_network_accounts where pid = $1",
             query.sender
         )
-        .fetch_one(get_db())
+        .fetch_one(&self.fm.db)
         .await
         else {
             println!("attempt to get invalid user which is in friend request");
-            return Err(FPD_InvalidArgument);
+            return Err(ErrorCode::FPD_InvalidArgument);
         };
 
         Ok(BlacklistedPrincipal {
             data: Data {},
             basic_info: basic_principal_from_record!(user),
-            game_key: GameKey::default(),
-            since: KerberosDateTime::now(),
+            game_key: friends_wiiu::GameKey::default(),
+            since: DateTime::now(),
         })
     }
 
@@ -1285,7 +1222,7 @@ impl FriendsWiiU for FriendsUser {
                 "update friend_requests set is_recieved = true where id = $1",
                 bytemuck::cast::<_, i64>(id)
             )
-            .execute(get_db())
+            .execute(&self.fm.db)
             .await
             .ok();
         }
@@ -1301,7 +1238,7 @@ impl FriendsWiiU for FriendsUser {
             self.pid,
             principal.basic_info.pid
         )
-        .execute(get_db())
+        .execute(&self.fm.db)
         .await
         {
             println!("{}", e);
@@ -1312,18 +1249,18 @@ impl FriendsWiiU for FriendsUser {
             "select * from nintendo_network_accounts where pid = $1",
             principal.basic_info.pid
         )
-        .fetch_one(get_db())
+        .fetch_one(&self.fm.db)
         .await
         else {
             println!("attempt to get invalid user which is in friend request");
-            return Err(FPD_InvalidArgument);
+            return Err(ErrorCode::FPD_InvalidArgument);
         };
 
         Ok(BlacklistedPrincipal {
             data: Data {},
             basic_info: basic_principal_from_record!(user),
-            game_key: GameKey::default(),
-            since: KerberosDateTime::now(),
+            game_key: friends_wiiu::GameKey::default(),
+            since: DateTime::now(),
         })
     }
 
@@ -1333,7 +1270,7 @@ impl FriendsWiiU for FriendsUser {
             self.pid,
             id
         )
-        .execute(get_db())
+        .execute(&self.fm.db)
         .await
         {
             println!("{}", e);
@@ -1343,16 +1280,16 @@ impl FriendsWiiU for FriendsUser {
     }
 
     async fn update_presence(&self, mut presence: NintendoPresenceV2) -> Result<(), ErrorCode> {
-        if !query!("select principal_preference_show_currently_playing_title from nintendo_network_accounts where pid = $1", self.pid).fetch_one(get_db()).await.map_err(|_| ErrorCode::FPD_InvalidAccount)?.principal_preference_show_currently_playing_title{
+        if !query!("select principal_preference_show_currently_playing_title from nintendo_network_accounts where pid = $1", self.pid).fetch_one(&self.fm.db).await.map_err(|_| ErrorCode::FPD_InvalidAccount)?.principal_preference_show_currently_playing_title{
             presence.game_server_id = 0;
-            presence.game_key = GameKey::default();
+            presence.game_key = friends_wiiu::GameKey::default();
             presence.app_data = vec![];
         }
         if !query!(
             "select principal_preference_show_online from nintendo_network_accounts where pid = $1",
             self.pid
         )
-        .fetch_one(get_db())
+        .fetch_one(&self.fm.db)
         .await
         .map_err(|_| ErrorCode::FPD_InvalidAccount)?
         .principal_preference_show_online
@@ -1380,7 +1317,7 @@ impl FriendsWiiU for FriendsUser {
         Ok(())
     }
 
-    async fn update_mii(&self, mii: MiiV2) -> Result<KerberosDateTime, ErrorCode> {
+    async fn update_mii(&self, mii: MiiV2) -> Result<DateTime, ErrorCode> {
         if let Err(e) = query!(
             "
             update nintendo_network_accounts
@@ -1392,7 +1329,7 @@ impl FriendsWiiU for FriendsUser {
             bytemuck::cast::<_, i64>(mii.date_time.0),
             self.pid
         )
-        .execute(get_db())
+        .execute(&self.fm.db)
         .await
         {
             println!("internal server error whilest updating mii: {}", e);
@@ -1403,7 +1340,7 @@ impl FriendsWiiU for FriendsUser {
             "select * from nintendo_network_accounts where pid = $1",
             self.pid
         )
-        .fetch_one(get_db())
+        .fetch_one(&self.fm.db)
         .await
         else {
             println!("internal server error whilest getting nna info");
@@ -1425,10 +1362,10 @@ impl FriendsWiiU for FriendsUser {
                 .await;
         }
 
-        Ok(KerberosDateTime::now())
+        Ok(DateTime::now())
     }
 
-    async fn update_comment(&self, comment: Comment) -> Result<KerberosDateTime, ErrorCode> {
+    async fn update_comment(&self, comment: Comment) -> Result<DateTime, ErrorCode> {
         if let Err(e) = query!(
             "
             update nintendo_network_accounts
@@ -1438,7 +1375,7 @@ impl FriendsWiiU for FriendsUser {
             comment.message.clone(),
             self.pid
         )
-        .execute(get_db())
+        .execute(&self.fm.db)
         .await
         {
             println!("internal server error whilest updating mii: {}", e);
@@ -1463,7 +1400,7 @@ impl FriendsWiiU for FriendsUser {
                 .await;
         }
 
-        Ok(KerberosDateTime::now())
+        Ok(DateTime::now())
     }
 
     async fn update_preference(&self, preference: PrincipalPreference) -> Result<(), ErrorCode> {
@@ -1480,7 +1417,7 @@ impl FriendsWiiU for FriendsUser {
             preference.block_friend_request,
             self.pid
         )
-        .execute(get_db())
+        .execute(&self.fm.db)
         .await
         {
             println!("internal server error whilest updating mii: {e}");
@@ -1494,14 +1431,14 @@ impl FriendsWiiU for FriendsUser {
 
         if !preference.show_playing_title {
             presence.game_server_id = 0;
-            presence.game_key = GameKey::default();
+            presence.game_key = friends_wiiu::GameKey::default();
             presence.app_data = vec![];
         }
         query!(
             "update nintendo_network_accounts set last_online = now() where pid = $1",
             self.pid
         )
-        .execute(get_db())
+        .execute(&self.fm.db)
         .await
         .ok();
         let friends = self.maybe_remote_friend.read().await;
@@ -1530,7 +1467,7 @@ impl FriendsWiiU for FriendsUser {
                         event_type: 10,
                         sender: self.pid,
                         data: Any::new(&NintendoNotificationEventGeneral {
-                            param3: KerberosDateTime::now().0,
+                            param3: DateTime::now().0,
                             ..Default::default()
                         })
                         .expect("type error"),
@@ -1551,7 +1488,7 @@ impl FriendsWiiU for FriendsUser {
                 "select * from nintendo_network_accounts where pid = $1",
                 pid
             )
-            .fetch_one(get_db())
+            .fetch_one(&self.fm.db)
             .await
             else {
                 return Err(ErrorCode::FPD_NotFriend);
@@ -1591,7 +1528,7 @@ impl FriendsWiiU for FriendsUser {
                 pid,
                 self.pid
             )
-            .fetch_optional(get_db())
+            .fetch_optional(&self.fm.db)
             .await
             else {
                 warn!("user requested request setting of invalid user");
@@ -1619,61 +1556,12 @@ impl FriendsWiiU for FriendsUser {
 
 type HMacMd5 = hmac::Hmac<md5::Md5>;
 
-impl Secure for FriendsUser {
-    async fn register(
-        &self,
-        station_urls: Vec<StationUrl>,
-    ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
-        let cid = self.fm.next_cid();
-        Ok((
-            QResult::success(ErrorCode::Core_Unknown),
-            cid,
-            get_station_urls(&station_urls, self.addr, self.pid, cid).await?[0].clone(),
-        ))
-    }
-    async fn register_ex(
-        &self,
-        station_urls: Vec<StationUrl>,
-        _data: Any,
-    ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
-        info!("register");
-        self.register(station_urls).await
-    }
-    async fn replace_url(&self, _target: StationUrl, _dest: StationUrl) -> Result<(), ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
-    }
-}
-
-impl Secure for FriendsGuest {
-    async fn register(
-        &self,
-        station_urls: Vec<StationUrl>,
-    ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
-        let cid = self.fm.next_cid();
-        Ok((
-            QResult::success(ErrorCode::Core_Unknown),
-            cid,
-            get_station_urls(&station_urls, self.addr, 100, cid).await?[0].clone(),
-        ))
-    }
-    async fn register_ex(
-        &self,
-        station_urls: Vec<StationUrl>,
-        _data: Any,
-    ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
-        info!("register");
-        self.register(station_urls).await
-    }
-    async fn replace_url(&self, _target: StationUrl, _dest: StationUrl) -> Result<(), ErrorCode> {
-        Err(ErrorCode::Core_NotImplemented)
-    }
-}
-
 impl Drop for FriendsUser {
     fn drop(&mut self) {
         let friends = mem::take(&mut self.maybe_remote_friend);
         let users = friends.into_inner();
         let pid = self.pid;
+        let fm = self.fm.clone();
         tokio::spawn(async move {
             for user in users {
                 let Some(user) = user.1.upgrade() else {
@@ -1685,7 +1573,7 @@ impl Drop for FriendsUser {
                         event_type: 10,
                         sender: pid,
                         data: Any::new(&NintendoNotificationEventGeneral {
-                            param3: KerberosDateTime::now().0,
+                            param3: DateTime::now().0,
                             ..Default::default()
                         })
                         .expect("type error"),
@@ -1696,7 +1584,7 @@ impl Drop for FriendsUser {
                 "update nintendo_network_accounts set last_online = now() where pid = $1",
                 pid
             )
-            .execute(get_db())
+            .execute(&fm.db)
             .await
             .ok();
         });
