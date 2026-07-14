@@ -286,7 +286,11 @@ name = "backend-secure"
 version = "0.1.0"
 dependencies = [
  "rnex-base",
+ "rnex-ds",
+ "rnex-fpd",
  "rnex-mm",
+ "rnex-msg",
+ "rnex-rk",
  "rnex-server",
  "tokio",
 ]

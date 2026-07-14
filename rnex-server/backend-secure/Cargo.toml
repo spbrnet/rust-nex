@@ -7,7 +7,15 @@ edition = "2024"
 rnex-server = {path = ".."}
 rnex-base = {path = "../../rnex-server-nex-modules/rnex-base"}
 rnex-mm = {path = "../../rnex-server-nex-modules/rnex-mm", optional = true}
+rnex-ds = {path = "../../rnex-server-nex-modules/rnex-ds", optional = true}
+rnex-fpd = {path = "../../rnex-server-nex-modules/rnex-fpd", optional = true}
+rnex-msg = {path = "../../rnex-server-nex-modules/rnex-msg", optional = true}
+rnex-rk = {path = "../../rnex-server-nex-modules/rnex-rk", optional = true}
 tokio = { version = "1.52.3", features = ["time", "sync", "rt-multi-thread"] }
 
 [features]
 match-making = ["dep:rnex-mm"]
+datastore = ["dep:rnex-ds"]
+friends = ["dep:rnex-fpd"]
+messaging = ["dep:rnex-msg"]
+ranking = ["dep:rnex-rk"]

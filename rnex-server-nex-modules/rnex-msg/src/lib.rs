@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::Infallible};
 
 use rnex_msg_protos::RemoteMessagingClient;
 use rnex_rmc::{RmcPureRemoteObject, util::PID};
-use rnex_server::{ConnectionInitData, RnexManager, WeakPassthroughInitModule};
+use rnex_server::{ConnectionInitData, RnexManager, RnexModule, WeakPassthroughInitModule};
 use tokio::sync::RwLock;
 
 use crate::user::MessagingUser;
@@ -36,5 +36,19 @@ impl RnexManager for MessagingManager {
             pid: init_data.pid,
             remote: RemoteMessagingClient::new(remote.clone()),
         }
+    }
+}
+
+impl RnexModule for MessagingModule {
+    type Manager = MessagingManager;
+
+    type InitError = Infallible;
+
+    async fn create_manager(
+        _: &rnex_server::ModuleHolder,
+    ) -> Result<Self::Manager, Self::InitError> {
+        Ok(MessagingManager {
+            users_by_pid: Default::default(),
+        })
     }
 }
