@@ -11,10 +11,7 @@ use std::{collections::HashMap, fmt::Debug, io::Cursor, ops::Deref, sync::Arc, t
 
 pub use rand;
 pub use rnex_rmc_macros::*;
-use rnex_util::{
-    SendingBufferConnection, SplittableBufferConnection, result::ResultExtension,
-    tracing::Instrument,
-};
+use rnex_util::{SendingBufferConnection, SplittableBufferConnection, result::ResultExtension};
 use tokio::{
     sync::{Mutex, Notify},
     task,

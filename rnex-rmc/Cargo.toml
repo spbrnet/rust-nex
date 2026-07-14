@@ -14,7 +14,7 @@ rnex-rmc-macros = { path = "./macros" }
 paste = "1.0.15"
 rand = "0.10.2"
 hex = "0.4.3"
-tracing.workspace = true
+tracing = "0.1.44"
 
 [features]
 splatoon = ["v3-5-0"]
