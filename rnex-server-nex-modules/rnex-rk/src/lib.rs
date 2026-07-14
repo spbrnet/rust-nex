@@ -1,7 +1,5 @@
-use std::env::{self, VarError};
-
 use rnex_rmc::response::ErrorCode;
-use rnex_server::{ConnectionInitData, RnexManager, RnexModule, env_var};
+use rnex_server::{ConnectionInitData, EnvVarError, RnexManager, RnexModule, env_var};
 use std::str::FromStr;
 use tracing::error;
 
@@ -73,7 +71,7 @@ impl RnexManager for RankingManager {
 impl RnexModule for RankingModule {
     type Manager = RankingManager;
 
-    type InitError = VarError;
+    type InitError = EnvVarError;
 
     async fn create_manager(
         _: &rnex_server::ModuleHolder,
