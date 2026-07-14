@@ -7,6 +7,7 @@ edition = "2024"
 bytemuck = { version = "1.25.0", features = ["derive"] }
 ctor = "1.0.8"
 rnex-rmc = { path = "../../rnex-rmc" }
+tracing = "0.1.44"
 rnex-base-protos = { path = "../base-protos" }
 
 [features]

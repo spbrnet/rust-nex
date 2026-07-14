@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 ctor = "1.0.8"
 rnex-rmc = { path = "../../rnex-rmc" }
+tracing = "0.1.44"
 
 [features]
 splatoon = ["v3-5-0"]

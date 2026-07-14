@@ -10,7 +10,7 @@ pub const ERROR_MASK: u32 = 1 << 31;
 
 #[derive(Pod, Zeroable, Copy, Clone, Debug)]
 #[repr(transparent)]
-pub struct QResult(u32);
+pub struct QResult(pub u32);
 
 impl QResult {
     pub fn success(error_code: ErrorCode) -> Self {

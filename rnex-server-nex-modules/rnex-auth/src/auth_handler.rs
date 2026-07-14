@@ -1,20 +1,17 @@
 use std::{
     hash::{DefaultHasher, Hasher},
     net::SocketAddrV4,
-    sync::{LazyLock},
+    sync::LazyLock,
 };
 
 use cfg_if::cfg_if;
-use nex_account::{
-    grpc,
-    grpc_client,
-};
+use nex_account::{grpc, grpc_client};
 use rnex_auth_protos::{
     LocalAuthProtocol,
     auth::{Auth, ConnectionData, ConnectionDataOld},
 };
 use rnex_prudp::kerberos::{Ticket, TicketInternalData};
-use rnex_reggie_protos::reggie::{RemoteEdgeNodeManagement};
+use rnex_reggie_protos::reggie::RemoteEdgeNodeManagement;
 use rnex_rmc::{
     any::Any,
     qresult::QResult,
@@ -348,5 +345,48 @@ impl Auth for AuthHandler {
 
     async fn get_name(&self, _pid: PID) -> Result<String, ErrorCode> {
         Err(ErrorCode::Core_Exception)
+    }
+}
+#[cfg(test)]
+mod test {
+    use std::io::Cursor;
+
+    use rnex_auth_protos::auth::ConnectionData;
+    use rnex_rmc::{
+        qresult::QResult,
+        serialization::RmcSerialize,
+        util::{PID, date_time::DateTime},
+    };
+
+    type A = (QResult, PID, Vec<u8>, ConnectionData, String);
+
+    #[test]
+    fn test() {
+        let data: Vec<u8> = vec![
+            117, 78, 111, 185, 170, 86, 1, 87, 12, 184, 207, 248, 138, 244, 200, 253, 115, 80, 239,
+            214, 101, 196, 158, 106, 17, 107, 196, 210, 174, 2, 57, 126, 192, 37, 185, 250, 1, 237,
+            21, 26, 95, 138, 247, 179, 204, 145, 61, 62, 68, 192, 16, 57, 73, 59, 123, 29, 219,
+            181, 235, 252, 19, 241, 47, 54, 215, 231, 0, 42, 20, 15, 139, 27, 135, 88, 25, 193,
+            172, 242, 13, 244, 128, 118, 37, 244, 102, 138, 8, 40, 182, 242, 146, 92, 104, 53, 4,
+            52, 212, 47, 145, 120, 8, 78, 127, 150, 29, 210, 68, 203, 36, 241, 96, 189, 18, 153,
+            109, 121,
+        ];
+        let data: A = (
+            QResult(65537),
+            1132,
+            data,
+            ConnectionData {
+                station_url:
+                    "prudps:/PID=2;sid=1;stream=10;type=2;address=45.85.147.85;port=17001;CID=1"
+                        .into(),
+                special_protocols: [].into(),
+                special_station_url: "".into(),
+                date_time: DateTime(135993837066),
+            },
+            "branch:origin/project/wup-agmj build:3_8_15_2004_0".to_owned(),
+        );
+
+        let test = data.to_data().unwrap();
+        A::deserialize(&mut Cursor::new(&test[..])).unwrap();
     }
 }

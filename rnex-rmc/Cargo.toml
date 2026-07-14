@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 bytemuck = { version = "1.25.0", features = ["derive"] }
 thiserror = "2.0.18"
-tracing = "0.1.44"
 v-byte-helpers = { git = "https://github.com/RusticMaple/VByteMacros", version = "0.1.1" }
 rnex-util = { path = "../rnex-util" }
 tokio = { version = "1.52.3", features = ["sync", "io-util", "rt", "macros", "time"] }
@@ -15,6 +14,7 @@ rnex-rmc-macros = { path = "./macros" }
 paste = "1.0.15"
 rand = "0.10.2"
 hex = "0.4.3"
+tracing.workspace = true
 
 [features]
 splatoon = ["v3-5-0"]
@@ -23,7 +23,7 @@ database-support = []
 nx = []
 third-notif-param = []
 v3-3-2 = []
-v3-4-0 = ["v3-3-2", "third-notif-param"]
+v3-4-0 = ["v3-3-2", "third-notif-param", "rmc_struct_header"]
 v3-5-0 = ["v3-4-0"]
 v3-8-15 = ["v3-5-0"]
 v3-10-22 = ["v3-8-15"]

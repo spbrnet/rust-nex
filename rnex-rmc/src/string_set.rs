@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    fmt::Debug,
     hash::Hash,
     io::{Read, Write},
     str::FromStr,
@@ -9,11 +10,11 @@ use std::{
 use crate::serialization::{Error, Result, RmcSerialize};
 
 #[derive(Debug, Clone)]
-pub struct StringSet<T: FromStr + ToString + Eq>(pub HashSet<T>)
+pub struct StringSet<T: FromStr + ToString + Eq + Debug>(pub HashSet<T>)
 where
     <T as FromStr>::Err: std::error::Error + Send + Sync + 'static;
 
-impl<T: FromStr + ToString + Eq + Hash> PartialEq for StringSet<T>
+impl<T: FromStr + ToString + Eq + Hash + Debug> PartialEq for StringSet<T>
 where
     <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
 {
@@ -22,7 +23,7 @@ where
     }
 }
 
-impl<T: FromStr + ToString + Eq + Hash> ToString for StringSet<T>
+impl<T: FromStr + ToString + Eq + Hash + Debug> ToString for StringSet<T>
 where
     <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
 {
@@ -35,7 +36,7 @@ where
     }
 }
 
-impl<T: FromStr + ToString + Eq + Hash> FromStr for StringSet<T>
+impl<T: FromStr + ToString + Eq + Hash + Debug> FromStr for StringSet<T>
 where
     <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
 {
@@ -57,7 +58,7 @@ where
     }
 }
 
-impl<T: FromStr + ToString + Eq + Hash> RmcSerialize for StringSet<T>
+impl<T: FromStr + ToString + Eq + Hash + Debug> RmcSerialize for StringSet<T>
 where
     <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
 {

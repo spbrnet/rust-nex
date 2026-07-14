@@ -391,6 +391,7 @@ impl DatastoreUser {
             ErrorCode::DataStore_NotFound
         })?;
         info!("done running");
+        Ok(())
     }
 
     // Dawg...

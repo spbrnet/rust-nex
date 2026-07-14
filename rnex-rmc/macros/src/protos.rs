@@ -223,6 +223,7 @@ impl RmcProtocolData {
             quote! {
                 #[inline(always)]
                 #attribs
+                #[::rnex_rmc::tracing::instrument]
                 async fn #raw_name (&self, data: &[u8]) #optional_return{
                     let mut cursor = ::std::io::Cursor::new(data);
                     #deser_params
@@ -303,12 +304,12 @@ impl RmcProtocolData {
         quote! {
             #[allow(unused_must_use)]
             #[automatically_derived]
-            pub trait #raw_name: #name{
+            pub trait #raw_name: #name + ::std::fmt::Debug{
                 #proto_raw_methods
                 #rmc_call_proto
             }
             #[automatically_derived]
-            impl<T: #name> #raw_name for T{}
+            impl<T: #name + ::std::fmt::Debug> #raw_name for T{}
         }
         .to_token_stream()
     }

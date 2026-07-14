@@ -11,7 +11,10 @@ use std::{collections::HashMap, fmt::Debug, io::Cursor, ops::Deref, sync::Arc, t
 
 pub use rand;
 pub use rnex_rmc_macros::*;
-use rnex_util::{SendingBufferConnection, SplittableBufferConnection, result::ResultExtension};
+use rnex_util::{
+    SendingBufferConnection, SplittableBufferConnection, result::ResultExtension,
+    tracing::Instrument,
+};
 use tokio::{
     sync::{Mutex, Notify},
     task,
@@ -322,6 +325,7 @@ impl<T: RemoteDisconnectable> RmcCallable for OnlyRemote<T> {
     }
 }
 
+#[instrument]
 async fn handle_incoming<T: RmcCallable + Send + Sync + Debug + 'static>(
     sending_conn: SendingBufferConnection,
     remote: Arc<T>,

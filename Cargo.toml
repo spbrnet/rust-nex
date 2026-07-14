@@ -28,9 +28,12 @@ members = [
     "rnex-server-nex-modules/rnex-node-holder",
     "rnex-server-nex-modules/rnex-base",
     "rnex-server-nex-modules/rnex-msg",
-    "rnex-server-nex-modules/rnex-auth"
-, "prudpv1-proxy"]
+    "rnex-server-nex-modules/rnex-auth",
+    "prudpv1-proxy"
+]
 
+[workspace.dependencies]
+tracing = "0.1.44"
 
 [workspace.lints.clippy]
 print_stdout = { level = "deny", priority = 1}

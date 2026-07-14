@@ -7,6 +7,7 @@ use rnex_msg_protos::{
 use rnex_rmc::{any::Any, response::ErrorCode, rmc_struct, util::PID};
 use rnex_server::{PassthroughInitModule, WeakPassthroughInitModule};
 
+#[derive(Debug)]
 #[rmc_struct(MessagingProtocol)]
 pub struct MessagingUser {
     pub msgm: PassthroughInitModule<MessagingManager>,

@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 ctor = "1.0.8"
+tracing = "0.1.44"
 rnex-rmc = { path = "../../rnex-rmc" }
 
 [features]

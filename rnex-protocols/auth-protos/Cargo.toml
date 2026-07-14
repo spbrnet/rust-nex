@@ -8,6 +8,7 @@ cfg-if = "1.0.4"
 ctor = "1.0.8"
 rnex-rmc = { path = "../../rnex-rmc" }
 tokio = { version = "1.52.3", features = ["time", "sync"] }
+tracing = "0.1.44"
 
 [features]
 friends = []

@@ -9,6 +9,7 @@ use crate::user::MessagingUser;
 
 pub mod user;
 
+#[derive(Debug)]
 pub struct MessagingManager {
     users_by_pid: RwLock<HashMap<PID, WeakPassthroughInitModule<MessagingUser>>>,
 }
