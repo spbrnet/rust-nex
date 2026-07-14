@@ -1,15 +1,15 @@
 use std::{
     convert::Infallible,
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    net::{Ipv4Addr, SocketAddrV4},
     sync::{Arc, Weak},
 };
 
 use rnex_reggie_protos::reggie::{
-    EdgeNodeHolderConnectOption, EdgeNodeManagement, LocalEdgeNodeHolder, RemoteEdgeNodeHolder,
+    EdgeNodeHolderConnectOption, EdgeNodeManagement, LocalEdgeNodeHolder,
 };
-use rnex_rmc::{response::ErrorCode, rmc_struct, tracing::info};
+use rnex_rmc::{response::ErrorCode, rmc_struct};
 use rnex_server::{
-    ConnectionInitData, PassthroughInitModule, RnexManager, RnexModule, WeakPassthroughInitModule,
+    PassthroughInitModule, RnexManager, RnexModule, WeakPassthroughInitModule,
 };
 use tokio::sync::RwLock;
 
@@ -49,8 +49,8 @@ impl RnexManager for NodeHolderManager {
     type InitData = EdgeNodeHolderConnectOption;
     async fn init_new_user(
         this: PassthroughInitModule<Self>,
-        mod_holder: &rnex_server::ModuleHolder,
-        remote: &rnex_rmc::RmcConnection,
+        _mod_holder: &rnex_server::ModuleHolder,
+        _remote: &rnex_rmc::RmcConnection,
         init_data: &Self::InitData,
         _: WeakPassthroughInitModule<Self::User>,
     ) -> Self::User {

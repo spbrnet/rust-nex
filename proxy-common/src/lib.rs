@@ -17,7 +17,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::net::TcpStream;
-use tracing::{error, info, instrument};
+use tracing::{error, info};
 
 const RNEX_DEFAULT_PORT: u16 = match u16::from_str_radix(env!("RNEX_DEFAULT_PORT"), 10) {
     Ok(v) => v,

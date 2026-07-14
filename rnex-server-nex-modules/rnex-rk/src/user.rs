@@ -9,11 +9,11 @@ use rnex_rmc::{qbuffer::QBuffer, response::ErrorCode, rmc_struct};
 use rnex_server::PassthroughInitModule;
 use rnex_util::{PID, date_time::DateTime};
 use serde::{Deserialize, Serialize};
-use std::{env, str::FromStr};
 use tracing::{error, info};
 
 use crate::RankingManager;
 
+#[derive(Debug)]
 #[rmc_struct(RankingProtocol)]
 pub struct RankingUser {
     pub rm: PassthroughInitModule<RankingManager>,

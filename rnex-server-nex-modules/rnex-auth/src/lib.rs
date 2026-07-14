@@ -1,7 +1,7 @@
 #[allow(async_fn_in_trait)]
 pub mod auth_handler;
 
-use std::{convert::Infallible, env, error::Error, net::SocketAddr, sync::Arc};
+use std::{env, net::SocketAddr, sync::Arc};
 use tokio::net::TcpStream;
 
 use nex_account::{grpc::Pid, grpc_client};

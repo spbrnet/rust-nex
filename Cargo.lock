@@ -282,20 +282,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "backend-secure"
-version = "0.1.0"
-dependencies = [
- "rnex-base",
- "rnex-ds",
- "rnex-fpd",
- "rnex-mm",
- "rnex-msg",
- "rnex-rk",
- "rnex-server",
- "tokio",
-]
-
-[[package]]
 name = "backtrace"
 version = "0.3.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1700,16 +1686,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "node-holder-backend"
-version = "0.1.0"
-dependencies = [
- "rnex-node-holder",
- "rnex-reggie-protos",
- "rnex-server",
- "tokio",
-]
-
-[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2704,6 +2680,30 @@ name = "rnex-server-backend-auth"
 version = "0.1.0"
 dependencies = [
  "rnex-auth",
+ "rnex-server",
+ "tokio",
+]
+
+[[package]]
+name = "rnex-server-backend-node-holder"
+version = "0.1.0"
+dependencies = [
+ "rnex-node-holder",
+ "rnex-reggie-protos",
+ "rnex-server",
+ "tokio",
+]
+
+[[package]]
+name = "rnex-server-backend-secure"
+version = "0.1.0"
+dependencies = [
+ "rnex-base",
+ "rnex-ds",
+ "rnex-fpd",
+ "rnex-mm",
+ "rnex-msg",
+ "rnex-rk",
  "rnex-server",
  "tokio",
 ]

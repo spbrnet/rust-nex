@@ -22,7 +22,7 @@ impl RnexManager for MessagingManager {
 
     async fn init_new_user(
         this: rnex_server::PassthroughInitModule<Self>,
-        mod_holder: &rnex_server::ModuleHolder,
+        _mod_holder: &rnex_server::ModuleHolder,
         remote: &rnex_rmc::RmcConnection,
         init_data: &Self::InitData,
         weak_user: rnex_server::WeakPassthroughInitModule<Self::User>,

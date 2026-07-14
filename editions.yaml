@@ -98,6 +98,8 @@ splatoon:
     - prudpv1
     - v3-8-15
     - splatoon
+    - match-making
+    - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/project/wup-agmj build:3_8_15_2004_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"

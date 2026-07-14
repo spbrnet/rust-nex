@@ -9,6 +9,7 @@ use crate::user::RankingUser;
 
 pub mod user;
 
+#[derive(Debug)]
 pub struct RankingManager {
     rnex_result_get: String,
     rnex_result_votes_get: String,

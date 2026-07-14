@@ -1,5 +1,5 @@
 [package]
-name = "backend-secure"
+name = "rnex-server-backend-secure"
 version = "0.1.0"
 edition = "2024"
 
@@ -19,3 +19,13 @@ datastore = ["dep:rnex-ds"]
 friends = ["dep:rnex-fpd"]
 messaging = ["dep:rnex-msg"]
 ranking = ["dep:rnex-rk"]
+nx = []
+third-notif-param = []
+v3-3-2 = []
+v3-4-0 = ["v3-3-2", "third-notif-param"]
+v3-5-0 = ["v3-4-0"]
+v3-8-15 = ["v3-5-0"]
+v3-10-22 = ["v3-8-15"]
+v4-3-11 = ["v3-8-15"]
+rmc_struct_header = []
+big_pid = []

@@ -15,5 +15,21 @@ tokio = { version = "1.52.3", features = ["net"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 
+[features]
+splatoon = ["v3-5-0"]
+datastore = ["database-support", "v3-8-15"]
+database-support = []
+nx = []
+third-notif-param = []
+v3-3-2 = []
+v3-4-0 = ["v3-3-2", "third-notif-param"]
+v3-5-0 = ["v3-4-0"]
+v3-8-15 = ["v3-5-0"]
+v3-10-22 = ["v3-8-15"]
+v4-3-11 = ["v3-8-15"]
+friends = []
+rmc_struct_header = []
+big_pid = []
+
 [lints]
 workspace = true

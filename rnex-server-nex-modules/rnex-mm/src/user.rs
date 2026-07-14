@@ -1,4 +1,4 @@
-use std::{env, sync::Arc};
+use std::sync::Arc;
 
 use rnex_base::user::BaseUser;
 use rnex_base_protos::ResultsRange;
@@ -24,7 +24,7 @@ use rnex_util::{
     station_url::{StationUrl, UrlOptions},
 };
 use tokio::sync::Mutex;
-use tracing::{error, info};
+use tracing::info;
 
 use crate::matchmake::{ExtendedMatchmakeSession, MatchmakeManager};
 
@@ -666,8 +666,8 @@ impl NatTraversal for MatchmakeUser {
 
     async fn report_nat_traversal_result(
         &self,
-        cid: u32,
-        result: bool,
+        _cid: u32,
+        _result: bool,
         _rtt: u32,
     ) -> Result<(), ErrorCode> {
         Ok(())
