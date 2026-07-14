@@ -348,7 +348,11 @@ impl DatastoreUser {
     }
 
     #[instrument]
-    async fn init_object_rating_slot(&self, data_id: i64, rating_param: RatingInitParamWithSlot) {
+    async fn init_object_rating_slot(
+        &self,
+        data_id: i64,
+        rating_param: RatingInitParamWithSlot,
+    ) -> Result<(), ErrorCode> {
         info!("running init object rating slot");
         sqlx::query!(
             r#"
@@ -843,7 +847,7 @@ impl DataStore for DatastoreUser {
         for rating_param in &postparam.rating_init_params {
             info!("running init params");
             self.init_object_rating_slot(data_id, rating_param.clone())
-                .await
+                .await?;
         }
 
         let key = format!("data/{}.bin", data_id);
@@ -1299,7 +1303,7 @@ impl DataStore for DatastoreUser {
         for rating_param in &param.post_param.rating_init_params {
             info!("running init params");
             self.init_object_rating_slot(data_id, rating_param.clone())
-                .await
+                .await?;
         }
 
         let key = format!("data/{}.jpg", data_id);

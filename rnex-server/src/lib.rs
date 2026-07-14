@@ -353,7 +353,7 @@ pub async fn with_setup(f: impl AsyncFnOnce() -> anyhow::Result<()>) {
         .with(tracing_subscriber::fmt::layer().with_filter(
             tracing_subscriber::filter::FilterFn::new(|m| {
                 !m.module_path().is_some_and(|m| {
-                    (m.starts_with("h2") | m.starts_with("reqwest") | m.starts_with("hyper_util"))
+                    m.starts_with("h2") | m.starts_with("reqwest") | m.starts_with("hyper_util")
                 }) || (*m.level() <= Level::INFO)
             }),
         ))
