@@ -1,7 +1,7 @@
 use crate::prudp::packet::PRUDPV1Packet;
 use crate::prudp::router::Error::VirtualPortTaken;
 use crate::prudp::socket::{AnyInternalSocket, CryptoHandler, ExternalSocket, new_socket_pair};
-use log::{error, info};
+use tracing::{error, info};
 use std::io;
 use std::io::Cursor;
 use std::marker::PhantomData;
@@ -15,6 +15,7 @@ use tokio::select;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
+use rnex_prudp::virtual_port::VirtualPort;
 
 pub struct Router {
     endpoints: RwLock<[Option<Arc<dyn AnyInternalSocket>>; 16]>,

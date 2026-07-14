@@ -34,7 +34,7 @@ pub struct MatchmakeParam {
 
 cfg_if! {
     if #[cfg(feature = "v3-5-0")]{
-        use rnex_core::kerberos::KerberosDateTime;
+        use rnex_util::date_time::DateTime;
         #[derive(RmcSerialize, Debug, Clone, Default, PartialEq)]
         #[rmc_struct(3)]
         pub struct MatchmakeSession {
@@ -52,7 +52,7 @@ cfg_if! {
             pub session_key: Vec<u8>,
             pub option0: u32,
             pub matchmake_param: MatchmakeParam,
-            pub datetime: KerberosDateTime,
+            pub datetime: DateTime,
             pub user_password: String,
             pub refer_gid: u32,
             pub user_password_enabled: bool,

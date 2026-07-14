@@ -8,12 +8,12 @@ use crate::prudp::packet::PacketOption::{
 };
 use bytemuck::{Pod, Zeroable};
 use hmac::{Hmac, Mac};
-use log::{error, warn};
+use tracing::{error, warn};
 use md5::{Digest, Md5};
-use rnex_core::prudp::socket_addr::PRUDPSockAddr;
-use rnex_core::prudp::types_flags::TypesFlags;
-use rnex_core::prudp::types_flags::flags::ACK;
-use rnex_core::prudp::virtual_port::VirtualPort;
+use rnex_prudp::socket_addr::PRUDPSockAddr;
+use rnex_prudp::types_flags::TypesFlags;
+use rnex_prudp::types_flags::flags::ACK;
+use rnex_prudp::virtual_port::VirtualPort;
 use std::fmt::Debug;
 use std::io;
 use std::io::{Cursor, Read, Seek, Write};
@@ -396,7 +396,7 @@ impl PRUDPV1Packet {
 #[cfg(test)]
 mod test {
     use super::{OptionId, PRUDPV1Header, PacketOption, TypesFlags};
-    use rnex_core::prudp::{
+    use rnex_prudp::{
         types_flags::{
             flags::{NEED_ACK, RELIABLE},
             types::DATA,

@@ -8,6 +8,7 @@ ctor = "1.0.8"
 rnex-rmc = { path = "../../rnex-rmc" }
 cfg-if = "1.0.4"
 rnex-base-protos = { path = "../base-protos" }
+rnex-util = {path = "../rnex-util"}
 
 [features]
 third-notif-param = []
