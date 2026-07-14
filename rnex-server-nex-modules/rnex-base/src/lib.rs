@@ -31,7 +31,7 @@ impl RnexManager for BaseManager {
     ) -> Self::User {
         BaseUser {
             cid: this.cid_counter.fetch_add(1, Relaxed),
-            bm: this,
+            //bm: this,
             addr: init_data.addr,
             pid: init_data.pid,
             station_url: Default::default(),

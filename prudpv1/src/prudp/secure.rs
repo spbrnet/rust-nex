@@ -1,24 +1,22 @@
 use crate::prudp::packet::PRUDPV1Packet;
 use crate::prudp::socket::{CryptoHandler, CryptoHandlerConnectionInstance};
-use hmac::digest::consts::U32;
-use rc4::cipher::StreamCipherCoreWrapper;
-use rc4::{KeyInit, Rc4, Rc4Core, StreamCipher};
-use typenum::U5;
-use rnex_util::PID;
+use rc4::{KeyInit, Rc4, StreamCipher};
+use rnex_prudp::encryption::EncryptionPair;
 use rnex_prudp::ticket::read_secure_connection_data;
-use serde_core::ser::Serialize;
+use rnex_util::PID;
+use rnex_util::account::Account;
 
-type Rc4U32 = StreamCipherCoreWrapper<Rc4Core<U32>>;
+//type Rc4U32 = StreamCipherCoreWrapper<Rc4Core<U32>>;
 
 pub fn generate_secure_encryption_pairs(
     mut session_key: [u8; 32],
     count: u8,
-) -> Vec<EncryptionPair<Rc4<U32>>> {
+) -> Vec<EncryptionPair<Rc4>> {
     let mut vec = Vec::with_capacity(count as usize);
 
     vec.push(EncryptionPair {
-        send: Rc4U32::new_from_slice(&session_key).expect("unable to create rc4"),
-        recv: Rc4U32::new_from_slice(&session_key).expect("unable to create rc4"),
+        send: Rc4::new_from_slice(&session_key).expect("unable to create rc4"),
+        recv: Rc4::new_from_slice(&session_key).expect("unable to create rc4"),
     });
 
     for _ in 1..=count {
@@ -31,8 +29,8 @@ pub fn generate_secure_encryption_pairs(
         }
 
         vec.push(EncryptionPair {
-            send: Rc4U32::new_from_slice(&session_key).expect("unable to create rc4"),
-            recv: Rc4U32::new_from_slice(&session_key).expect("unable to create rc4"),
+            send: Rc4::new_from_slice(&session_key).expect("unable to create rc4"),
+            recv: Rc4::new_from_slice(&session_key).expect("unable to create rc4"),
         });
     }
 
@@ -44,7 +42,7 @@ pub struct Secure(pub &'static str, pub Account);
 pub struct SecureInstance {
     access_key: &'static str,
     session_key: [u8; 32],
-    streams: Vec<EncryptionPair<Rc4<U32>>>,
+    streams: Vec<EncryptionPair<Rc4>>,
     self_signature: [u8; 16],
     #[allow(dead_code)]
     remote_signature: [u8; 16],
@@ -69,7 +67,10 @@ impl CryptoHandler for Secure {
 
         let mut response = Vec::new();
 
-        data.serialize(&mut response).ok()?;
+        response.extend_from_slice(&(response.len() as u32).to_le_bytes());
+        response.extend_from_slice(&data[..]);
+
+        //data.serialize(&mut response).ok()?;
 
         let encryption_pairs = generate_secure_encryption_pairs(session_key, substream_count);
 
@@ -93,7 +94,7 @@ impl CryptoHandler for Secure {
 }
 
 impl CryptoHandlerConnectionInstance for SecureInstance {
-    type Encryption = Rc4<U5>;
+    type Encryption = Rc4;
 
     fn decrypt_incoming(&mut self, substream: u8, data: &mut [u8]) {
         if let Some(crypt_pair) = self.streams.get_mut(substream as usize) {

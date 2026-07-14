@@ -176,7 +176,8 @@ pub async fn setup_edge_node_connection(
             r,
             shutdown_callback,
         ))
-    });
+    })
+    .await;
 }
 
 pub async fn new_backend_connection(

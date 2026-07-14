@@ -8,8 +8,8 @@ use crate::prudp::packet::PacketOption::{
 };
 use bytemuck::{Pod, Zeroable};
 use hmac::{Hmac, Mac};
-use tracing::{error, warn};
 use md5::{Digest, Md5};
+use rc4::KeyInit;
 use rnex_prudp::socket_addr::PRUDPSockAddr;
 use rnex_prudp::types_flags::TypesFlags;
 use rnex_prudp::types_flags::flags::ACK;
@@ -20,6 +20,7 @@ use std::io::{Cursor, Read, Seek, Write};
 use std::net::SocketAddr;
 use std::net::SocketAddrV4;
 use thiserror::Error;
+use tracing::{error, warn};
 use v_byte_helpers::SwapEndian;
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
 
@@ -320,24 +321,17 @@ impl PRUDPV1Packet {
 
         let mut hmac = Md5Hmac::new_from_slice(&key).expect("fuck");
 
-        hmac.write(&header_data)
-            .expect("error during hmac calculation");
+        hmac.update(&header_data);
         if let Some(session_key) = session_key {
-            hmac.write(&session_key)
-                .expect("error during hmac calculation");
+            hmac.update(&session_key);
         }
-        hmac.write(&access_key_sum_bytes)
-            .expect("error during hmac calculation");
+        hmac.update(&access_key_sum_bytes);
         if let Some(connection_signature) = connection_signature {
-            hmac.write(&connection_signature)
-                .expect("error during hmac calculation");
+            hmac.update(&connection_signature);
         }
 
-        hmac.write(&option_bytes)
-            .expect("error during hmac calculation");
-
-        hmac.write_all(&self.payload)
-            .expect("error during hmac calculation");
+        hmac.update(&option_bytes);
+        hmac.update(&self.payload);
 
         hmac.finalize().into_bytes()[0..16]
             .try_into()

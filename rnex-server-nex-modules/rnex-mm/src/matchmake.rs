@@ -210,11 +210,14 @@ impl ExtendedMatchmakeSession {
 
         cfg_if! {
             if #[cfg(feature = "v3-5-0")]{
+                use rnex_rmc::variant::Variant;
+                use rnex_util::date_time::DateTime;
+                use rnex_mm_protos::matchmake::MatchmakeParam;
                 let mm_session = MatchmakeSession {
                     gathering: Gathering {
                         self_gid: gid,
-                        owner_pid: host.pid,
-                        host_pid: host.pid,
+                        owner_pid: host.base.pid,
+                        host_pid: host.base.pid,
                         ..session.gathering.clone()
                     },
                     datetime: DateTime::now(),

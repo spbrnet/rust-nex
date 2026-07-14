@@ -2,7 +2,6 @@ use crate::prudp::packet::PRUDPV1Packet;
 use crate::prudp::socket::{CryptoHandler, CryptoHandlerConnectionInstance};
 use rc4::{KeyInit, Rc4, StreamCipher};
 use rnex_prudp::encryption::{DEFAULT_KEY, EncryptionPair};
-use typenum::U5;
 
 pub struct Unsecure(pub &'static str);
 
@@ -52,7 +51,7 @@ impl CryptoHandler for Unsecure {
 }
 
 impl CryptoHandlerConnectionInstance for UnsecureInstance {
-    type Encryption = Rc4<U5>;
+    type Encryption = Rc4;
 
     fn decrypt_incoming(&mut self, substream: u8, data: &mut [u8]) {
         if let Some(crypt_pair) = self.streams.get_mut(substream as usize) {

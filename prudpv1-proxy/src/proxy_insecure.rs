@@ -1,18 +1,16 @@
-use crate::prudp::router::Router;
-use crate::prudp::unsecure::Unsecure;
-use tracing::error;
-use tracing::warn;
 use proxy_common::{ProxyStartupParam, RNEX_ACCESS_KEY};
-use rnex_core::executables::common::SECURE_SERVER_ACCOUNT;
+use prudpv1::prudp::router::Router;
+use prudpv1::prudp::unsecure::Unsecure;
 use rnex_prudp::virtual_port::VirtualPort;
-use rnex_util::{UnitPacketRead, UnitPacketWrite};
-use rnex_core::rnex_proxy_common::ConnectionInitData;
 use rnex_server::ConnectionInitData;
-use rnex_util::{UnitPacketRead, UnitPacketWrite};
+use rnex_server::rmc::serialization::RmcSerialize;
+use rnex_util::UnitPacketRead;
+use rnex_util::UnitPacketWrite;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::task;
 use tokio::time::sleep;
+use tracing::error;
 
 pub async fn start(param: ProxyStartupParam) {
     let (router_secure, _) = Router::new(param.self_private)
@@ -42,7 +40,7 @@ pub async fn start(param: ProxyStartupParam) {
             if let Err(e) = stream
                 .send_buffer(
                     &ConnectionInitData {
-                        prudpsock_addr: conn.socket_addr,
+                        addr: conn.socket_addr.regular_socket_addr,
                         pid: conn.user_id,
                     }
                     .to_data()

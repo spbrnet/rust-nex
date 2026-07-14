@@ -8,7 +8,6 @@ use bytemuck::bytes_of;
 use rnex_util::SendingBufferConnection;
 use std::io;
 use std::io::{Read, Seek, Write};
-use std::mem::transmute;
 use tracing::{error, warn};
 use v_byte_helpers::EnumTryInto;
 use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};

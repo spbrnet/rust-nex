@@ -1,19 +1,16 @@
-use crate::prudp::router::Router;
-use crate::prudp::secure::Secure;
-use tracing::error;
-use tracing::warn;
 use proxy_common::{ProxyStartupParam, RNEX_ACCESS_KEY};
-use rnex_core::executables::common::SECURE_SERVER_ACCOUNT;
+use prudpv1::prudp::{router::Router, secure::Secure};
 use rnex_prudp::virtual_port::VirtualPort;
-use rnex_util::{UnitPacketRead, UnitPacketWrite};
-use rnex_core::rnex_proxy_common::ConnectionInitData;
 use rnex_server::ConnectionInitData;
+use rnex_server::rmc::serialization::RmcSerialize;
+use rnex_util::account::Account;
 use rnex_util::{UnitPacketRead, UnitPacketWrite};
 use std::ops::Deref;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::task;
 use tokio::time::sleep;
+use tracing::error;
 
 pub async fn start(param: ProxyStartupParam) {
     let (router_secure, _) = Router::new(param.self_private)
@@ -23,7 +20,12 @@ pub async fn start(param: ProxyStartupParam) {
     let mut socket_secure = router_secure
         .add_socket(
             VirtualPort::new(1, 10),
-            Secure(RNEX_ACCESS_KEY, SECURE_SERVER_ACCOUNT.clone()),
+            Secure(
+                RNEX_ACCESS_KEY,
+                Account::from_nexact(2, "Quazal Rendez-Vous")
+                    .await
+                    .expect("failed to get account"),
+            ),
         )
         .await
         .expect("unable to add socket");
@@ -35,6 +37,8 @@ pub async fn start(param: ProxyStartupParam) {
         };
 
         task::spawn(async move {
+            // todo: add support for checking this to nex-account
+            /*
             let Ok(mut c) = rnex_core::grpc::account::Client::new().await else {
                 error!("failed to initialize gql client");
                 return;
@@ -51,7 +55,7 @@ pub async fn start(param: ProxyStartupParam) {
             if v < 0 {
                 warn!("person with too low account level joined");
                 return;
-            }
+            } */
 
             let mut stream = match TcpStream::connect(param.forward_destination).await {
                 Ok(v) => v,
@@ -64,7 +68,7 @@ pub async fn start(param: ProxyStartupParam) {
             if let Err(e) = stream
                 .send_buffer(
                     &ConnectionInitData {
-                        prudpsock_addr: conn.socket_addr,
+                        addr: conn.socket_addr.regular_socket_addr,
                         pid: conn.user_id,
                     }
                     .to_data()

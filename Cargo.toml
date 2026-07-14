@@ -29,7 +29,7 @@ members = [
     "rnex-server-nex-modules/rnex-base",
     "rnex-server-nex-modules/rnex-msg",
     "rnex-server-nex-modules/rnex-auth"
-]
+, "prudpv1-proxy"]
 
 
 [workspace.lints.clippy]

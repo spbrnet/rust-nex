@@ -57,10 +57,10 @@ impl RnexManager for RankingManager {
 
     async fn init_new_user(
         this: rnex_server::PassthroughInitModule<Self>,
-        mod_holder: &rnex_server::ModuleHolder,
-        remote: &rnex_rmc::RmcConnection,
+        _: &rnex_server::ModuleHolder,
+        _: &rnex_rmc::RmcConnection,
         init_data: &Self::InitData,
-        weak_user: rnex_server::WeakPassthroughInitModule<Self::User>,
+        _: rnex_server::WeakPassthroughInitModule<Self::User>,
     ) -> Self::User {
         RankingUser {
             rm: this,

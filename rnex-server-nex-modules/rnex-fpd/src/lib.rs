@@ -1,3 +1,4 @@
+#![cfg(feature = "friends")]
 use crate::friends_handler::{FriendsGuest, FriendsUser};
 use nex_account::GUEST_PID;
 use rnex_fpd_protos::RemoteFriendRemote;

@@ -1,8 +1,8 @@
 use proc_macro2::{Literal, Span, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    bracketed, parse::Parse, punctuated::Punctuated, token::Bracket, DataEnum, DataStruct,
-    DeriveInput, Field, Fields, Ident, LitStr, Meta, Token, Variant,
+    DataEnum, DataStruct, DeriveInput, Field, Fields, Ident, LitStr, Meta, Token, Variant,
+    bracketed, parse::Parse, punctuated::Punctuated, token::Bracket,
 };
 
 use crate::util::fold_tokenable;
@@ -85,11 +85,11 @@ pub fn generate_write_size_struct(
         }));
         quote! {
             #attrs
-            sum += ::rnex_rmc::serialization::RmcSerialize::serialize_write_size(&self.#ident)?;
+            let sum = sum + ::rnex_rmc::serialization::RmcSerialize::serialize_write_size(&self.#ident)?;
         }
     }));
     let optional_struct_header_calc = if with_potential_header {
-        quote! { sum += (if ::rnex_rmc::config::FEATURE_HAS_STRUCT_HEADER{ 5 } else { 0 }); }
+        quote! { let sum = sum + (if ::rnex_rmc::config::FEATURE_HAS_STRUCT_HEADER{ 5 } else { 0 }); }
     } else {
         quote! {}
     };

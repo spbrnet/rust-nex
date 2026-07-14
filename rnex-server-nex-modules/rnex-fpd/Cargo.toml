@@ -21,5 +21,8 @@ nex-account = { version = "0.2.4", registry = "spbr" }
 hex = "0.4.3"
 thiserror = "2.0.18"
 
+[features]
+friends = []
+
 [lints]
 workspace = true

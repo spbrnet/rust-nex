@@ -106,7 +106,7 @@ pub async fn get_station_urls(
 #[rmc_struct(BaseProtocol)]
 #[derive(Debug)]
 pub struct BaseUser {
-    pub(crate) bm: PassthroughInitModule<BaseManager>,
+    // pub(crate) bm: PassthroughInitModule<BaseManager>,
     pub addr: SocketAddr,
     pub station_url: RwLock<Vec<StationUrl>>,
     pub pid: PID,
