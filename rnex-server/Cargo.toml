@@ -13,7 +13,7 @@ rnex-util = { path = "../rnex-util" }
 sentry = { version = "0.48.4", features = ["tracing"] }
 tokio = { version = "1.52.3", features = ["net"] }
 tracing = "0.1.44"
-tracing-subscriber = "0.3.23"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 
 [features]
 splatoon = ["v3-5-0"]

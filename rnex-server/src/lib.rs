@@ -22,6 +22,7 @@ pub use rnex_util as util;
 pub use tokio;
 pub use tracing;
 use tracing::{Instrument, Level, error, instrument, span};
+use tracing_subscriber::Layer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Debug, PartialEq, Eq, RmcSerialize)]
@@ -32,7 +33,7 @@ pub struct ConnectionInitData {
 }
 #[derive(Debug, Default)]
 pub struct ModuleHolder {
-    modules: HashMap<TypeId, Arc<dyn Any>>,
+    modules: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
 }
 
 // invariant: the [`OnceLock`] inside of the Arc MUST be initialized,
@@ -80,11 +81,11 @@ impl<T: Any> WeakPassthroughInitModule<T> {
 }
 
 impl ModuleHolder {
-    pub fn get_ref<T: Any>(&self) -> Option<Arc<OnceLock<T>>> {
-        let module = self.modules.get(&TypeId::of::<T>())?;
-        let Some(module) = module.downcast_ref::<Arc<OnceLock<T>>>() else {
-            let type_name = type_name::<T>();
-            error!(type_name, "module type inconsistency");
+    pub fn get_ref<T: Any + Send + Sync>(&self) -> Option<Arc<OnceLock<T>>> {
+        let module = self.modules.get(&TypeId::of::<T>())?.clone();
+        let Ok(module) = module.downcast::<OnceLock<T>>() else {
+            let expected_type = type_name::<T>();
+            error!(expected_type, "module type inconsistency");
             return None;
         };
 
@@ -96,10 +97,10 @@ impl ModuleHolder {
     /// this object which invokes the deref() or as_ref() method until
     /// AFTER the object has been initialized inside the module holder.
     /// Doing so will result in a panic.
-    pub fn get_ref_init_pt<T: Any>(&self) -> Option<PassthroughInitModule<T>> {
+    pub fn get_ref_init_pt<T: Any + Send + Sync>(&self) -> Option<PassthroughInitModule<T>> {
         self.get_ref::<T>().map(PassthroughInitModule)
     }
-    pub fn create_empty_module_slot<T: Any>(&mut self) {
+    pub fn create_empty_module_slot<T: Any + Send + Sync>(&mut self) {
         self.modules
             .insert(TypeId::of::<T>(), Arc::new(OnceLock::<T>::new()));
     }
@@ -113,7 +114,10 @@ impl ModuleHolder {
     /// `Ok(_)` on success containing the wrapped value or
     /// `Err(_)` on failiure to set containing the value you passed in
     #[instrument]
-    pub fn init_slot<T: Any + Debug>(&self, val: T) -> Result<PassthroughInitModule<T>, T> {
+    pub fn init_slot<T: Any + Send + Sync + Debug>(
+        &self,
+        val: T,
+    ) -> Result<PassthroughInitModule<T>, T> {
         let Some(slot) = self.get_ref() else {
             return Err(val);
         };
@@ -221,7 +225,7 @@ macro_rules! launch_rnex_module_server {
                     );
                     $(#[$($tt)*])*
                     let $crate::paste::paste!{[<manager_ $module_type>]} = holder
-                        .init_slot(
+                        .init_slot::<<$module_type as $crate::RnexModule>::Manager>(
                             <$module_type as $crate::RnexModule>::create_manager(&holder).await?,
                         )
                         .expect("initialized manager twice");
@@ -346,7 +350,13 @@ pub async fn with_setup(f: impl AsyncFnOnce() -> anyhow::Result<()>) {
         None
     };
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_filter(
+            tracing_subscriber::filter::FilterFn::new(|m| {
+                !m.module_path().is_some_and(|m| {
+                    (m.starts_with("h2") | m.starts_with("reqwest") | m.starts_with("hyper_util"))
+                }) || (*m.level() <= Level::INFO)
+            }),
+        ))
         .with(sentry::integrations::tracing::layer())
         .try_init()
         .expect("failed to init tracing subscriber");
@@ -464,3 +474,16 @@ pub static SERVER_PORT: LazyLock<u16> = LazyLock::new(|| {
         .and_then(|s| s.parse().ok())
         .unwrap_or(10000)
 });
+
+#[cfg(test)]
+mod test {
+    use crate::ModuleHolder;
+
+    #[test]
+    fn test_type_consistenct() {
+        let mut man = ModuleHolder::default();
+
+        man.create_empty_module_slot::<i32>();
+        man.get_ref::<i32>();
+    }
+}
