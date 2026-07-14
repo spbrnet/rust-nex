@@ -1,4 +1,5 @@
 #![allow(async_fn_in_trait)]
+use std::env::VarError;
 use std::net::SocketAddr;
 use std::sync::Weak;
 use std::{
@@ -19,6 +20,7 @@ pub use paste;
 pub use rnex_rmc as rmc;
 use rnex_rmc::{RmcCallable, RmcConnection, RmcSerialize, serialization::RmcSerialize, util::PID};
 pub use rnex_util as util;
+use thiserror::Error;
 pub use tokio;
 pub use tracing;
 use tracing::{Instrument, Level, error, instrument, span};
@@ -332,6 +334,20 @@ pub fn rnex_release() -> String {
         env!("CARGO_PKG_VERSION"),
         env!("GIT_HASH")
     )
+}
+
+#[derive(Error, Debug)]
+#[error("error getting environment variable \"{1}\": {0}")]
+pub struct EnvVarError(VarError, &'static str);
+
+impl EnvVarError {
+    fn err_on(name: &'static str) -> impl Fn(VarError) -> Self {
+        move |e| Self(e, name)
+    }
+}
+
+pub fn env_var(name: &'static str) -> Result<String, EnvVarError> {
+    env::var(name).map_err(EnvVarError::err_on(name))
 }
 
 pub async fn with_setup(f: impl AsyncFnOnce() -> anyhow::Result<()>) {

@@ -3,7 +3,9 @@ use crate::friends_handler::{FriendsGuest, FriendsUser};
 use nex_account::GUEST_PID;
 use rnex_fpd_protos::RemoteFriendRemote;
 use rnex_rmc::{RmcCallable, RmcPureRemoteObject};
-use rnex_server::{ConnectionInitData, RnexManager, RnexModule, WeakPassthroughInitModule};
+use rnex_server::{
+    ConnectionInitData, RnexManager, RnexModule, WeakPassthroughInitModule, env_var,
+};
 use rnex_util::PID;
 use sqlx::PgPool;
 use std::{
@@ -97,7 +99,7 @@ impl RnexModule for FriendsModule {
     ) -> Result<Self::Manager, Self::InitError> {
         Ok(FriendsManager {
             users: Default::default(),
-            db: PgPool::connect(&env::var("RNEX_DATASTORE_DATABASE")?).await?,
+            db: PgPool::connect(&env_var("RNEX_DATASTORE_DATABASE")?).await?,
         })
     }
 }

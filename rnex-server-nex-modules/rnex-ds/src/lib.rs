@@ -1,7 +1,7 @@
 #![cfg(feature = "datastore")]
 use std::env;
 
-use rnex_server::{ConnectionInitData, RnexManager, RnexModule};
+use rnex_server::{ConnectionInitData, EnvVarError, RnexManager, RnexModule, env_var};
 use sqlx::PgPool;
 use thiserror::Error;
 
@@ -40,7 +40,7 @@ pub enum ModuleInitError {
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
     #[error(transparent)]
-    Env(#[from] env::VarError),
+    Env(#[from] EnvVarError),
 }
 
 impl RnexModule for DatastoreModule {
@@ -51,12 +51,12 @@ impl RnexModule for DatastoreModule {
         mod_holder: &rnex_server::ModuleHolder,
     ) -> Result<Self::Manager, Self::InitError> {
         Ok(DatastoreManager {
-            db_pool: PgPool::connect(&env::var("RNEX_DATASTORE_DATABASE")?).await?,
+            db_pool: PgPool::connect(&env_var("RNEX_DATASTORE_DATABASE")?).await?,
             s3_presigner: S3Presigner::new(
-                env::var("RNEX_DATASTORE_S3_ENDPOINT")?
+                env_var("RNEX_DATASTORE_S3_ENDPOINT")?
                     .trim_end_matches('/')
                     .to_string(),
-                env::var("RNEX_DATASTORE_S3_BUCKET")?,
+                env_var("RNEX_DATASTORE_S3_BUCKET")?,
             ),
         })
     }

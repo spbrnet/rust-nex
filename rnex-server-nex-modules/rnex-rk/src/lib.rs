@@ -1,7 +1,7 @@
 use std::env::{self, VarError};
 
 use rnex_rmc::response::ErrorCode;
-use rnex_server::{ConnectionInitData, RnexManager, RnexModule};
+use rnex_server::{ConnectionInitData, RnexManager, RnexModule, env_var};
 use std::str::FromStr;
 use tracing::error;
 
@@ -79,9 +79,9 @@ impl RnexModule for RankingModule {
         _: &rnex_server::ModuleHolder,
     ) -> Result<Self::Manager, Self::InitError> {
         Ok(RankingManager {
-            rnex_result_votes_get: env::var("RNEX_SPLATOON_RESULTS_VOTES_GET")?,
-            rnex_result_post: env::var("RNEX_SPLATOON_RESULTS_POST")?,
-            rnex_result_get: env::var("RNEX_SPLATOON_RESULTS_GET")?,
+            rnex_result_votes_get: env_var("RNEX_SPLATOON_RESULTS_VOTES_GET")?,
+            rnex_result_post: env_var("RNEX_SPLATOON_RESULTS_POST")?,
+            rnex_result_get: env_var("RNEX_SPLATOON_RESULTS_GET")?,
         })
     }
 }

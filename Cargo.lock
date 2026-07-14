@@ -2679,6 +2679,7 @@ dependencies = [
  "rnex-rmc",
  "rnex-util",
  "sentry",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",
