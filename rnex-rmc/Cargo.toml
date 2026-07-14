@@ -17,8 +17,8 @@ hex = "0.4.3"
 tracing = "0.1.44"
 
 [features]
-splatoon = ["v3-5-0"]
-datastore = ["database-support", "v3-8-15"]
+splatoon = []
+datastore = ["database-support"]
 database-support = []
 nx = []
 third-notif-param = []
