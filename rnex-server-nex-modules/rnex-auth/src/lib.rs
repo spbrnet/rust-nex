@@ -11,7 +11,7 @@ use rnex_rmc::{
     serialization::RmcSerialize,
     util::{SplittableBufferConnection, account::Account},
 };
-use rnex_server::{RnexManager, RnexModule, WeakPassthroughInitModule};
+use rnex_server::{ConnectionInitData, RnexManager, RnexModule, WeakPassthroughInitModule};
 use tracing::info;
 
 use crate::auth_handler::AuthHandler;
@@ -27,7 +27,7 @@ pub struct AuthModule;
 
 impl RnexManager for AuthManager {
     type User = AuthHandler;
-    type InitData = SocketAddr;
+    type InitData = ConnectionInitData;
     async fn init_new_user(
         this: rnex_server::PassthroughInitModule<Self>,
         _: &rnex_server::ModuleHolder,

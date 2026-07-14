@@ -1,10 +1,9 @@
 use rnex_auth::AuthModule;
-use rnex_server::launch_rnex_module_server;
-use std::net::SocketAddr;
+use rnex_server::{ConnectionInitData, launch_rnex_module_server};
 #[tokio::main]
 async fn main() {
     launch_rnex_module_server! {
-        SocketAddr;
+        ConnectionInitData;
         AuthModule
     }
 }

@@ -4,7 +4,7 @@ use nex_account::GUEST_PID;
 use rnex_fpd_protos::RemoteFriendRemote;
 use rnex_rmc::{RmcCallable, RmcPureRemoteObject};
 use rnex_server::{
-    ConnectionInitData, RnexManager, RnexModule, WeakPassthroughInitModule, env_var,
+    ConnectionInitData, EnvVarError, RnexManager, RnexModule, WeakPassthroughInitModule, env_var,
 };
 use rnex_util::PID;
 use sqlx::PgPool;
@@ -22,7 +22,7 @@ pub enum ModuleInitError {
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
     #[error(transparent)]
-    Env(#[from] env::VarError),
+    Env(#[from] EnvVarError),
 }
 
 #[derive(Debug)]
