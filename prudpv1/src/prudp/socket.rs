@@ -50,6 +50,7 @@ struct InternalConnection<E: CryptoHandlerConnectionInstance> {
     socket: Arc<UdpSocket>,
     packet_queue: HashMap<u16, PRUDPV1Packet>,
     last_packet_time: Instant,
+    partial_packet: Vec<u8>,
     unacknowleged_packets: Vec<(Instant, PRUDPV1Packet)>,
 }
 
@@ -431,6 +432,7 @@ impl<T: CryptoHandler> InternalSocket<T> {
             packet_queue: Default::default(),
             last_packet_time: Instant::now(),
             unacknowleged_packets: Vec::new(),
+            partial_packet: Vec::new(),
             supported_function_version,
         };
 
@@ -573,11 +575,24 @@ impl<T: CryptoHandler> InternalSocket<T> {
         while let Some(mut packet) = conn.packet_queue.remove(&counter) {
             conn.crypto_handler_instance
                 .decrypt_incoming(packet.header.substream_id, &mut packet.payload[..]);
-
-            conn.data_sender.send(packet.payload).await.ok();
-
+            conn.partial_packet
+                .extend_from_slice(&mut packet.payload[..]);
             conn.reliable_client_counter = conn.reliable_client_counter.overflowing_add(1).0;
             counter = conn.reliable_client_counter;
+            if packet.options.iter().any(|v| {
+                if let FragmentId(f) = v {
+                    *f != 0
+                } else {
+                    false
+                }
+            }) {
+                println!("handeling fragmented packet");
+                continue;
+            }
+
+            let packet = std::mem::take(&mut conn.partial_packet);
+
+            conn.data_sender.send(packet).await.ok();
         }
     }
 

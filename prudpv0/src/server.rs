@@ -38,6 +38,7 @@ pub struct InternalConnection<C: CryptoInstance> {
     server_packet_counter: u16,
     client_packet_counter: u16,
     unacknowledged_packets: HashMap<u16, Arc<Vec<u8>>>,
+    packet_buffer: Vec<u8>,
     packet_queue: HashMap<u16, (Instant, PRUDPV0Packet<Vec<u8>>)>,
 }
 pub struct Connection<C: CryptoInstance> {
@@ -282,6 +283,7 @@ impl<C: Crypto> Server<C> {
                 server_packet_counter: 1,
                 unacknowledged_packets: HashMap::new(),
                 packet_queue: HashMap::new(),
+                packet_buffer: vec![],
             }),
         });
 
@@ -368,9 +370,16 @@ impl<C: Crypto> Server<C> {
             };
 
             conn.crypto_instance.decrypt_incoming(payload);
-
-            res.target.send(payload.to_owned()).await;
+            conn.packet_buffer.extend_from_slice(payload);
             conn.client_packet_counter += 1;
+            if packet.fragment_id().unwrap() != 0 {
+                info!("handeling fragmented packet");
+                continue;
+            }
+
+            res.target
+                .send(std::mem::take(&mut conn.packet_buffer))
+                .await;
         }
         info!("finished handeling packets, dropping inner connection");
         drop(conn);
