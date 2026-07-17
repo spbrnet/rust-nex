@@ -372,7 +372,7 @@ impl<C: Crypto> Server<C> {
             conn.crypto_instance.decrypt_incoming(payload);
             conn.packet_buffer.extend_from_slice(payload);
             conn.client_packet_counter += 1;
-            if packet.fragment_id().unwrap() != 0 {
+            if *packet.fragment_id().unwrap() != 0 {
                 info!("handeling fragmented packet");
                 continue;
             }
