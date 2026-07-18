@@ -705,19 +705,7 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                 let conn = &**conn;
                 let mut conn = conn.lock().await;
 
-                if conn.supported_function_version == 1 {
-                    let mut collected_ids: Vec<u16> = Vec::new();
-                    let mut cursor = Cursor::new(&packet.payload);
-
-                    while let Ok(v) = read_u16(&mut cursor) {
-                        collected_ids.push(v);
-                    }
-
-                    conn.unacknowleged_packets.retain_mut(|(_, up)| {
-                        !(collected_ids.iter().any(|id| up.header.sequence_id == *id)
-                            || up.header.sequence_id <= packet.header.sequence_id)
-                    });
-                } else {
+                if packet.header.substream_id == 1 {
                     let mut collected_ids: Vec<u16> = Vec::new();
                     let mut cursor = Cursor::new(&packet.payload);
 
@@ -744,9 +732,21 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                         collected_ids.push(additional_sequence_id);
                     }
 
-                    conn.unacknowleged_packets.retain_mut(|(_, up)| {
+                    conn.unacknowleged_packets.retain(|(_, up)| {
                         !(collected_ids.iter().any(|id| up.header.sequence_id == *id)
                             || up.header.sequence_id <= sequence_id)
+                    });
+                } else {
+                    let mut collected_ids: Vec<u16> = Vec::new();
+                    let mut cursor = Cursor::new(&packet.payload);
+
+                    while let Ok(v) = read_u16(&mut cursor) {
+                        collected_ids.push(v);
+                    }
+
+                    conn.unacknowleged_packets.retain(|(_, up)| {
+                        !(collected_ids.iter().any(|id| up.header.sequence_id == *id)
+                            || up.header.sequence_id <= packet.header.sequence_id)
                     });
                 }
             } else {
