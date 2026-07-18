@@ -97,7 +97,7 @@ impl<C: Crypto> Server<C> {
                     .expect("packet malformed in creation"),
             );*/
         let mut inner = conn.inner.lock().await;
-        let pieces = data.chunks(700);
+        let pieces = data.chunks(962);
         let max_piece = pieces.len() - 1;
         let mut frag_num = 1;
         for (i, piece) in pieces.enumerate() {
@@ -141,9 +141,18 @@ impl<C: Crypto> Server<C> {
                         .send_to(&data, conn.addr.regular_socket_addr)
                         .await
                         .ok();
-
-                    break;
+                    sleep(Duration::from_millis(500)).await;
                 }
+                println!("connection exceeded max fail count, disconnecting");
+                let Some(conn) = conn.upgrade() else {
+                    return;
+                };
+                let Some(this) = this.upgrade() else {
+                    return;
+                };
+                let mut conns = this.connections.write().await;
+                conns.remove(&(conn.addr, conn.session_id));
+                drop(conns);
             });
             frag_num += 1;
         }
@@ -336,6 +345,13 @@ impl<C: Crypto> Server<C> {
             warn!("data packet on inactive connection from: {:?}", addr);
             return;
         };
+
+        if header.type_flags.get_flags() & ACK != 0 {
+            let mut inner = res.inner.lock().await;
+            inner.unacknowledged_packets.remove(&header.sequence_id);
+            return;
+        }
+
         info!("frag: {}", frag_id);
         let mut conn = res.inner.lock().await;
         let ack = new_data_packet(
@@ -481,8 +497,8 @@ impl<C: Crypto> Server<C> {
             inner.last_action = Instant::now();
             drop(inner);
         };
-        if header.type_flags.get_flags() & ACK != 0 {
-            info!("got ack(acks are ignored for now)");
+        if header.type_flags.get_flags() & ACK != 0 && header.type_flags.get_types() != DATA {
+            info!("got ack(acks are ignored for now(unless they are data acks))");
             return;
         }
         println!("{:?}", header);
