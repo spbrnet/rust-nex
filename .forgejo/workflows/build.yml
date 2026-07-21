@@ -98,6 +98,7 @@ jobs:
         env:
           CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
           CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
+          DATABASE_URL: ${{ secrets.DATABASE_SMM }}
         run: ./.ci-scripts/make-edition.sh wii-sports-club
 
   puyopuyo:
@@ -128,6 +129,7 @@ jobs:
         env:
           CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
           CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
+          DATABASE_URL: ${{ secrets.DATABASE_SMM }}
         run: ./.ci-scripts/make-edition.sh puyopuyo
 
   minecraft-wiiu:

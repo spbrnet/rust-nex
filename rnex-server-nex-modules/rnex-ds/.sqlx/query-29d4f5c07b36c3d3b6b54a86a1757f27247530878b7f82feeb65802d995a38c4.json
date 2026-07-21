@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                            INSERT INTO datastore.object_custom_rankings (data_id, application_id, value)\n                            VALUES ($1, $2, $3)\n                            ON CONFLICT (data_id, application_id)\n                            DO UPDATE SET value = datastore.object_custom_rankings.value + EXCLUDED.value\n                            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "29d4f5c07b36c3d3b6b54a86a1757f27247530878b7f82feeb65802d995a38c4"
+}
