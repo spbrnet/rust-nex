@@ -21,8 +21,8 @@ use rnex_util::{PID, date_time::DateTime};
 use sqlx::query;
 use std::convert;
 use tracing::{error, info, instrument, warn};
+use crate::DatastoreManager;
 
-use crate::{DatastoreManager, s3presigner::S3Presigner};
 // todo: refactor this further to make some of the helper functions attached to the user and some to
 // the manager and also move the usages of pid into the helper functions attached to user
 
@@ -739,7 +739,7 @@ impl DatastoreUser {
     pub async fn insert_buffer(&self, dataid: i64, slot: i32, buffer: &QBuffer) {
         let db_now = Utc::now().naive_utc();
 
-        sqlx::query!(
+        let _ = sqlx::query!(
             r#"
             INSERT INTO datastore.buffer_queues (
                 data_id,

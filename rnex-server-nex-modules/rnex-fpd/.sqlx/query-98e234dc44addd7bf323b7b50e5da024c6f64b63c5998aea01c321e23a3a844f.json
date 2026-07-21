@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select principal_preference_show_currently_playing_title from nintendo_network_accounts where pid = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "principal_preference_show_currently_playing_title",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "principal_preference_show_currently_playing_title"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "98e234dc44addd7bf323b7b50e5da024c6f64b63c5998aea01c321e23a3a844f"
+}

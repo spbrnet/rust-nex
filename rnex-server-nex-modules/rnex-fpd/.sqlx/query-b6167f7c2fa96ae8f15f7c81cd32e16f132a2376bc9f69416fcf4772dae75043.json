@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select principal_preference_show_online from nintendo_network_accounts where pid = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "principal_preference_show_online",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "principal_preference_show_online"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b6167f7c2fa96ae8f15f7c81cd32e16f132a2376bc9f69416fcf4772dae75043"
+}

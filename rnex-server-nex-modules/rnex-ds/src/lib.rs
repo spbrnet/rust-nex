@@ -1,5 +1,4 @@
 #![cfg(feature = "datastore")]
-use std::env;
 
 use rnex_server::{ConnectionInitData, EnvVarError, RnexManager, RnexModule, env_var};
 use sqlx::PgPool;
@@ -48,7 +47,7 @@ impl RnexModule for DatastoreModule {
     type InitError = ModuleInitError;
 
     async fn create_manager(
-        mod_holder: &rnex_server::ModuleHolder,
+        _mod_holder: &rnex_server::ModuleHolder,
     ) -> Result<Self::Manager, Self::InitError> {
         Ok(DatastoreManager {
             db_pool: PgPool::connect(&env_var("RNEX_DATASTORE_DATABASE")?).await?,

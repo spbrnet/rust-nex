@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select pid from nintendo_network_accounts where nnid = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pid",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "pid"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c3b89f75362b81e8626ce506ad2e9a9efc7df0c2503bf93d7cac42b243d6f405"
+}

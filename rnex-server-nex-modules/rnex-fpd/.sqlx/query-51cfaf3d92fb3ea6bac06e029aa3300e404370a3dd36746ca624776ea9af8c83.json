@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                select\n                    since\n                from denylist\n                where initiator = $1 and other = $2\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "since",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "denylist",
+            "name": "since"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "51cfaf3d92fb3ea6bac06e029aa3300e404370a3dd36746ca624776ea9af8c83"
+}
