@@ -11,6 +11,7 @@ use tokio::net::TcpStream;
 use tokio::task;
 use tokio::time::sleep;
 use tracing::error;
+use tokio::io::AsyncWriteExt;
 
 pub async fn start(param: ProxyStartupParam) {
     let (router_secure, _) = Router::new(param.self_private)
@@ -101,12 +102,16 @@ pub async fn start(param: ProxyStartupParam) {
                             }
                         };
 
+                        if data == [0,0,0,0,0] {
+                            continue;
+                        }
+
                         if conn.send(data).await == None{
                             break 'a;
                         }
                     },
                     _ = sleep(Duration::from_secs(10)) => {
-                        conn.send([0,0,0,0,0].to_vec()).await;
+                        stream.write_all(&[0,0,0,0,0].to_vec()).await.ok();
                     }
                 }
             }
