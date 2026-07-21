@@ -90,8 +90,6 @@ impl Ranking for RankingUser {
             team_votes,
         };
 
-        println!("range: {:?}", param.range);
-
         Ok(vec![info])
     }
 

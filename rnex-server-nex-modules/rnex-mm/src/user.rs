@@ -144,7 +144,7 @@ impl MatchmakeExtension for MatchmakeUser {
         &self,
         create_session_param: CreateMatchmakeSessionParam,
     ) -> Result<MatchmakeSession, ErrorCode> {
-        println!("{:?}", create_session_param);
+        info!("session paramater: {:?}", create_session_param);
 
         let gid = self.matchmake_manager.next_gid();
 
@@ -260,7 +260,7 @@ impl MatchmakeExtension for MatchmakeUser {
         &self,
         param: AutoMatchmakeParam,
     ) -> Result<MatchmakeSession, ErrorCode> {
-        println!("{:?}", param);
+        info!("autommparam: {:?}", param);
 
         let mut joining_players = vec![self.this.clone()];
 
@@ -306,7 +306,7 @@ impl MatchmakeExtension for MatchmakeUser {
 
         drop(sessions);
 
-        println!("making new session!");
+        info!("making new session!");
 
         let AutoMatchmakeParam {
             join_message,
@@ -398,7 +398,7 @@ impl MatchmakeExtension for MatchmakeUser {
         else {
             return Err(ErrorCode::Core_InvalidArgument);
         };
-        println!("notif ty : {}", ty);
+        info!("notif ty : {}", ty);
         match ty {
             REQUEST_JOIN_GATHERING => {
                 user.remote
@@ -476,7 +476,7 @@ impl MatchmakeExtension for MatchmakeUser {
     ) -> Result<Any<Gathering>, ErrorCode> {
         let session: MatchmakeSession = gathering.try_get_as()?;
 
-        println!("{:?}", criteria);
+        info!("automm criteria: {:?}", criteria);
 
         let session = self
             .auto_matchmake_with_param_postpone(AutoMatchmakeParam {
@@ -525,7 +525,7 @@ impl Matchmake for MatchmakeUser {
             .ok_or(ErrorCode::RendezVous_SessionClosed)?
             .await;
 
-        println!("{:?}", urls);
+        info!("getsessionURLs: {:?}", urls);
 
         if urls.is_empty() {
             return Err(ErrorCode::RendezVous_NotParticipatedGathering);
@@ -685,7 +685,7 @@ impl NatTraversal for MatchmakeUser {
     ) -> Result<(), ErrorCode> {
         let users = self.matchmake_manager.users.read().await;
 
-        println!(
+        info!(
             "requesting station probe for {:?} to {:?}",
             target_list, station_to_probe
         );

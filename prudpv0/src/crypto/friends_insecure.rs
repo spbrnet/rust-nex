@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use hmac::Mac;
 use md5::{Digest, Md5};
 use rc4::{KeyInit, Rc4, StreamCipher};
@@ -8,7 +6,6 @@ use rnex_prudp::{
     types_flags::{TypesFlags, types::DATA},
 };
 use rnex_util::PID;
-use typenum::U5;
 
 use crate::crypto::{
     Crypto, CryptoInstance,

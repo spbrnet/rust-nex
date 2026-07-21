@@ -107,7 +107,7 @@ impl DatastoreUser {
         .fetch_optional(&self.dm.db_pool)
         .await
         .map_err(|e| {
-            eprintln!("Availability check DB error: {:?}", e);
+            error!("error in db: {:?}", e);
             ErrorCode::DataStore_NotFound
         })?
         .ok_or(ErrorCode::DataStore_NotFound)?;
@@ -143,7 +143,7 @@ impl DatastoreUser {
         .fetch_all(&self.dm.db_pool)
         .await
         .map_err(|e| {
-            eprintln!("Ratings fetch error: {:?}", e);
+            error!("Ratings fetch error: {:?}", e);
             ErrorCode::DataStore_NotFound
         })?;
 
@@ -883,7 +883,7 @@ impl DataStore for DatastoreUser {
         .fetch_optional(&self.dm.db_pool)
         .await
         .map_err(|e| {
-            eprintln!("select error: {:?}", e);
+            error!("select error: {:?}", e);
             ErrorCode::DataStore_NotFound
         })?;
 
@@ -905,7 +905,7 @@ impl DataStore for DatastoreUser {
             .execute(&self.dm.db_pool)
             .await
             .map_err(|e| {
-                eprintln!("update error: {:?}", e);
+                error!("update error: {:?}", e);
                 ErrorCode::DataStore_NotFound
             })?;
         } else {
@@ -1032,9 +1032,9 @@ impl DataStore for DatastoreUser {
         &self,
         custom_ranking_param: DataStoreGetCustomRankingByDataIDParam,
     ) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode> {
-        println!("appid: {:?}", custom_ranking_param.application_id);
-        println!("dataid list: {:?}", custom_ranking_param.data_id_list);
-        println!("result option: {:?}", custom_ranking_param.result_option);
+        info!("appid: {:?}", custom_ranking_param.application_id);
+        info!("dataid list: {:?}", custom_ranking_param.data_id_list);
+        info!("result option: {:?}", custom_ranking_param.result_option);
 
         let mut ranking_results = self
             .get_custom_rankings_by_data_ids(
@@ -1415,7 +1415,7 @@ impl DataStore for DatastoreUser {
             .execute(&self.dm.db_pool)
             .await
             .map_err(|e| {
-                eprintln!("update error: {:?}", e);
+                error!("update error: {:?}", e);
                 ErrorCode::DataStore_NotFound
             })?;
         }
@@ -1431,7 +1431,7 @@ impl DataStore for DatastoreUser {
             .execute(&self.dm.db_pool)
             .await
             .map_err(|e| {
-                eprintln!("update error: {:?}", e);
+                error!("update error: {:?}", e);
                 ErrorCode::DataStore_NotFound
             })?;
         }
@@ -1447,7 +1447,7 @@ impl DataStore for DatastoreUser {
             .execute(&self.dm.db_pool)
             .await
             .map_err(|e| {
-                eprintln!("update error: {:?}", e);
+                error!("update error: {:?}", e);
                 ErrorCode::DataStore_NotFound
             })?;
         }
@@ -1503,7 +1503,7 @@ impl DataStore for DatastoreUser {
         .fetch(&self.dm.db_pool);
 
         while let Some(row) = stream.try_next().await.map_err(|e| {
-            eprintln!("stream error: {:?}", e);
+            error!("stream error: {:?}", e);
             ErrorCode::DataStore_NotFound
         })? {
             let permission = Permission {
@@ -1904,7 +1904,7 @@ impl DataStore for DatastoreUser {
         .fetch(&self.dm.db_pool);
 
         while let Some(row) = stream.try_next().await.map_err(|e| {
-            eprintln!("stream error: {:?}", e);
+            error!("stream error: {:?}", e);
             ErrorCode::DataStore_NotFound
         })? {
             let permission = Permission {

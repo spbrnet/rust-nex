@@ -140,7 +140,7 @@ impl MatchmakeManager {
             }
 
             if bool_matched_criteria {
-                println!("matched session: {:?}", session);
+                info!("matched session: {:?}", session);
                 list.push(session.clone());
             }
         }

@@ -116,7 +116,7 @@ impl Secure for BaseUser {
         station_urls: Vec<StationUrl>,
     ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
         let cid = self.cid;
-        println!("{:?}", station_urls);
+        info!("station URLs in register: {:?}", station_urls);
 
         /*
          */

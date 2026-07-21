@@ -43,13 +43,17 @@ struct InternalConnection<E: CryptoHandlerConnectionInstance> {
     connections: Weak<Mutex<BTreeMap<PRUDPSockAddr, Arc<InternalConnectionMutex<E>>>>>,
     reliable_server_counter: u16,
     reliable_client_counter: u16,
+    // i'm a bit scared things might break if i remove this
+    #[allow(dead_code)]
     supported_function_version: u32,
+    #[deny(dead_code)]
     // maybe add connection id(need to see if its even needed)
     crypto_handler_instance: E,
     data_sender: Sender<Vec<u8>>,
     socket: Arc<UdpSocket>,
     packet_queue: HashMap<u16, PRUDPV1Packet>,
     last_packet_time: Instant,
+    partial_packet: Vec<u8>,
     unacknowleged_packets: Vec<(Instant, PRUDPV1Packet)>,
 }
 
@@ -431,6 +435,7 @@ impl<T: CryptoHandler> InternalSocket<T> {
             packet_queue: Default::default(),
             last_packet_time: Instant::now(),
             unacknowleged_packets: Vec::new(),
+            partial_packet: Vec::new(),
             supported_function_version,
         };
 
@@ -574,10 +579,25 @@ impl<T: CryptoHandler> InternalSocket<T> {
             conn.crypto_handler_instance
                 .decrypt_incoming(packet.header.substream_id, &mut packet.payload[..]);
 
-            conn.data_sender.send(packet.payload).await.ok();
+            conn.partial_packet
+	                .extend_from_slice(&mut packet.payload[..]);
 
             conn.reliable_client_counter = conn.reliable_client_counter.overflowing_add(1).0;
             counter = conn.reliable_client_counter;
+            if packet.options.iter().any(|v| {
+                if let FragmentId(f) = v {
+                    *f != 0
+                } else {
+                    false
+                }
+            }) {
+                println!("handeling fragmented packet");
+                continue;
+            }
+
+            let packet = std::mem::take(&mut conn.partial_packet);
+
+            conn.data_sender.send(packet).await.ok();
         }
     }
 
@@ -690,19 +710,7 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                 let conn = &**conn;
                 let mut conn = conn.lock().await;
 
-                if conn.supported_function_version == 1 {
-                    let mut collected_ids: Vec<u16> = Vec::new();
-                    let mut cursor = Cursor::new(&packet.payload);
-
-                    while let Ok(v) = read_u16(&mut cursor) {
-                        collected_ids.push(v);
-                    }
-
-                    conn.unacknowleged_packets.retain_mut(|(_, up)| {
-                        !(collected_ids.iter().any(|id| up.header.sequence_id == *id)
-                            || up.header.sequence_id <= packet.header.sequence_id)
-                    });
-                } else {
+                if packet.header.substream_id == 1 {
                     let mut collected_ids: Vec<u16> = Vec::new();
                     let mut cursor = Cursor::new(&packet.payload);
 
@@ -729,9 +737,21 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                         collected_ids.push(additional_sequence_id);
                     }
 
-                    conn.unacknowleged_packets.retain_mut(|(_, up)| {
+                    conn.unacknowleged_packets.retain(|(_, up)| {
                         !(collected_ids.iter().any(|id| up.header.sequence_id == *id)
                             || up.header.sequence_id <= sequence_id)
+                    });
+                } else {
+                    let mut collected_ids: Vec<u16> = Vec::new();
+                    let mut cursor = Cursor::new(&packet.payload);
+
+                    while let Ok(v) = read_u16(&mut cursor) {
+                        collected_ids.push(v);
+                    }
+
+                    conn.unacknowleged_packets.retain(|(_, up)| {
+                        !(collected_ids.iter().any(|id| up.header.sequence_id == *id)
+                            || up.header.sequence_id <= packet.header.sequence_id)
                     });
                 }
             } else {

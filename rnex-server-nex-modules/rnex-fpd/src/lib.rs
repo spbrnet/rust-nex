@@ -10,8 +10,7 @@ use rnex_util::PID;
 use sqlx::PgPool;
 use std::{
     collections::HashMap,
-    env,
-    sync::{Arc, Weak, atomic::AtomicU32},
+    sync::{Arc, Weak},
 };
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -69,10 +68,10 @@ impl RnexManager for FriendsManager {
 
     async fn init_new_user(
         mgr: rnex_server::PassthroughInitModule<Self>,
-        mod_holder: &rnex_server::ModuleHolder,
+        _mod_holder: &rnex_server::ModuleHolder,
         remote: &rnex_rmc::RmcConnection,
         init_data: &Self::InitData,
-        weak_user: WeakPassthroughInitModule<Self::User>,
+        _weak_user: WeakPassthroughInitModule<Self::User>,
     ) -> Self::User {
         if init_data.pid == GUEST_PID {
             return FriendsMaybeGuest::Guest(FriendsGuest);
@@ -95,7 +94,7 @@ impl RnexModule for FriendsModule {
     type InitError = ModuleInitError;
 
     async fn create_manager(
-        mod_holder: &rnex_server::ModuleHolder,
+        _mod_holder: &rnex_server::ModuleHolder,
     ) -> Result<Self::Manager, Self::InitError> {
         Ok(FriendsManager {
             users: Default::default(),

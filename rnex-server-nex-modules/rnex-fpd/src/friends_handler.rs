@@ -26,7 +26,7 @@ use rnex_fpd_protos::{
     },
 };
 use rnex_rmc::{any::Any, data::Data, qbuffer::QBuffer, response::ErrorCode, rmc_struct};
-use rnex_server::{PassthroughInitModule, WeakPassthroughInitModule};
+use rnex_server::PassthroughInitModule;
 use rnex_util::{PID, date_time::DateTime};
 use sqlx::query;
 use tokio::{spawn, sync::RwLock, time::sleep};
@@ -448,7 +448,7 @@ impl FriendsWiiU for FriendsUser {
             )
             .fetch_one(&self.fm.db)
             .await else {
-                println!("psql failed(unable to update user)");
+                error!("psql failed(unable to update user)");
                 return Err(ErrorCode::Core_SystemError)
             };
 
@@ -469,7 +469,7 @@ impl FriendsWiiU for FriendsUser {
                 .map(|v| friend_request_from_record!(v))
                 .collect::<Vec<_>>()
         }) else {
-            println!("error whilest getting friend requests");
+            error!("error whilest getting friend requests");
             return Err(ErrorCode::Core_SystemError);
         };
 
@@ -490,7 +490,7 @@ impl FriendsWiiU for FriendsUser {
                 .map(|v| friend_request_from_record!(v))
                 .collect::<Vec<_>>()
         }) else {
-            println!("error whilest getting friend requests");
+            error!("error whilest getting friend requests");
             return Err(ErrorCode::Core_SystemError);
         };
 
@@ -517,7 +517,7 @@ impl FriendsWiiU for FriendsUser {
         .fetch_all(&self.fm.db)
         .await
         else {
-            println!("error whilest getting friends");
+            error!("error whilest getting friends");
             return Err(ErrorCode::Core_SystemError);
         };
 
@@ -525,7 +525,7 @@ impl FriendsWiiU for FriendsUser {
 
         for friend in friends_raw {
             let Some(friend_since) = friend.since else {
-                println!("this should absolutely never happen(psql messed up somehow)");
+                error!("this should absolutely never happen(psql messed up somehow)");
                 return Err(ErrorCode::Core_SystemError);
             };
 
@@ -545,7 +545,7 @@ impl FriendsWiiU for FriendsUser {
                 if let Some(online_presence) = online_presence.as_ref() {
                     presence = online_presence.clone();
                 } else {
-                    println!(
+                    error!(
                         "internal server error, user is somehow online and in the friends manager yet has not set their presence yet..."
                     );
                 }
@@ -595,7 +595,7 @@ impl FriendsWiiU for FriendsUser {
                 })
                 .collect::<Vec<_>>()
         }) else {
-            println!("error whilest getting friend requests");
+            error!("error whilest getting friend requests");
             return Err(ErrorCode::Core_SystemError);
         };
 
@@ -658,7 +658,7 @@ impl FriendsWiiU for FriendsUser {
         .fetch_optional(&self.fm.db)
         .await
         else {
-            println!("db error when trying to look up nnid");
+            error!("db error when trying to look up nnid");
             return Err(ErrorCode::Core_Exception);
         };
 
@@ -851,7 +851,7 @@ impl FriendsWiiU for FriendsUser {
         .fetch_one(&self.fm.db)
         .await
         else {
-            println!("friend request count check failed to execute on database");
+            error!("friend request count check failed to execute on database");
             return Err(ErrorCode::Core_Exception);
         };
         if query.count.is_none_or(|v| v >= 100) {
@@ -864,7 +864,7 @@ impl FriendsWiiU for FriendsUser {
         .fetch_one(&self.fm.db)
         .await
         else {
-            println!("friend request count check failed to execute on database");
+            error!("friend request count check failed to execute on database");
             return Err(ErrorCode::Core_Exception);
         };
         if query.count.is_none_or(|v| v >= 100) {
@@ -904,18 +904,18 @@ impl FriendsWiiU for FriendsUser {
                             return Err(ErrorCode::FPD_AddFriendProhibited);
                         }
                         sqlx::error::ErrorKind::ForeignKeyViolation => {
-                            return Err(ErrorCode::FPD_NotNetworkAccount);
+                            return Err(ErrorCode::FPD_NotNetworkAccount); // incorrect error code, this is returned only by the system if the current user does not have an NNID
                         }
                         sqlx::error::ErrorKind::CheckViolation => {
                             return Err(ErrorCode::FPD_FriendRequestNotAllowed);
                         }
                         _ => {
-                            println!("unknown db error occurred");
+                            error!("unknown db error occurred");
                             return Err(ErrorCode::Core_Exception);
                         }
                     }
                 }
-                println!("unknown db error occurred");
+                error!("unknown db error occurred");
                 return Err(ErrorCode::Core_Exception);
             }
         };
@@ -933,7 +933,7 @@ impl FriendsWiiU for FriendsUser {
             .fetch_one(&self.fm.db)
             .await
             else {
-                println!("failed to acquire account info after adding friend");
+                warn!("failed to acquire account info after adding friend");
                 return Err(ErrorCode::FPD_InvalidMessageID);
             };
             fr.basic_info = basic_principal_from_record!(query);
@@ -1028,7 +1028,7 @@ impl FriendsWiiU for FriendsUser {
         .fetch_one(&mut *tx)
         .await
         else {
-            println!("failed to acquire account info after adding friend");
+            warn!("failed to acquire account info after adding friend");
             return Err(ErrorCode::FPD_InvalidMessageID);
         };
 
@@ -1054,7 +1054,7 @@ impl FriendsWiiU for FriendsUser {
             .fetch_one(&mut *tx)
             .await
             else {
-                println!("internal server error whilest getting nna info");
+                error!("internal server error whilest getting nna info");
                 return Err(ErrorCode::Core_Exception);
             };
             let data = Any::new(&friends_wiiu::FriendInfo {
@@ -1083,7 +1083,7 @@ impl FriendsWiiU for FriendsUser {
             if let Some(online_presence) = online_presence.as_ref() {
                 presence = online_presence.clone();
             } else {
-                println!(
+                error!(
                     "internal server error, user is somehow online and in the friends manager yet has not set their presence yet..."
                 );
             }
@@ -1175,7 +1175,7 @@ impl FriendsWiiU for FriendsUser {
         .execute(&self.fm.db)
         .await
         {
-            println!("{}", e);
+            error!("friend request denial db error: {}", e);
             return Err(ErrorCode::FPD_InvalidMessageID);
         };
 
@@ -1204,7 +1204,7 @@ impl FriendsWiiU for FriendsUser {
         .fetch_one(&self.fm.db)
         .await
         else {
-            println!("attempt to get invalid user which is in friend request");
+            error!("attempt to get invalid user which is in friend request");
             return Err(ErrorCode::FPD_InvalidArgument);
         };
 
@@ -1241,7 +1241,7 @@ impl FriendsWiiU for FriendsUser {
         .execute(&self.fm.db)
         .await
         {
-            println!("{}", e);
+            error!("failed to block user: {}", e);
             return Err(ErrorCode::FPD_InvalidMessageID);
         };
 
@@ -1252,7 +1252,7 @@ impl FriendsWiiU for FriendsUser {
         .fetch_one(&self.fm.db)
         .await
         else {
-            println!("attempt to get invalid user which is in friend request");
+            error!("attempt to get invalid user which is in friend request");
             return Err(ErrorCode::FPD_InvalidArgument);
         };
 
@@ -1273,7 +1273,7 @@ impl FriendsWiiU for FriendsUser {
         .execute(&self.fm.db)
         .await
         {
-            println!("{}", e);
+            error!("error removing blacklist: {}", e);
             return Err(ErrorCode::FPD_InvalidMessageID);
         };
         Ok(())
@@ -1332,7 +1332,7 @@ impl FriendsWiiU for FriendsUser {
         .execute(&self.fm.db)
         .await
         {
-            println!("internal server error whilest updating mii: {}", e);
+            error!("internal server error whilest updating mii: {}", e);
             return Err(ErrorCode::Core_Exception);
         }
 
@@ -1343,7 +1343,7 @@ impl FriendsWiiU for FriendsUser {
         .fetch_one(&self.fm.db)
         .await
         else {
-            println!("internal server error whilest getting nna info");
+            error!("internal server error whilest getting nna info");
             return Err(ErrorCode::Core_Exception);
         };
 
@@ -1378,7 +1378,7 @@ impl FriendsWiiU for FriendsUser {
         .execute(&self.fm.db)
         .await
         {
-            println!("internal server error whilest updating mii: {}", e);
+            error!("internal server error whilest updating mii: {}", e);
             return Err(ErrorCode::Core_Exception);
         }
 
@@ -1420,7 +1420,7 @@ impl FriendsWiiU for FriendsUser {
         .execute(&self.fm.db)
         .await
         {
-            println!("internal server error whilest updating mii: {e}");
+            error!("internal server error whilest updating mii: {e}");
             return Err(ErrorCode::Core_Exception);
         }
 
@@ -1483,7 +1483,7 @@ impl FriendsWiiU for FriendsUser {
         let mut principal_infos = Vec::with_capacity(pids.len());
 
         for pid in pids {
-            println!("looking up pid: {pid}");
+            info!("looking up pid: {pid}");
             let Ok(user) = query!(
                 "select * from nintendo_network_accounts where pid = $1",
                 pid
@@ -1554,7 +1554,8 @@ impl FriendsWiiU for FriendsUser {
     }
 }
 
-type HMacMd5 = hmac::Hmac<md5::Md5>;
+// unused?
+// type HMacMd5 = hmac::Hmac<md5::Md5>;
 
 impl Drop for FriendsUser {
     fn drop(&mut self) {
@@ -1595,8 +1596,8 @@ impl AccountManagement for FriendsGuest {
     async fn nintendo_create_account(
         &self,
         principal_name: String,
-        key: String,
-        groups: u32,
+        _key: String,
+        _groups: u32,
         email: String,
         auth_data: Any,
     ) -> Result<(PID, String), ErrorCode> {
@@ -1616,7 +1617,7 @@ impl AccountManagement for FriendsGuest {
         //let mac = derive_pid_hmac(data.nna_info.principal_basic_info.pid, &nexkey);
 
         let mut client = grpc_client().await.map_err(|e| {
-            eprintln!("error occurred: {e:?}");
+            error!("error occurred in gRPC client: {e:?}");
             ErrorCode::Core_Unknown
         })?;
 

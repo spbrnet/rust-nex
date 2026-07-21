@@ -143,7 +143,7 @@ impl AuthHandler {
             .map_err(|_| ErrorCode::RendezVous_InvalidPassword)?;
         info!("source login data");
         let source_login_data = (pid, passwd);
-        println!("{}, {:?}", pid, passwd);
+        info!("pid: {}, passwd: {:?}", pid, passwd);
         let destination_login_data = self.am.destination_server_acct.get_login_data();
 
         info!("we are a-ok here");

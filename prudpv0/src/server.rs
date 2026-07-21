@@ -36,6 +36,7 @@ pub struct InternalConnection<C: CryptoInstance> {
     server_packet_counter: u16,
     client_packet_counter: u16,
     unacknowledged_packets: HashMap<u16, Arc<Vec<u8>>>,
+    packet_buffer: Vec<u8>,
     packet_queue: HashMap<u16, (Instant, PRUDPV0Packet<Vec<u8>>)>,
 }
 pub struct Connection<C: CryptoInstance> {
@@ -94,7 +95,7 @@ impl<C: Crypto> Server<C> {
                     .expect("packet malformed in creation"),
             );*/
         let mut inner = conn.inner.lock().await;
-        let pieces = data.chunks(700);
+        let pieces = data.chunks(962);
         let max_piece = pieces.len() - 1;
         let mut frag_num = 1;
         for (i, piece) in pieces.enumerate() {
@@ -139,8 +140,18 @@ impl<C: Crypto> Server<C> {
                         .await
                         .ok();
 
-                    break;
+                    sleep(Duration::from_millis(500)).await;
                 }
+                println!("connection exceeded max fail count, disconnecting");
+                let Some(conn) = conn.upgrade() else {
+                    return;
+                };
+                let Some(this) = this.upgrade() else {
+                    return;
+                };
+                let mut conns = this.connections.write().await;
+                conns.remove(&(conn.addr, conn.session_id));
+                drop(conns);
             });
             frag_num += 1;
         }
@@ -279,6 +290,7 @@ impl<C: Crypto> Server<C> {
                 client_packet_counter: 2,
                 server_packet_counter: 1,
                 unacknowledged_packets: HashMap::new(),
+                packet_buffer: vec![],
                 packet_queue: HashMap::new(),
             }),
         });
@@ -332,6 +344,12 @@ impl<C: Crypto> Server<C> {
             warn!("data packet on inactive connection from: {:?}", addr);
             return;
         };
+        if header.type_flags.get_flags() & ACK != 0 {
+            let mut inner = res.inner.lock().await;
+            let sequence_id = header.sequence_id;
+            inner.unacknowledged_packets.remove(&sequence_id);
+            return;
+        }
         info!("frag: {}", frag_id);
         let mut conn = res.inner.lock().await;
         let ack = new_data_packet(
@@ -366,9 +384,16 @@ impl<C: Crypto> Server<C> {
             };
 
             conn.crypto_instance.decrypt_incoming(payload);
-
-            res.target.send(payload.to_owned()).await;
+            conn.packet_buffer.extend_from_slice(payload);
             conn.client_packet_counter += 1;
+            if *packet.fragment_id().unwrap() != 0 {
+                info!("handeling fragmented packet");
+                continue;
+            }
+
+            res.target
+                .send(std::mem::take(&mut conn.packet_buffer))
+                .await;
         }
         info!("finished handeling packets, dropping inner connection");
         drop(conn);
@@ -470,8 +495,8 @@ impl<C: Crypto> Server<C> {
             inner.last_action = Instant::now();
             drop(inner);
         };
-        if header.type_flags.get_flags() & ACK != 0 {
-            info!("got ack(acks are ignored for now)");
+        if header.type_flags.get_flags() & ACK != 0 && header.type_flags.get_types() != DATA {
+            info!("got ack(acks are ignored for now, unless they are data ACKs)");
             return;
         }
         println!("{:?}", header);
