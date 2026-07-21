@@ -3,6 +3,8 @@ sonic-transformed:
   features:
     - prudpv1
     - v3-4-0
+    - match-making
+    - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.4.x.3 build:3_4_13_3_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
@@ -27,6 +29,9 @@ wii-sports-club:
     - prudpv1
     - third-notif-param
     - v3-8-15
+    - match-making
+    - ranking
+    - datastore
   settings:
     AUTH_REPORT_VERSION: "branch:origin/project/appsp build:3_4_24_4_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
@@ -39,6 +44,9 @@ puyopuyo:
     - prudpv1
     - third-notif-param
     - v3-8-15
+    - match-making
+    - ranking
+    - datastore
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.5.x.1000 build:3_5_16_1000_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
@@ -51,6 +59,8 @@ minecraft-wiiu:
     - prudpv1
     - third-notif-param
     - v3-10-22
+    - match-making
+    - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.10.x.200x build:3_10_22_2006_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
@@ -63,6 +73,8 @@ mario-tennis:
     - prudpv1
     - third-notif-param
     - v3-8-15
+    - match-making
+    - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.9.x.200x build:3_9_19_2005_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
@@ -75,6 +87,7 @@ wii-u-chat:
     - prudpv1
     - third-notif-param
     - v3-3-2
+    - match-making
   settings:
     AUTH_REPORT_VERSION: "branch:origin/project/wup-agmj build:3_8_15_2004_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
@@ -86,6 +99,8 @@ fast-racing-neo:
   features:
     - prudpv1
     - v3-8-15
+    - match-making
+    - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.9.x.200x build:3_9_19_2005_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
@@ -112,6 +127,8 @@ splatoon-testfire:
     - prudpv1
     - v3-8-15
     - splatoon
+    - match-making
+    - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/project/wup-agmj build:3_8_15_2004_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
@@ -134,6 +151,7 @@ super-mario-maker:
     - prudpv1
     - v3-8-15
     - datastore
+    - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/project/wup-ama build:3_8_29_3022_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
