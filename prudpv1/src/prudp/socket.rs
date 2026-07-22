@@ -957,12 +957,12 @@ impl<E: CryptoHandlerConnectionInstance> SendingConnection<E> {
 
 impl<E: CryptoHandlerConnectionInstance> Drop for InternalConnection<E> {
     fn drop(&mut self) {
-        println!("yatta(internal conn)");
+        println!("s2s connection disconnected");
     }
 }
 
 impl Drop for CommonConnection {
     fn drop(&mut self) {
-        println!("yatta(common conn)");
+        println!("client disconnected");
     }
 }

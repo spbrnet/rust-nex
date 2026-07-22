@@ -5,6 +5,7 @@ use rnex_prudp::encryption::EncryptionPair;
 use rnex_prudp::ticket::read_secure_connection_data;
 use rnex_util::PID;
 use rnex_util::account::Account;
+use std::io::{Write, Result};
 
 //type Rc4U32 = StreamCipherCoreWrapper<Rc4Core<U32>>;
 
@@ -37,6 +38,13 @@ pub fn generate_secure_encryption_pairs(
     vec
 }
 
+pub fn serialize_slice(data: &[u8], writer: &mut impl Write) -> Result<()> {
+    let len = data.len() as u32;
+    writer.write_all(&len.to_le_bytes())?;
+    writer.write_all(data)?;
+    Ok(())
+}
+
 pub struct Secure(pub &'static str, pub Account);
 
 pub struct SecureInstance {
@@ -67,10 +75,8 @@ impl CryptoHandler for Secure {
 
         let mut response = Vec::new();
 
-        response.extend_from_slice(&(response.len() as u32).to_le_bytes());
-        response.extend_from_slice(&data[..]);
-
         //data.serialize(&mut response).ok()?;
+        serialize_slice(data, &mut response).ok()?;
 
         let encryption_pairs = generate_secure_encryption_pairs(session_key, substream_count);
 
