@@ -13,4 +13,6 @@ echo CHECKING $EDITION
 echo FEATURES:
 echo $EDITION_FEATURES
 
-RUSTFLAGS="--deny warnings" cargo check --features "$EDITION_FEATURES"
+# RUSTFLAGS="--deny warnings" cargo clippy --workspace --features "$EDITION_FEATURES"
+RUSTFLAGS="--deny warnings" cargo check --workspace --features "$EDITION_FEATURES"
+# echo "edition checks are disabled right now due to being in"

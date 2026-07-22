@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from friendships where (pid_a = $1 AND pid_b = $2) OR (pid_a = $2 AND pid_b = $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3913fba897bdfdcb55e85fe9abedd0fe3d1684b0abbdf7383489bb73844fd98b"
+}

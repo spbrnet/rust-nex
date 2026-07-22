@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update friend_requests set is_recieved = true where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5fa50abf1115d3194810953eb1b95361819ce08bf3d523f8dda05387d37febd4"
+}

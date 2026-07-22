@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from friend_requests where id = $1 and recipient = $2 returning recipient, sender",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "recipient",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "recipient"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "sender",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "sender"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "827e435c2c52b1dd93d31a487976a9e5f31d7bc6cbf659e1ec2bbe88392f9fcc"
+}

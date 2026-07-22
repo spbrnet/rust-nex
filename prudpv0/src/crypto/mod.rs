@@ -1,5 +1,6 @@
 use cfg_if::cfg_if;
-use rnex_core::{PID, prudp::types_flags::TypesFlags};
+use rnex_prudp::types_flags::TypesFlags;
+use rnex_util::PID;
 
 mod common_crypto;
 
@@ -12,7 +13,7 @@ pub trait CryptoInstance: Send + 'static {
 
 pub trait Crypto: Send + Sync + 'static {
     type Instance: CryptoInstance;
-    fn new() -> Self;
+    async fn new() -> Self;
     fn calculate_checksum(&self, data: &[u8]) -> u8;
     fn instantiate(
         &self,

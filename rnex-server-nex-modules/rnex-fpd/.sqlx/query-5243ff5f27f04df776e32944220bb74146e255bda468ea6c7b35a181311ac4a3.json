@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            update nintendo_network_accounts\n            set comment_unk = $1, comment_message = $2, comment_lastchanged = now()\n            where pid = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int2",
+        "Varchar",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5243ff5f27f04df776e32944220bb74146e255bda468ea6c7b35a181311ac4a3"
+}

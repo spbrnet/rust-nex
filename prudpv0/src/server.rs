@@ -5,24 +5,22 @@ use std::{
     time::Duration,
 };
 
-use log::{error, info, warn};
 use proxy_common::{ProxyStartupParam, new_backend_connection};
-use rnex_core::{
-    prudp::{
-        socket_addr::PRUDPSockAddr,
-        types_flags::{
-            flags::{ACK, NEED_ACK, RELIABLE},
-            types::{CONNECT, DATA, DISCONNECT, PING, SYN},
-        },
+use rnex_prudp::{
+    socket_addr::PRUDPSockAddr,
+    types_flags::{
+        flags::{ACK, NEED_ACK, RELIABLE},
+        types::{CONNECT, DATA, DISCONNECT, PING, SYN},
     },
-    util::{SendingBufferConnection, SplittableBufferConnection},
 };
+use rnex_util::{SendingBufferConnection, SplittableBufferConnection};
 use tokio::{
     net::UdpSocket,
     spawn,
     sync::{Mutex, RwLock},
     time::{Instant, sleep},
 };
+use tracing::{error, info, warn};
 
 use crate::{
     crypto::{Crypto, CryptoInstance},
@@ -141,6 +139,7 @@ impl<C: Crypto> Server<C> {
                         .send_to(&data, conn.addr.regular_socket_addr)
                         .await
                         .ok();
+
                     sleep(Duration::from_millis(500)).await;
                 }
                 println!("connection exceeded max fail count, disconnecting");
@@ -291,6 +290,7 @@ impl<C: Crypto> Server<C> {
                 client_packet_counter: 2,
                 server_packet_counter: 1,
                 unacknowledged_packets: HashMap::new(),
+                packet_buffer: vec![],
                 packet_queue: HashMap::new(),
                 packet_buffer: vec![],
             }),
@@ -345,13 +345,12 @@ impl<C: Crypto> Server<C> {
             warn!("data packet on inactive connection from: {:?}", addr);
             return;
         };
-
         if header.type_flags.get_flags() & ACK != 0 {
             let mut inner = res.inner.lock().await;
-            inner.unacknowledged_packets.remove(&header.sequence_id);
+            let sequence_id = header.sequence_id;
+            inner.unacknowledged_packets.remove(&sequence_id);
             return;
         }
-
         info!("frag: {}", frag_id);
         let mut conn = res.inner.lock().await;
         let ack = new_data_packet(
@@ -498,7 +497,7 @@ impl<C: Crypto> Server<C> {
             drop(inner);
         };
         if header.type_flags.get_flags() & ACK != 0 && header.type_flags.get_types() != DATA {
-            info!("got ack(acks are ignored for now(unless they are data acks))");
+            info!("got ack(acks are ignored for now, unless they are data ACKs)");
             return;
         }
         println!("{:?}", header);
@@ -553,7 +552,7 @@ impl<C: Crypto> Server<C> {
             .expect("unable to bind socket");
         Self {
             socket,
-            crypto: C::new(),
+            crypto: C::new().await,
             connections: RwLock::new(HashMap::new()),
             param,
         }

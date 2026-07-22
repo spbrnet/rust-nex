@@ -1,0 +1,34 @@
+[package]
+name = "rnex-base"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rnex-rmc = { path = "../../rnex-rmc" }
+rnex-util = { path = "../../rnex-util" }
+rnex-base-protos = { path = "../../rnex-protocols/base-protos" }
+rnex-server = { path = "../../rnex-server" }
+tokio = { version = "1.52.3", features = ["sync"] }
+rand = "0.10.2"
+tracing = "0.1.44"
+cfg-if = "1.0.4"
+
+[features]
+splatoon = ["v3-5-0"]
+datastore = ["database-support", "v3-8-15"]
+database-support = []
+nx = []
+third-notif-param = []
+v3-3-2 = []
+v3-4-0 = ["v3-3-2", "third-notif-param"]
+v3-5-0 = ["v3-4-0"]
+v3-8-15 = ["v3-5-0"]
+v3-10-22 = ["v3-8-15"]
+v4-3-11 = ["v3-8-15"]
+friends = []
+rmc_struct_header = []
+big_pid = []
+
+
+[lints]
+workspace = true

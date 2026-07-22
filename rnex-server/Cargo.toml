@@ -1,0 +1,36 @@
+[package]
+name = "rnex-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.103", features = ["backtrace"] }
+ctor = "1.0.8"
+dotenv = "0.15.0"
+paste = "1.0.15"
+rnex-rmc = { path = "../rnex-rmc" }
+rnex-util = { path = "../rnex-util" }
+sentry = { version = "0.48.4", features = ["tracing"] }
+thiserror = "2.0.18"
+tokio = { version = "1.52.3", features = ["net"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+[features]
+splatoon = ["v3-5-0"]
+datastore = ["database-support", "v3-8-15"]
+database-support = []
+nx = []
+third-notif-param = []
+v3-3-2 = []
+v3-4-0 = ["v3-3-2", "third-notif-param"]
+v3-5-0 = ["v3-4-0"]
+v3-8-15 = ["v3-5-0"]
+v3-10-22 = ["v3-8-15"]
+v4-3-11 = ["v3-8-15"]
+friends = []
+rmc_struct_header = []
+big_pid = []
+
+[lints]
+workspace = true

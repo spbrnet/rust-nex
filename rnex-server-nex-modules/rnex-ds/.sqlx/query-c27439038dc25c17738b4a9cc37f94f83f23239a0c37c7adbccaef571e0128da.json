@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE datastore.objects SET meta_binary=$1 WHERE data_id=$2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c27439038dc25c17738b4a9cc37f94f83f23239a0c37c7adbccaef571e0128da"
+}

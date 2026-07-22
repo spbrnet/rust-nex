@@ -1,0 +1,35 @@
+[package]
+name = "rnex-prudp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hmac = "0.13.0"
+md-5 = "0.11.0"
+rc4 = "0.2.0"
+typenum = "1.20.1"
+cfg-if = "1.0.4"
+rnex-util = { path = "../rnex-util" }
+bytemuck = { version = "1.25.0", features = ["derive"] }
+rand = "0.10.2"
+tracing = "0.1.44"
+v-byte-helpers = { git = "https://github.com/RusticMaple/VByteMacros", version = "0.1.1" }
+
+[features]
+splatoon = ["v3-5-0"]
+datastore = ["database-support", "v3-8-15"]
+database-support = []
+nx = []
+third-notif-param = []
+v3-3-2 = []
+v3-4-0 = ["v3-3-2", "third-notif-param"]
+v3-5-0 = ["v3-4-0"]
+v3-8-15 = ["v3-5-0"]
+v3-10-22 = ["v3-8-15"]
+v4-3-11 = ["v3-8-15"]
+friends = []
+rmc_struct_header = []
+big_pid = []
+
+[lints]
+workspace = true

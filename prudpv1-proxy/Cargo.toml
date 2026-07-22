@@ -1,0 +1,19 @@
+[package]
+name = "prudpv1-proxy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+prudpv1 = {path = "../prudpv1"}
+proxy-common = {path = "../proxy-common"}
+rnex-server = {path = "../rnex-server"}
+rnex-prudp = {path = "../rnex-prudp"}
+rnex-util = {path = "../rnex-util"}
+tracing = "0.1.44"
+tokio = { version = "1.52.3", features = ["rt"] }
+
+[lints]
+workspace = true
+
+[features]
+prudpv1 = []

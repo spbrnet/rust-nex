@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update nintendo_network_accounts set last_online = now() where pid = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fb70ec0ac36d736b7af4dc634b578bbdf065e783b328e3a5db33629f8e039b87"
+}

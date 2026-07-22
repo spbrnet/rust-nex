@@ -3,20 +3,23 @@ name = "proxy"
 version = "0.1.0"
 edition = "2024"
 
+[lints]
+workspace = true
+
 [dependencies]
 tokio = { version =  "1.47.0", features = ["full"] }
 prudpv0 = { path = "../prudpv0", optional = true }
-prudpv1 = { path = "../prudpv1", optional = true }
-prudplite = { path = "../prudplite", optional = true }
+prudpv1-proxy = { path = "../prudpv1-proxy", optional = true }
 proxy-common = { path = "../proxy-common" }
 cfg-if = "1.0.4"
-rnex-core = { path = "../rnex-core", version = "0.1.1" }
-log = "0.4.25"
+rnex-prudp = { path = "../rnex-prudp" }
+rnex-server = { path = "../rnex-server" }
+tracing = "0.1.44"
 
 [features]
 prudpv0 = ["dep:prudpv0"]
-prudpv1 = ["dep:prudpv1"]
-prudplite = ["dep:prudplite"]
+prudpv1 = ["dep:prudpv1-proxy"]
+prudplite = []
 friends = ["prudpv0", "prudpv0/friends"]
 splatoon = ["prudpv1"]
 

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT data_id\n                FROM datastore.objects\n                WHERE owner = $1 AND data_type > 2 AND data_type < 50\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "data_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "data_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "37d449b81e2aa3abdbdaf38587ae1a6a6c5c38acb06d91c5b0924c3f0a5d2e92"
+}

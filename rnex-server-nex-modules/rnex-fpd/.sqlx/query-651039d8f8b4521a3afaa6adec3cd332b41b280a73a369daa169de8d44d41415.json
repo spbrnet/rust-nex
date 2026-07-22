@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from denylist where initiator = $1 and other = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "651039d8f8b4521a3afaa6adec3cd332b41b280a73a369daa169de8d44d41415"
+}
