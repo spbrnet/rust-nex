@@ -93,6 +93,10 @@ impl TryFrom<&str> for StationUrl {
     fn try_from(value: &str) -> Result<Self, ()> {
         let (url_type, options) = value.split_at(value.find(":/").ok_or(())?);
 
+        if value.len() >= 1024 {
+            return Err(());
+        }
+
         let options = &options[2..];
 
         let url_type = match url_type {
