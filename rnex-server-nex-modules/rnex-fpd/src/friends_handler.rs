@@ -1327,7 +1327,7 @@ impl FriendsWiiU for FriendsUser {
         tokio::task::spawn_blocking(move || {
             let presence_server_url = std::env::var("RNEX_PRESENCE_API_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
             let presence_server_secret = std::env::var("RNEX_PRESENCE_API_SECRET").unwrap_or_else(|_| "no-secret-defined".to_string());
-            let _ = ureq::post(presence_server_url)
+            let _ = ureq::post(&format!("{}/api/v1/presence", presence_server_url))
                     .header("Authorization", &format!("Bearer {}", presence_server_secret))
                     .send_json(serde_json::json!({
                         "pid": pid_val,
@@ -1596,6 +1596,14 @@ impl Drop for FriendsUser {
         let pid = self.pid;
         let fm = self.fm.clone();
         tokio::spawn(async move {
+            tokio::task::spawn_blocking(move || {
+                let presence_server_url = std::env::var("RNEX_PRESENCE_API_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
+                let presence_server_secret = std::env::var("RNEX_PRESENCE_API_SECRET").unwrap_or_else(|_| "no-secret-defined".to_string());
+                let _ = ureq::delete(&format!("{}/api/v1/presence/{}", presence_server_url, pid))
+                    .header("Authorization", &format!("Bearer {}", presence_server_secret))
+                    .call();
+            });
+
             for user in users {
                 let Some(user) = user.1.upgrade() else {
                     continue;
