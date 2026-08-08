@@ -9,7 +9,6 @@ export SHORT_SHA=${GITHUB_SHA::6}
 export CI_COMMIT_SHORT_SHA=${CI_COMMIT_SHORT_SHA:-$SHORT_SHA}
 
 echo "building $EDITION"
-export RNEX_STATIC=1
 export TARGET_DIR="target/x86_64-unknown-linux-musl/release"
 
 ./test-edition.sh
