@@ -164,6 +164,8 @@ terraria:
     - prudpv1
     - third-notif-param
     - v3-8-15
+    - match-making
+    - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.8.x.200x build:3_8_13_2004_0"
     RNEX_VIRTUAL_PORT_INSECURE: "1:10"
