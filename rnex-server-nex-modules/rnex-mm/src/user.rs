@@ -6,12 +6,11 @@ use rnex_mm_protos::{
     LocalMatchMakingProtocol, RemoteMatchMakingClientProtocol,
     matchmake::{
         AutoMatchmakeParam, CreateMatchmakeSessionParam, Gathering, JoinMatchmakeSessionParam,
-        Matchmake, MatchmakeSession, MatchmakeSessionSearchCriteria,
+        Matchmake, MatchmakeSession, MatchmakeSessionSearchCriteria, ParticipantDetails,
     },
     matchmake_ext::MatchmakeExt,
     matchmake_extension::MatchmakeExtension,
-    nat_traversal::NatTraversal,
-    nat_traversal::RemoteNatTraversalConsole,
+    nat_traversal::{NatTraversal, RemoteNatTraversalConsole},
     notifications::{
         NotificationEvent, RemoteNotification,
         notification_types::{END_GATHERING, REQUEST_JOIN_GATHERING},
@@ -632,6 +631,28 @@ impl Matchmake for MatchmakeUser {
         }
 
         Ok(())
+    }
+    
+    async fn get_detailed_participants(&self, gid: u32) -> Result<Vec<ParticipantDetails>, ErrorCode>  {
+        let session = self.matchmake_manager.get_session(gid).await?;
+        let session = session.lock().await;
+
+        let mut participant_details = Vec::with_capacity(session.connected_players.len());
+
+        for player_weak in &session.connected_players {
+            let Some(player) = player_weak.upgrade() else {
+                continue;
+            };
+
+            participant_details.push(ParticipantDetails {
+                participant: player.base.pid,
+                name: "test".to_string(),
+                message: String::new(),
+                participants: 1,
+            });
+        }
+
+        Ok(participant_details)
     }
 }
 

@@ -150,6 +150,15 @@ pub struct MatchmakeBlockListParam {
     option_flag: u32,
 }
 
+#[derive(RmcSerialize, Debug, Clone)]
+#[rmc_struct(0)]
+pub struct ParticipantDetails {
+    pub participant: PID,
+    pub name: String,
+    pub message: String,
+    pub participants: u16,
+}
+
 cfg_if! {
     if #[cfg(feature = "v3-10-22")] {
         #[derive(RmcSerialize, Debug, Clone)]
@@ -200,6 +209,8 @@ pub mod gathering_flags {
 pub trait Matchmake {
     #[method_id(2)]
     async fn unregister_gathering(&self, gid: u32) -> Result<bool, ErrorCode>;
+    #[method_id(15)]
+    async fn get_detailed_participants(&self, gid: u32) -> Result<Vec<ParticipantDetails>, ErrorCode>;
     #[method_id(21)]
     async fn find_by_single_id(&self, gid: u32) -> Result<(bool, Any<Gathering>), ErrorCode>;
     #[method_id(41)]
