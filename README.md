@@ -3,10 +3,10 @@
 This repo contains the code for all game servers using RNEX.
 
 ## Credits:
-- Pretendo team for their reverse engineering efforts 
 - Kinnay for his huge work on reversing nex servers and documentation(https://github.com/Kinnay/NintendoClients/)
 - Splatfestival testing team for helping us test our messes of code
-- The SPFN team(RusticMaple, BloxerHD, Ceantix, RedBinder0526)
+- The SPFN team(redbinder0526, bloxerhd, kittentm, et al.)
+- Pretendo team for their reverse engineering efforts 
 
 This NEX implementation was not created to rival Pretendo, we don't want any bad blood between anyone.
 This project would never have been possible without their reverse engineering efforts.

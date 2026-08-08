@@ -9,8 +9,8 @@ use std::ops::Deref;
 use std::sync::{Arc, Weak};
 use std::vec;
 use tokio::io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::Notify;
-use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task;
 use tracing::{error, info};
 
@@ -19,36 +19,44 @@ pub type PID = i64;
 #[cfg(not(feature = "nx"))]
 pub type PID = i32;
 
+pub const MAX_PACKET_SIZE: usize = 128 * 1024 * 1024;
+
 pub trait UnitPacketRead: AsyncRead + Unpin {
     async fn read_buffer(&mut self) -> Result<Vec<u8>, io::Error> {
-        let mut len_raw: [u8; _] = [0; size_of::<usize>()];
+        let mut len_raw = [0u8; 8];
 
         self.read_exact(&mut len_raw).await?;
 
-        let len = usize::from_le_bytes(len_raw);
+        let len = u64::from_le_bytes(len_raw) as usize;
 
-        let mut vec = vec![0u8; len as _];
+        if len > MAX_PACKET_SIZE {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("packet size {len} bytes exceeds maximum allowed limit of {MAX_PACKET_SIZE} bytes"),
+            ));
+        }
 
+        let mut vec = vec![0u8; len];
         self.read_exact(&mut vec).await?;
 
         Ok(vec)
     }
 }
 
-impl<T: AsyncRead + Unpin> UnitPacketRead for T {}
+impl<T: AsyncRead + Unpin + ?Sized> UnitPacketRead for T {}
+
 pub trait UnitPacketWrite: AsyncWrite + Unpin {
     async fn send_buffer(&mut self, data: &[u8]) -> Result<(), io::Error> {
-        let len_data = data.len().to_le_bytes();
+        let len_data = (data.len() as u64).to_le_bytes();
         self.write_all(&len_data[..]).await?;
         self.write_all(data).await?;
-
         self.flush().await?;
 
         Ok(())
     }
 }
 
-impl<T: AsyncWrite + Unpin> UnitPacketWrite for T {}
+impl<T: AsyncWrite + Unpin + ?Sized> UnitPacketWrite for T {}
 
 #[derive(Clone, Debug)]
 pub struct SendingBufferConnection(Sender<Vec<u8>>, Arc<Notify>);
@@ -77,18 +85,40 @@ impl<T: Send + Unpin + AsyncWrite + AsyncRead + 'static> From<T> for SplittableB
 }
 
 impl SplittableBufferConnection {
-    fn new<T: Send + Unpin + AsyncWrite + AsyncRead + 'static>(stream: T) -> Self {
+    fn new<T>(stream: T) -> Self
+    where
+        T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
         let (outside_send, inside_recv) = channel::<Vec<u8>>(10);
         let (inside_send, outside_recv) = channel::<Vec<u8>>(10);
 
         let notify = Arc::new(Notify::new());
+        let (mut reader, mut writer) = io::split(stream);
+
+        {
+            task::spawn(async move {
+                loop {
+                    match reader.read_buffer().await {
+                        Ok(data) => {
+                            if inside_send.send(data).await.is_err() {
+                                // reciever dropped
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            error!("error receiving data from backend: {e}");
+                            break;
+                        }
+                    }
+                }
+            });
+        }
 
         {
             let notify = notify.clone();
+
             task::spawn(async move {
-                let sender = inside_send;
                 let mut recver = inside_recv;
-                let mut stream = stream;
 
                 loop {
                     tokio::select! {
@@ -97,33 +127,19 @@ impl SplittableBufferConnection {
                                 break;
                             };
 
-                            if let Err(e) = stream.send_buffer(&data[..]).await{
+                            if let Err(e) = writer.send_buffer(&data[..]).await {
                                 error!("error sending data to backend: {e}");
                                 break;
                             }
                         },
-                        data = stream.read_buffer() => {
-                            let data = match data{
-                                Ok(d) => d,
-                                Err(e) => {
-                                    error!("error reveiving data from backend: {e}");
-                                    break;
-                                }
-                            };
-
-                            if let Err(e) = sender.send(data).await{
-                                error!("a send error occurred {e}");
-                                return;
-                            }
-                        },
                         () = notify.notified() => {
-                            info!("shutting down connection");
+                            info!("shutting down writer task");
                             break;
                         }
                     }
                 }
-                if let Err(e) = stream.shutdown().await {
-                    error!("failed to shut down stream: {e}");
+                if let Err(e) = writer.shutdown().await {
+                    error!("failed to shut down stream writer: {e}");
                 }
             });
         }

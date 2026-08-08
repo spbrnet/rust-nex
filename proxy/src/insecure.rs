@@ -8,7 +8,7 @@ async fn main() {
         let param = ProxyStartupParam::new(proxy_common::ProxyType::Insecure)
             .expect("unable to get startup parameters");
 
-        setup_edge_node_connection(&param, edge_node_dc_callback).await;
+        // setup_edge_node_connection(&param, edge_node_dc_callback).await;
 
         proxy::start_insecure(param).await;
         Ok(())

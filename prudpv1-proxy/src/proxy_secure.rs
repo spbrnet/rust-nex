@@ -37,27 +37,7 @@ pub async fn start(param: ProxyStartupParam) {
         };
 
         task::spawn(async move {
-            // todo: add support for checking this to nex-account
-            /*
-            let Ok(mut c) = rnex_core::grpc::account::Client::new().await else {
-                error!("failed to initialize gql client");
-                return;
-            };
-
-            let v = match c.get_user_level(conn.user_id).await {
-                Ok(v) => v,
-                Err(e) => {
-                    error!("failed to get user level: {}", e);
-                    return;
-                }
-            };
-
-            if v < 0 {
-                warn!("person with too low account level joined");
-                return;
-            } */
-
-            let mut stream = match TcpStream::connect(param.forward_destination).await {
+            let stream = match TcpStream::connect(param.forward_destination).await {
                 Ok(v) => v,
                 Err(e) => {
                     error!("unable to connect: {}", e);
@@ -65,7 +45,9 @@ pub async fn start(param: ProxyStartupParam) {
                 }
             };
 
-            if let Err(e) = stream
+            let (mut read_half, mut write_half) = stream.into_split();
+
+            if let Err(e) = write_half
                 .send_buffer(
                     &ConnectionInitData {
                         addr: conn.socket_addr.regular_socket_addr,
@@ -80,6 +62,28 @@ pub async fn start(param: ProxyStartupParam) {
                 return;
             };
 
+            let (tx, mut rx) = tokio::sync::mpsc::channel::<Vec<u8>>(100);
+
+            let reader_handle = task::spawn(async move {
+                loop {
+                    match read_half.read_buffer().await {
+                        Ok(data) => {
+                            if data == [0, 0, 0, 0, 0] {
+                                continue;
+                            }
+                            if tx.send(data).await.is_err() {
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            error!("error receiving data from backend: {}", e);
+                            break;
+                        }
+                    }
+                }
+            });
+
+            let keepalive_data = vec![0u8; 5];
             'a: loop {
                 tokio::select! {
                     data = conn.recv() => {
@@ -87,33 +91,30 @@ pub async fn start(param: ProxyStartupParam) {
                             break 'a;
                         };
 
-                        if let Err(e) = stream.send_buffer(&data[..]).await{
+                        if let Err(e) = write_half.send_buffer(&data[..]).await {
                             error!("error sending data to backend: {}", e);
                             break 'a;
                         }
                     },
-                    data = stream.read_buffer() => {
-                        let data = match data{
-                            Ok(d) => d,
-                            Err(e) => {
-                                error!("error reveiving data from backend: {}", e);
-                                break 'a;
-                            }
+                    data = rx.recv() => {
+                        let Some(data) = data else {
+                            break 'a;
                         };
 
-                        if data == [0,0,0,0,0] {
-                            continue;
-                        }
-
-                        if conn.send(data).await == None{
+                        if conn.send(data).await.is_none() {
                             break 'a;
                         }
                     },
                     _ = sleep(Duration::from_secs(10)) => {
-                        stream.send_buffer(&[0,0,0,0,0].to_vec()).await.ok();
+                        if let Err(e) = write_half.send_buffer(&keepalive_data).await {
+                            error!("failed to send keepalive: {}", e);
+                            break 'a;
+                        }
                     }
                 }
             }
+
+            reader_handle.abort();
             conn.deref().close_connection().await;
         });
     }

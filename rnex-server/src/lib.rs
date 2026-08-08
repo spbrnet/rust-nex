@@ -154,7 +154,7 @@ macro_rules! launch_rnex_module_server {
     {
     $init_ty:ty;
     $(
-        $(#[$($tt:tt)*])*
+        $(#[$meta:meta])*
         $module_type:ty
     ),* $(,)?} => {{
         use $crate::tracing::Instrument;
@@ -165,22 +165,22 @@ macro_rules! launch_rnex_module_server {
             #[derive(Debug)]
             struct MultiEndpoint {
                 $(
-                    $(#[$($tt)*])*
+                    $(#[$meta])*
                     [<user_ $module_type>]: $crate::PassthroughInitModule<
                         <<$module_type as $crate::RnexModule>::Manager as $crate::RnexManager>::User,
-                    >
-                ),*
+                    >,
+                )*
             }
             }
             $crate::paste::paste!{
             #[derive(Debug)]
             struct MultiManager {
                 $(
-                    $(#[$($tt)*])*
+                    $(#[$meta])*
                     [<manager_ $module_type>]: $crate::PassthroughInitModule<
                         <$module_type as $crate::RnexModule>::Manager,
-                    >
-                ),*
+                    >,
+                )*
             }
             }
             impl $crate::rmc::RmcCallable for MultiEndpoint {
@@ -191,13 +191,13 @@ macro_rules! launch_rnex_module_server {
                     method_id: u32,
                     call_id: u32,
                     rest: &[u8],
-                ) -> bool{
+                ) -> bool {
                     $(
-                        $(#[$($tt)*])*
+                        $(#[$meta])*
                         $crate::paste::paste!{
-                            if self. [<user_ $module_type>]
+                            if self.[<user_ $module_type>]
                                 .rmc_call(responder, protocol_id, method_id, call_id, rest)
-                                .await{
+                                .await {
                                     return true;
                                 }
                         }
@@ -210,22 +210,22 @@ macro_rules! launch_rnex_module_server {
                 let mut holder = $crate::ModuleHolder::default();
 
                 $(
-                    $(#[$($tt)*])*
+                    $(#[$meta])*
                     $crate::tracing::info!(
                         module_manager = ::std::any::type_name::<<$module_type as $crate::RnexModule>::Manager>(),
                         "creating module slot"
                     );
-                    $(#[$($tt)*])*
+                    $(#[$meta])*
                     holder.create_empty_module_slot::<<$module_type as $crate::RnexModule>::Manager>();
                 )*
 
                 $(
-                    $(#[$($tt)*])*
+                    $(#[$meta])*
                     $crate::tracing::info!(
                         module_manager = ::std::any::type_name::<<$module_type as $crate::RnexModule>::Manager>(),
                         "initializing and filling module slot"
                     );
-                    $(#[$($tt)*])*
+                    $(#[$meta])*
                     let $crate::paste::paste!{[<manager_ $module_type>]} = holder
                         .init_slot::<<$module_type as $crate::RnexModule>::Manager>(
                             <$module_type as $crate::RnexModule>::create_manager(&holder).await?,
@@ -233,8 +233,8 @@ macro_rules! launch_rnex_module_server {
                         .expect("initialized manager twice");
                 )*
                 $crate::paste::paste!{
-                    Ok::<_, $crate::anyhow::Error>(MultiManager{
-                        $( $(#[$($tt)*])* [<manager_ $module_type>] ),*
+                    Ok::<_, $crate::anyhow::Error>(MultiManager {
+                        $( $(#[$meta])* [<manager_ $module_type>] ),*
                     })
                 }
             }
@@ -247,7 +247,7 @@ macro_rules! launch_rnex_module_server {
                 while let Ok((mut stream, _addr)) = socket.accept().await {
                     $crate::tracing::info!("new incoming connection");
                     async {
-                        let Some(conn_data) = async  {
+                        let Some(conn_data) = async {
                             let buffer = match stream.read_buffer().await {
                                 Ok(v) => v,
                                 Err(e) => {
@@ -274,39 +274,51 @@ macro_rules! launch_rnex_module_server {
                             return;
                         };
 
-                            $crate::rmc::new_rmc_gateway_connection(stream.into(),
-                                async |r| {
-                                   $crate::tracing::info!("creating module holder for module users");
-                                   let mut holder = $crate::ModuleHolder::default();
+                        $crate::rmc::new_rmc_gateway_connection(stream.into(),
+                            async |r| {
+                               $crate::tracing::info!("creating module holder for module users");
+                               let mut holder = $crate::ModuleHolder::default();
 
-                                   $(
-                                   $(#[$($tt)*])*
-                                   $crate::tracing::info!(
-                                       module_manager = ::std::any::type_name::<<<$module_type as $crate::RnexModule>::Manager as $crate::RnexManager>::User>(),
-                                       "creating user module slot"
-                                   );
-                                   $(#[$($tt)*])*
-                                   holder.create_empty_module_slot::<<<$module_type as $crate::RnexModule>::Manager as $crate::RnexManager>::User>();
-                                   )*
-                                   $(
-                                   $(#[$($tt)*])*
-                                   $crate::tracing::info!(
-                                       module_manager = ::std::any::type_name::<<<$module_type as $crate::RnexModule>::Manager as $crate::RnexManager>::User>(),
-                                       "initializing and filling user module slot if specified as present"
-                                   );
-                                   $crate::paste::paste!{
-                                    $(#[$($tt)*])*
-                                   let [<user_ $module_type>] = holder.init_slot($crate::RnexManager::init_new_user(managers.[<manager_ $module_type>].clone(), &holder, &r,  &conn_data, $crate::PassthroughInitModule::downgrade(&holder.get_ref_init_pt().expect("module slot should be initialized by now"))).await).expect("double init or uninit slot");
-                                   }
-                                   )*
-                                   $crate::paste::paste!{
-                                   ::std::sync::Arc::new(MultiEndpoint{
+                               $(
+                               $(#[$meta])*
+                               $crate::tracing::info!(
+                                   module_manager = ::std::any::type_name::<<<$module_type as $crate::RnexModule>::Manager as $crate::RnexManager>::User>(),
+                                   "creating user module slot"
+                               );
+                               $(#[$meta])*
+                               holder.create_empty_module_slot::<<<$module_type as $crate::RnexModule>::Manager as $crate::RnexManager>::User>();
+                               )*
 
-                                       $( $(#[$($tt)*])* [<user_ $module_type>] ),*
-                                   })
-                                   }
-                                }
-                            ).instrument($crate::tracing::info_span!("initializing user"))
+                               $(
+                               $(#[$meta])*
+                               $crate::tracing::info!(
+                                   module_manager = ::std::any::type_name::<<<$module_type as $crate::RnexModule>::Manager as $crate::RnexManager>::User>(),
+                                   "initializing and filling user module slot if specified as present"
+                               );
+                               $crate::paste::paste!{
+                                $(#[$meta])*
+                               let [<user_ $module_type>] = holder.init_slot(
+                                   $crate::RnexManager::init_new_user(
+                                       managers.[<manager_ $module_type>].clone(),
+                                       &holder,
+                                       &r,
+                                       &conn_data,
+                                       $crate::PassthroughInitModule::downgrade(&holder.get_ref_init_pt().expect("module slot should be initialized by now"))
+                                   ).await
+                               ).expect("double init or uninit slot");
+
+                               $(#[$meta])*
+                               <<$module_type as $crate::RnexModule>::Manager as $crate::RnexManager>::post_init([<user_ $module_type>].as_ref()).await;
+                               }
+                               )*
+
+                               $crate::paste::paste!{
+                               ::std::sync::Arc::new(MultiEndpoint {
+                                   $( $(#[$meta])* [<user_ $module_type>] ),*
+                               })
+                               }
+                            }
+                        ).instrument($crate::tracing::info_span!("initializing user"))
                         .await;
                     }
                     .instrument($crate::tracing::info_span!("handeling new incoming connection"))

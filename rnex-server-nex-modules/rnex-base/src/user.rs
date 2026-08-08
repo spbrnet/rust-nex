@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use rnex_base_protos::{LocalBaseProtocol, secure::Secure, util::Utility};
-use rnex_rmc::{any::Any, qresult::QResult, response::ErrorCode, rmc_struct};
+use rnex_rmc::{any::Any, qbuffer::QBuffer, qresult::QResult, response::ErrorCode, rmc_struct};
 use rnex_util::{
     PID,
     station_url::{StationUrl, UrlOptions, nat_types::PUBLIC},
@@ -174,6 +174,10 @@ impl Secure for BaseUser {
 
         drop(lock);
 
+        Ok(())
+    }
+    
+    async fn send_report(&self,id: u32,data: QBuffer) -> Result<(),ErrorCode>  {
         Ok(())
     }
 }

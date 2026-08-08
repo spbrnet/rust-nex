@@ -96,6 +96,10 @@ pub struct StationUrlParseError;
 impl FromStr for StationUrl {
     type Err = StationUrlParseError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.len() >= 1024 {
+            return Err(StationUrlParseError);
+        }
+
         let (url_type, options) = value.split_at(value.find(":/").ok_or(StationUrlParseError)?);
 
         let options = &options[2..];
