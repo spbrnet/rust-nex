@@ -292,7 +292,6 @@ impl<C: Crypto> Server<C> {
                 unacknowledged_packets: HashMap::new(),
                 packet_buffer: vec![],
                 packet_queue: HashMap::new(),
-                packet_buffer: vec![],
             }),
         });
 
