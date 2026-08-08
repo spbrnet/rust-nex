@@ -1,6 +1,7 @@
 use rnex_rmc::response::ErrorCode;
 use rnex_server::{ConnectionInitData, EnvVarError, RnexManager, RnexModule, env_var};
 use std::str::FromStr;
+use cfg_if::cfg_if;
 use tracing::error;
 
 use crate::user::RankingUser;
@@ -18,6 +19,7 @@ pub struct RankingModule;
 
 impl RankingManager {
     // Seperate function because I cannot give a fuck right now
+    #[cfg(feature = "splatoon")]
     async fn fetch_team_votes(&self, fest_id: u32) -> Result<Vec<u32>, ErrorCode> {
         let url_votes = format!("{}?splatfest_id={}", self.rnex_result_votes_get, fest_id);
         let Ok(response) = tokio::task::spawn_blocking(move || {
@@ -76,10 +78,20 @@ impl RnexModule for RankingModule {
     async fn create_manager(
         _: &rnex_server::ModuleHolder,
     ) -> Result<Self::Manager, Self::InitError> {
-        Ok(RankingManager {
-            rnex_result_votes_get: env_var("RNEX_SPLATOON_RESULTS_VOTES_GET")?,
-            rnex_result_post: env_var("RNEX_SPLATOON_RESULTS_POST")?,
-            rnex_result_get: env_var("RNEX_SPLATOON_RESULTS_GET")?,
-        })
+        cfg_if!{
+            if #[cfg(feature = "splatoon")] {
+                Ok(RankingManager {
+                    rnex_result_votes_get: env_var("RNEX_SPLATOON_RESULTS_VOTES_GET")?,
+                    rnex_result_post: env_var("RNEX_SPLATOON_RESULTS_POST")?,
+                    rnex_result_get: env_var("RNEX_SPLATOON_RESULTS_GET")?,
+                })
+            } else {
+                Ok(RankingManager {
+                    rnex_result_get: "".into(),
+                    rnex_result_post: "".into(),
+                    rnex_result_votes_get: "".into(),
+                })
+            }
+        }
     }
 }
