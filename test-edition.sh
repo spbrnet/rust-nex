@@ -13,4 +13,4 @@ echo $EDITION_FEATURES
 echo ENV SETTINGS:
 env
 
-cargo test --features "$EDITION_FEATURES" --target x86_64-unknown-linux-musl
+OPENSSL_VENDORED=1 cargo test --features "$EDITION_FEATURES" --target x86_64-unknown-linux-musl
