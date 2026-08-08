@@ -1,0 +1,244 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select\n                *\n            from denylist\n            inner join nintendo_network_accounts on other = nintendo_network_accounts.pid\n            where initiator = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "initiator",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "denylist",
+            "name": "initiator"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "other",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "denylist",
+            "name": "other"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "since",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "denylist",
+            "name": "since"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "pid",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "pid"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "nnid",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "nnid"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "mii_unks",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "mii_unks"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "mii_ffl_data",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "mii_ffl_data"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "principal_info_unk",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "principal_info_unk"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "nna_info_unks_2",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "nna_info_unks_2"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "last_online",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "last_online"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "comment_unk",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "comment_unk"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "comment_message",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "comment_message"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "comment_lastchanged",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "comment_lastchanged"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "principal_preference_show_online",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "principal_preference_show_online"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "principal_preference_show_currently_playing_title",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "principal_preference_show_currently_playing_title"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "principal_preference_block_friend_requests",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "principal_preference_block_friend_requests"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "mii_unk_datetime",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "mii_unk_datetime"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "birthday",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "birthday"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "mii_name",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "mii_name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c0b7d879b5e7fd20cfca3711be92b75af8d9339b397cae31161592bf4622f3a2"
+}

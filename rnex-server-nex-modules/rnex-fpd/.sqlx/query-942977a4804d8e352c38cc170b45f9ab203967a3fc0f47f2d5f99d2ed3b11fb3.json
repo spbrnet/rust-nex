@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select principal_preference_block_friend_requests from nintendo_network_accounts where pid = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "principal_preference_block_friend_requests",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "principal_preference_block_friend_requests"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "942977a4804d8e352c38cc170b45f9ab203967a3fc0f47f2d5f99d2ed3b11fb3"
+}

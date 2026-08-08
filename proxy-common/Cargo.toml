@@ -3,9 +3,16 @@ name = "proxy-common"
 version = "0.1.0"
 edition = "2024"
 
+[lints]
+workspace = true
+
 [dependencies]
 thiserror = "2.0.12"
-rnex-core = { path = "../rnex-core", version = "0.1.1" }
+rnex-prudp = { path = "../rnex-prudp" }
+rnex-server = { path = "../rnex-server" }
+rnex-util = { path = "../rnex-util" }
+rnex-reggie-protos = { path = "../rnex-protocols/reggie-protos" }
+rnex-rmc = { path = "../rnex-rmc" }
 tokio = { version =  "1.47.0", features = ["full"] }
-log = "0.4.25"
 hex = "0.4.3"
+tracing = "0.1.44"

@@ -1,0 +1,96 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            insert into nintendo_network_accounts (\n                pid, nnid, mii_name, mii_unks, mii_ffl_data, mii_unk_datetime, principal_info_unk, nna_info_unks_2, birthday\n            ) values (\n                $1,  $2,   $3,       $4,       $5,           $6              , $7,                 $8,              $9\n            )\n            on conflict (pid)\n                do update set\n                    mii_name = excluded.mii_name,\n                    mii_unks = excluded.mii_unks,\n                    mii_ffl_data = excluded.mii_ffl_data,\n                    mii_unk_datetime = excluded.mii_unk_datetime,\n                    principal_info_unk = excluded.principal_info_unk,\n                    nna_info_unks_2 = excluded.nna_info_unks_2,\n                    birthday = excluded.birthday\n            returning comment_unk, comment_message, comment_lastchanged, principal_preference_show_online, principal_preference_show_currently_playing_title, principal_preference_block_friend_requests\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "comment_unk",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "comment_unk"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "comment_message",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "comment_message"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "comment_lastchanged",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "comment_lastchanged"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "principal_preference_show_online",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "principal_preference_show_online"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "principal_preference_show_currently_playing_title",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "principal_preference_show_currently_playing_title"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "principal_preference_block_friend_requests",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "principal_preference_block_friend_requests"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Varchar",
+        "Bytea",
+        "Int2",
+        "Bytea",
+        "Int8",
+        "Int2",
+        "Int2",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6ec01b81c18f256a40e437876650576070f9319069193e8cd7e65643fb93dad6"
+}

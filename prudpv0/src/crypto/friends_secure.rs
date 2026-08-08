@@ -1,20 +1,13 @@
 use hmac::Mac;
 use md5::{Digest, Md5};
 use rc4::{KeyInit, Rc4, StreamCipher};
-use rnex_core::{
-    PID,
-    executables::common::SECURE_SERVER_ACCOUNT,
-    nex::account::Account,
-    prudp::{
-        encryption::EncryptionPair,
-        ticket::read_secure_connection_data,
-        types_flags::{TypesFlags, types::DATA},
-    },
-    rmc::structures::RmcSerialize,
+use rnex_prudp::{
+    encryption::EncryptionPair,
+    ticket::read_secure_connection_data,
+    types_flags::{TypesFlags, types::DATA},
 };
-use std::io::Write;
-use typenum::U16;
-
+use rnex_rmc::serialization::RmcSerialize;
+use rnex_util::{PID, account::Account};
 use crate::crypto::{
     Crypto, CryptoInstance,
     common_crypto::common_checksum,
@@ -22,7 +15,7 @@ use crate::crypto::{
 };
 
 pub struct SecureInstance {
-    pair: EncryptionPair<Rc4<U16>>,
+    pair: EncryptionPair<Rc4>,
     uid: PID,
     self_signat: [u8; 4],
     #[allow(dead_code)]
@@ -45,8 +38,8 @@ impl CryptoInstance for SecureInstance {
                 [0x78, 0x56, 0x34, 0x12]
             } else {
                 let mut hash = Md5::new();
-                hash.write(ACCESS_KEY.as_bytes()).unwrap();
-                let mut hmac = <HmacMd5 as Mac>::new_from_slice(&hash.finalize().as_slice())
+                hash.update(ACCESS_KEY.as_bytes());
+                let mut hmac = HmacMd5::new_from_slice(&hash.finalize().as_slice())
                     .expect("unable to create hmac md5");
                 hmac.update(data);
                 hmac.finalize().into_bytes()[0..4].try_into().unwrap()
@@ -57,12 +50,16 @@ impl CryptoInstance for SecureInstance {
     }
 }
 
-pub struct Secure(&'static Account);
+pub struct Secure(Account);
 
 impl Crypto for Secure {
     type Instance = SecureInstance;
-    fn new() -> Self {
-        Self(&SECURE_SERVER_ACCOUNT)
+    async fn new() -> Self {
+        Self(
+            Account::from_nexact(2, "Quazal Rendez-Vous")
+                .await
+                .expect("unable to get account info"),
+        )
     }
     fn calculate_checksum(&self, data: &[u8]) -> u8 {
         common_checksum(ACCESS_KEY, data)

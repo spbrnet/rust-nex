@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            update nintendo_network_accounts\n            set\n            principal_preference_show_online = $1, principal_preference_show_currently_playing_title = $2, principal_preference_block_friend_requests = $3\n            where pid = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bool",
+        "Bool",
+        "Bool",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bebd2e8ebd0af1756ee24aca36623fdd4b055d065f49e723cd1e1b005a44e4ca"
+}

@@ -3,21 +3,21 @@ use crate::prudp::packet::PacketOption::{
 };
 use crate::prudp::packet::{PRUDPV1Header, PRUDPV1Packet};
 use async_trait::async_trait;
-use log::error;
-use log::{info, warn};
 use rc4::StreamCipher;
-use rnex_core::PID;
-use rnex_core::prudp::socket_addr::PRUDPSockAddr;
-use rnex_core::prudp::types_flags::TypesFlags;
-use rnex_core::prudp::types_flags::flags::{ACK, HAS_SIZE, MULTI_ACK, NEED_ACK, RELIABLE};
-use rnex_core::prudp::types_flags::types::{CONNECT, DATA, DISCONNECT, PING, SYN};
-use rnex_core::prudp::virtual_port::VirtualPort;
+use rnex_prudp::socket_addr::PRUDPSockAddr;
+use rnex_prudp::types_flags::TypesFlags;
+use rnex_prudp::types_flags::flags::{ACK, HAS_SIZE, MULTI_ACK, NEED_ACK, RELIABLE};
+use rnex_prudp::types_flags::types::{CONNECT, DATA, DISCONNECT, PING, SYN};
+use rnex_prudp::virtual_port::VirtualPort;
+use rnex_util::PID;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Cursor;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::sync::{Arc, Weak};
 use tokio::spawn;
+use tracing::error;
+use tracing::{info, warn};
 use v_byte_helpers::ReadExtensions;
 use v_byte_helpers::little_endian::read_u16;
 
@@ -43,7 +43,10 @@ struct InternalConnection<E: CryptoHandlerConnectionInstance> {
     connections: Weak<Mutex<BTreeMap<PRUDPSockAddr, Arc<InternalConnectionMutex<E>>>>>,
     reliable_server_counter: u16,
     reliable_client_counter: u16,
+    // i'm a bit scared things might break if i remove this
+    #[allow(dead_code)]
     supported_function_version: u32,
+    #[deny(dead_code)]
     // maybe add connection id(need to see if its even needed)
     crypto_handler_instance: E,
     data_sender: Sender<Vec<u8>>,
@@ -575,8 +578,10 @@ impl<T: CryptoHandler> InternalSocket<T> {
         while let Some(mut packet) = conn.packet_queue.remove(&counter) {
             conn.crypto_handler_instance
                 .decrypt_incoming(packet.header.substream_id, &mut packet.payload[..]);
+
             conn.partial_packet
-                .extend_from_slice(&mut packet.payload[..]);
+	                .extend_from_slice(&mut packet.payload[..]);
+
             conn.reliable_client_counter = conn.reliable_client_counter.overflowing_add(1).0;
             counter = conn.reliable_client_counter;
             if packet.options.iter().any(|v| {
@@ -952,12 +957,12 @@ impl<E: CryptoHandlerConnectionInstance> SendingConnection<E> {
 
 impl<E: CryptoHandlerConnectionInstance> Drop for InternalConnection<E> {
     fn drop(&mut self) {
-        println!("yatta(internal conn)");
+        println!("s2s connection disconnected");
     }
 }
 
 impl Drop for CommonConnection {
     fn drop(&mut self) {
-        println!("yatta(common conn)");
+        println!("client disconnected");
     }
 }

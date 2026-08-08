@@ -1,0 +1,208 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT data_id, owner, size, name, data_type, meta_binary,\n                          permission, permission_recipients, delete_permission, delete_permission_recipients,\n                          period, refer_data_id, flag, tags, creation_date, update_date\n                   FROM datastore.objects WHERE data_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "data_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "data_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "owner",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "owner"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "size",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "size"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "data_type",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "data_type"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "meta_binary",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "meta_binary"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "permission",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "permission"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "permission_recipients",
+        "type_info": "Int4Array",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "permission_recipients"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "delete_permission",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "delete_permission"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "delete_permission_recipients",
+        "type_info": "Int4Array",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "delete_permission_recipients"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "period",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "period"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "refer_data_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "refer_data_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "flag",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "flag"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "tags",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "tags"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "creation_date",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "creation_date"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "update_date",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "datastore.objects",
+            "name": "update_date"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "1c2be699b4bfc7e5e6d3a74d7badf67d1812b99e1ec952a044fc03e1a5c63703"
+}

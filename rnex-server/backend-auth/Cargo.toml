@@ -1,0 +1,25 @@
+[package]
+name = "rnex-server-backend-auth"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+splatoon = ["v3-5-0"]
+datastore = ["database-support", "v3-8-15"]
+database-support = []
+nx = []
+third-notif-param = []
+v3-3-2 = []
+v3-4-0 = ["v3-3-2", "third-notif-param"]
+v3-5-0 = ["v3-4-0"]
+v3-8-15 = ["v3-5-0"]
+v3-10-22 = ["v3-8-15"]
+v4-3-11 = ["v3-8-15"]
+friends = []
+rmc_struct_header = []
+big_pid = []
+
+[dependencies]
+rnex-server = {path = ".."}
+rnex-auth = {path = "../../rnex-server-nex-modules/rnex-auth"}
+tokio = { version = "1.52.3", features = ["rt-multi-thread"] }

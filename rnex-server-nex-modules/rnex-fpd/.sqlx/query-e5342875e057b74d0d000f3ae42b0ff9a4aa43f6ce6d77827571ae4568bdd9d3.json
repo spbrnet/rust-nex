@@ -1,0 +1,167 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select\n                nintendo_network_accounts.pid,\n                since,\n                nnid,\n                comment_message,\n                comment_unk,\n                comment_lastchanged,\n                nna_info_unks_2,\n                principal_info_unk,\n                mii_name,\n                mii_unks,\n                mii_ffl_data,\n                mii_unk_datetime,\n                last_online\n            from friendships_of_pid($1) as friendships\n            inner join nintendo_network_accounts on friendships.pid = nintendo_network_accounts.pid",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pid",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "pid"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "since",
+        "type_info": "Timestamp",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "nnid",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "nnid"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "comment_message",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "comment_message"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "comment_unk",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "comment_unk"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "comment_lastchanged",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "comment_lastchanged"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "nna_info_unks_2",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "nna_info_unks_2"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "principal_info_unk",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "principal_info_unk"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "mii_name",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "mii_name"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "mii_unks",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "mii_unks"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "mii_ffl_data",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "mii_ffl_data"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "mii_unk_datetime",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "mii_unk_datetime"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "last_online",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "nintendo_network_accounts",
+            "name": "last_online"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e5342875e057b74d0d000f3ae42b0ff9a4aa43f6ce6d77827571ae4568bdd9d3"
+}

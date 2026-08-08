@@ -1,0 +1,42 @@
+[package]
+name = "rnex-fpd"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bytemuck = { version = "1.25.1", features = ["derive"] }
+rnex-rmc = { path = "../../rnex-rmc" }
+rnex-util = { path = "../../rnex-util" }
+rnex-fpd-protos = { path = "../../rnex-protocols/fpd-protos" }
+rnex-base = { path = "../rnex-base" }
+rnex-server = { path = "../../rnex-server" }
+tokio = { version = "1.52.3", features = ["sync"] }
+rand = "0.10.2"
+tracing = "0.1.44"
+sqlx = { version = "0.9.0", features = ["chrono"] }
+chrono = "0.4.45"
+hmac = "0.13.0"
+md-5 = "0.11.0"
+nex-account = { version = "0.2.4", registry = "spbr" }
+hex = "0.4.3"
+thiserror = "2.0.18"
+
+[features]
+rmc_struct_header = []
+guest_login = []
+friends = ["guest_login", "database-support"]
+big_pid = []
+third-notif-param = []
+v3-3-2 = []
+v3-4-0 = ["v3-3-2", "third-notif-param", "rmc_struct_header"]
+v3-5-0 = ["v3-4-0"]
+v3-8-15 = ["v3-5-0"]
+v3-10-22 = ["v3-8-15"]
+v4-3-11 = ["v3-8-15"]
+nx = ["big_pid"]
+splatoon = ["v3-5-0"]
+datastore = ["database-support", "v3-8-15"]
+database-support = []
+
+[lints]
+workspace = true

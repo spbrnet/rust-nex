@@ -1,0 +1,31 @@
+[package]
+name = "rnex-server-backend-secure"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rnex-server = {path = ".."}
+rnex-base = {path = "../../rnex-server-nex-modules/rnex-base"}
+rnex-mm = {path = "../../rnex-server-nex-modules/rnex-mm", optional = true}
+rnex-ds = {path = "../../rnex-server-nex-modules/rnex-ds", optional = true}
+rnex-fpd = {path = "../../rnex-server-nex-modules/rnex-fpd", optional = true}
+rnex-msg = {path = "../../rnex-server-nex-modules/rnex-msg", optional = true}
+rnex-rk = {path = "../../rnex-server-nex-modules/rnex-rk", optional = true}
+tokio = { version = "1.52.3", features = ["time", "sync", "rt-multi-thread"] }
+
+[features]
+match-making = ["dep:rnex-mm"]
+datastore = ["dep:rnex-ds"]
+friends = ["dep:rnex-fpd"]
+messaging = ["dep:rnex-msg"]
+ranking = ["dep:rnex-rk"]
+nx = []
+third-notif-param = []
+v3-3-2 = []
+v3-4-0 = ["v3-3-2", "third-notif-param"]
+v3-5-0 = ["v3-4-0"]
+v3-8-15 = ["v3-5-0"]
+v3-10-22 = ["v3-8-15"]
+v4-3-11 = ["v3-8-15"]
+rmc_struct_header = []
+big_pid = []

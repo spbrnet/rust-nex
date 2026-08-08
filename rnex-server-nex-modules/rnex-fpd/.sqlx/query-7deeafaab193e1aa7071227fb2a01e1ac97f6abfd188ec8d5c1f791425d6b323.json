@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into friendships (pid_a, pid_b) values ($1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7deeafaab193e1aa7071227fb2a01e1ac97f6abfd188ec8d5c1f791425d6b323"
+}
