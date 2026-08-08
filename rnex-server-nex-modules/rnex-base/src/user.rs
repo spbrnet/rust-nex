@@ -177,7 +177,7 @@ impl Secure for BaseUser {
         Ok(())
     }
     
-    async fn send_report(&self,id: u32,data: QBuffer) -> Result<(),ErrorCode>  {
+    async fn send_report(&self, _id: u32, _data: QBuffer) -> Result<(),ErrorCode>  {
         Ok(())
     }
 }
