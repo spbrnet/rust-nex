@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1
-FROM alpine:3.20 AS base
-RUN apk add --no-cache ca-certificates libssl3
+FROM debian:bookworm-slim AS base
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
 
 FROM base AS node-holder
 COPY dist/rnex-server-backend-node-holder /rnex-server-backend-node-holder
