@@ -158,3 +158,15 @@ super-mario-maker:
     RNEX_VIRTUAL_PORT_SECURE: "1:10"
     RNEX_DEFAULT_PORT: 6000
     RNEX_ACCESS_KEY: "9f2b4678"
+terraria:
+  include-in-checkall: true
+  features:
+    - prudpv1
+    - third-notif-param
+    - v3-8-15
+  settings:
+    AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.8.x.200x build:3_8_13_2004_0"
+    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
+    RNEX_VIRTUAL_PORT_SECURE: "1:10"
+    RNEX_DEFAULT_PORT: 10000
+    RNEX_ACCESS_KEY: "3d37fbdb"
