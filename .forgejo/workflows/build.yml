@@ -31,6 +31,8 @@ jobs:
           - edition: super-mario-maker
             db_secret: DATABASE_SMM
           - edition: terraria
+    
+    name: ${{ matrix.edition }}
 
     steps:
       - name: Checkout repository
