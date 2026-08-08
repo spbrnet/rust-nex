@@ -59,11 +59,13 @@ pub struct CompetitionRankingScoreData {
 #[rmc_proto(112)]
 pub trait Ranking {
     #[method_id(16)]
+    #[cfg(feature = "splatoon")]
     async fn competition_ranking_get_param(
         &self,
         param: CompetitionRankingGetParam,
     ) -> Result<Vec<CompetitionRankingScoreInfo>, ErrorCode>;
     #[method_id(18)]
+    #[cfg(feature = "splatoon")]
     async fn upload_competition_ranking_score(
         &self,
         param: UploadCompetitionData,

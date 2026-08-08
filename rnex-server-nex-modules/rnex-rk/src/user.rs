@@ -30,6 +30,7 @@ pub struct CompetitionPostResults {
 }
 
 impl Ranking for RankingUser {
+    #[cfg(feature = "splatoon")]
     async fn competition_ranking_get_param(
         &self,
         param: CompetitionRankingGetParam,
@@ -93,6 +94,7 @@ impl Ranking for RankingUser {
         Ok(vec![info])
     }
 
+    #[cfg(feature = "splatoon")]
     async fn upload_competition_ranking_score(
         &self,
         param: UploadCompetitionData,
