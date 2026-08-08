@@ -28,21 +28,21 @@ pub fn read_secure_connection_data(
 
     rc4.apply_keystream(ticket_data);
 
-    let ticket_data: &TicketInternalData = match bytemuck::try_from_bytes(ticket_data) {
-        Ok(v) => v,
-        Err(e) => {
-            error!("unable to read internal ticket data: {}", e);
-            return None;
-        }
-    };
+    if ticket_data.len() < std::mem::size_of::<TicketInternalData>() {
+        error!("ticket_data buffer too small for TicketInternalData");
+        return None;
+    }
 
     // todo: add ticket expiration
+    let ticket_data_struct: TicketInternalData = bytemuck::pod_read_unaligned(
+        &ticket_data[..std::mem::size_of::<TicketInternalData>()],
+    );
 
     let TicketInternalData {
         session_key,
         pid: ticket_source_pid,
         issued_time,
-    } = *ticket_data;
+    } = ticket_data_struct;
 
     // todo: add checking if tickets are signed with a valid md5-hmac
     let request_data_length = request_data.len();
