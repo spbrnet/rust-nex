@@ -30,7 +30,7 @@ use tokio::{
     sync::{Mutex, RwLock},
     time::sleep,
 };
-use tracing::{info, instrument};
+use tracing::info;
 
 use crate::user::MatchmakeUser;
 
@@ -53,7 +53,6 @@ impl MatchmakeManager {
         self.rv_cid_counter.fetch_add(1, Ordering::Relaxed)
     }
 
-    #[instrument]
     pub async fn get_session(
         &self,
         gid: u32,
@@ -70,7 +69,6 @@ impl MatchmakeManager {
         Ok(session)
     }
 
-    #[instrument]
     async fn garbage_collect(&self) {
         info!("running rnex garbage collector over all sessions and users");
 
@@ -104,7 +102,6 @@ impl MatchmakeManager {
         }
     }
 
-    #[instrument]
     pub fn initialize_garbage_collect_thread(this: Weak<Self>) {
         tokio::spawn(async move {
             while let Some(this) = this.upgrade() {
@@ -118,7 +115,6 @@ impl MatchmakeManager {
 
     // this could be far more efficient but it is INCREDIBLY difficult to iterate over something
     // asyncronously propperly
-    #[instrument]
     pub async fn search_by_criteria(
         &self,
         criterias: &[MatchmakeSessionSearchCriteria],
@@ -140,7 +136,9 @@ impl MatchmakeManager {
             }
 
             if bool_matched_criteria {
-                info!("matched session: {:?}", session);
+                let guard = session.lock().await;
+                info!("matched session: {:?}", *guard);
+
                 list.push(session.clone());
             }
         }

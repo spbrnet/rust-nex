@@ -109,18 +109,28 @@ impl MatchmakeExtension for MatchmakeUser {
         browse_criteria: MatchmakeSessionSearchCriteria,
         result_range: ResultsRange,
     ) -> Result<Vec<Any<Gathering>>, ErrorCode> {
+        info!("browsing matchmake sessions with criteria: {:?}", browse_criteria);
+
         let results = self
             .matchmake_manager
             .search_by_criteria(&[browse_criteria])
             .await?;
+
         let mm_list = result_range.make_from_list(&results[..]);
+        info!("filtered mm_list count: {}", mm_list.len());
 
         let mut list = Vec::with_capacity(mm_list.len());
 
-        for mm_sess in mm_list {
-            let mm_sess = mm_sess.lock().await;
-            list.push(Any::new(&mm_sess.session).expect("type error"));
+        for (index, mm_sess) in mm_list.iter().enumerate() {
+            let mm_sess_guard = mm_sess.lock().await;
+            
+            info!("processing session [{}]: {:?}", index, *mm_sess_guard);
+
+            let gathering_any = Any::new(&mm_sess_guard.session).expect("type error");
+            list.push(gathering_any);
         }
+
+        info!("successfully collected {} sessions into output list", list.len());
 
         Ok(list)
     }
