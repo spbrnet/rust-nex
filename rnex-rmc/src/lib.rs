@@ -38,7 +38,7 @@ pub mod config {
 
 pub use paste;
 pub use rnex_util as util;
-use tracing::{error, info, info_span};
+use tracing::{error, info};
 
 use crate::{
     RemoteCallError::ConnectionBroke,

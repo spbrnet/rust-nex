@@ -4,7 +4,6 @@ use std::net::SocketAddr;
 use std::sync::Weak;
 use std::{
     any::{Any, TypeId, type_name},
-    borrow::Cow,
     collections::HashMap,
     env,
     error::Error,

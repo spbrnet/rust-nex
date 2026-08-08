@@ -1,11 +1,12 @@
 use cfg_if::cfg_if;
+#[cfg(all(not(any(feature="v3-8-13"))))]
+use rnex_rmc::string_set::StringSet;
 use rnex_rmc::{
     RmcSerialize,
     any::Any,
     method_id,
     response::ErrorCode,
     rmc_proto,
-    string_set::StringSet,
     util::{PID, station_url::StationUrl},
     variant::Variant,
 };
@@ -77,23 +78,46 @@ cfg_if! {
     }
 }
 
-#[derive(RmcSerialize, Debug, Clone)]
-#[rmc_struct(3)]
-pub struct MatchmakeSessionSearchCriteria {
-    pub attribs: Vec<StringSet<u32>>,
-    pub game_mode: String,
-    pub minimum_participants: String,
-    pub maximum_participants: String,
-    pub matchmake_system_type: String,
-    pub vacant_only: bool,
-    pub exclude_locked: bool,
-    pub exclude_non_host_pid: bool,
-    pub selection_method: u32,
-    pub vacant_participants: u16,
-    pub matchmake_param: MatchmakeParam,
-    pub exclude_user_password_set: bool,
-    pub exclude_system_password_set: bool,
-    pub refer_gid: u32,
+cfg_if! {
+    if #[cfg(feature = "v3-8-13")] {
+        #[derive(RmcSerialize, Debug, Clone)]
+        #[rmc_struct(3)]
+        pub struct MatchmakeSessionSearchCriteria {
+            pub attribs: Vec<String>,
+            pub game_mode: String,
+            pub minimum_participants: String,
+            pub maximum_participants: String,
+            pub matchmake_system_type: String,
+            pub vacant_only: bool,
+            pub exclude_locked: bool,
+            pub exclude_non_host_pid: bool,
+            pub selection_method: u32,
+            pub vacant_participants: u16,
+            pub matchmake_param: MatchmakeParam,
+            pub exclude_user_password_set: bool,
+            pub exclude_system_password_set: bool,
+            pub refer_gid: u32,
+        }
+    } else {
+        #[derive(RmcSerialize, Debug, Clone)]
+        #[rmc_struct(3)]
+        pub struct MatchmakeSessionSearchCriteria {
+            pub attribs: Vec<StringSet<u32>>,
+            pub game_mode: String,
+            pub minimum_participants: String,
+            pub maximum_participants: String,
+            pub matchmake_system_type: String,
+            pub vacant_only: bool,
+            pub exclude_locked: bool,
+            pub exclude_non_host_pid: bool,
+            pub selection_method: u32,
+            pub vacant_participants: u16,
+            pub matchmake_param: MatchmakeParam,
+            pub exclude_user_password_set: bool,
+            pub exclude_system_password_set: bool,
+            pub refer_gid: u32,
+        }
+    }
 }
 
 #[derive(RmcSerialize, Debug, Clone)]
