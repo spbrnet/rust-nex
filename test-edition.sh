@@ -11,4 +11,4 @@ source ./buildscripts/common.sh
 echo FEATURES:
 echo $EDITION_FEATURES
 
-OPENSSL_VENDORED=1 cargo test --features "$EDITION_FEATURES" --target x86_64-unknown-linux-musl
+PKG_CONFIG_ALLOW_CROSS=1 OPENSSL_DIR=/usr cargo build --release --features "$EDITION_FEATURES" --target x86_64-unknown-linux-musl
