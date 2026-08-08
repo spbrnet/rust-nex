@@ -7,11 +7,30 @@ on:
 env:
   DOCKER_TLS_CERTDIR: /certs
   IMAGE_TAG: ${{ github.sha }}
-  SHORT_SHA: ${{ github.sha }}
 
 jobs:
-  sonic-transformed:
+  build-editions:
     runs-on: debian-trixie
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - edition: sonic-transformed
+          - edition: mario-tennis
+          - edition: wii-sports-club
+            db_secret: DATABASE_SMM
+          - edition: puyopuyo
+            db_secret: DATABASE_SMM
+          - edition: minecraft-wiiu
+          - edition: splatoon-testfire
+          - edition: fast-racing-neo
+          - edition: wii-u-chat
+          - edition: splatoon
+          - edition: friends
+            db_secret: DATABASE_FRIENDS
+          - edition: super-mario-maker
+            db_secret: DATABASE_SMM
+          - edition: terraria
 
     steps:
       - name: Checkout repository
@@ -19,357 +38,26 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache container storage
+      - name: Cache Cargo registry and target
         uses: actions/cache@v6
         with:
           path: |
-            /var/lib/containers/storage
-            /run/containers/storage
-            ~/.local/share/containers/storage
-          key: image-cache
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: cargo-${{ matrix.edition }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ matrix.edition }}-
 
       - name: Login to registry
         run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
 
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
-
-      - name: Build Sonic Transformed edition
+      - name: Set environment variables & build
         env:
           CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
-        run: ./.ci-scripts/make-edition.sh sonic-transformed
-
-  mario-tennis:
-    runs-on: debian-trixie
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Cache container storage
-        uses: actions/cache@v6
-        with:
-          path: |
-            /var/lib/containers/storage
-            /run/containers/storage
-            ~/.local/share/containers/storage
-          key: image-cache
-
-      - name: Login to registry
-        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
-
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
-
-      - name: Build MTUS edition
-        env:
-          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
-        run: ./.ci-scripts/make-edition.sh mario-tennis
-
-  wii-sports-club:
-    runs-on: debian-trixie
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Cache container storage
-        uses: actions/cache@v6
-        with:
-          path: |
-            /var/lib/containers/storage
-            /run/containers/storage
-            ~/.local/share/containers/storage
-          key: image-cache
-
-      - name: Login to registry
-        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
-
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
-
-      - name: Build Wii Sports Club edition
-        env:
-          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
-          DATABASE_URL: ${{ secrets.DATABASE_SMM }}
-        run: ./.ci-scripts/make-edition.sh wii-sports-club
-
-  puyopuyo:
-    runs-on: debian-trixie
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Cache container storage
-        uses: actions/cache@v6
-        with:
-          path: |
-            /var/lib/containers/storage
-            /run/containers/storage
-            ~/.local/share/containers/storage
-          key: image-cache
-
-      - name: Login to registry
-        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
-
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
-
-      - name: Build puyo puyo tetris edition
-        env:
-          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
-          DATABASE_URL: ${{ secrets.DATABASE_SMM }}
-        run: ./.ci-scripts/make-edition.sh puyopuyo
-
-  minecraft-wiiu:
-    runs-on: debian-trixie
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Cache container storage
-        uses: actions/cache@v6
-        with:
-          path: |
-            /var/lib/containers/storage
-            /run/containers/storage
-            ~/.local/share/containers/storage
-          key: image-cache
-
-      - name: Login to registry
-        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
-
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
-
-      - name: Build Minecraft Wii U edition
-        env:
-          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
-        run: ./.ci-scripts/make-edition.sh minecraft-wiiu
-
-  splatoon-testfire:
-    runs-on: debian-trixie
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Cache container storage
-        uses: actions/cache@v6
-        with:
-          path: |
-            /var/lib/containers/storage
-            /run/containers/storage
-            ~/.local/share/containers/storage
-          key: image-cache
-
-      - name: Login to registry
-        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
-
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
-
-      - name: Build Splatoon Testfire edition
-        env:
-          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
-        run: ./.ci-scripts/make-edition.sh splatoon-testfire
-
-  fast-racing-neo:
-    runs-on: debian-trixie
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Cache container storage
-        uses: actions/cache@v6
-        with:
-          path: |
-            /var/lib/containers/storage
-            /run/containers/storage
-            ~/.local/share/containers/storage
-          key: image-cache
-
-      - name: Login to registry
-        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
-
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
-
-      - name: Build Fast Racing NEO edition
-        env:
-          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
-        run: ./.ci-scripts/make-edition.sh fast-racing-neo
-
-  wii-u-chat:
-    runs-on: debian-trixie
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Cache container storage
-        uses: actions/cache@v6
-        with:
-          path: |
-            /var/lib/containers/storage
-            /run/containers/storage
-            ~/.local/share/containers/storage
-          key: image-cache
-
-      - name: Login to registry
-        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
-
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
-
-      - name: Build Wii U Chat edition
-        env:
-          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
-        run: ./.ci-scripts/make-edition.sh wii-u-chat
-
-  splatoon:
-    runs-on: debian-trixie
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Cache container storage
-        uses: actions/cache@v6
-        with:
-          path: |
-            /var/lib/containers/storage
-            /run/containers/storage
-            ~/.local/share/containers/storage
-          key: image-cache
-
-      - name: Login to registry
-        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
-
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
-
-      - name: Build Splatoon edition
-        env:
-          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
-        run: ./.ci-scripts/make-edition.sh splatoon
-
-  friends:
-    runs-on: debian-trixie
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Cache container storage
-        uses: actions/cache@v6
-        with:
-          path: |
-            /var/lib/containers/storage
-            /run/containers/storage
-            ~/.local/share/containers/storage
-          key: image-cache
-
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
-
-      - name: Login to registry
-        run: podman login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
-
-      - name: Build Friends edition
-        env:
-          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
-          DATABASE_URL: ${{ secrets.DATABASE_FRIENDS }}
-        run: ./.ci-scripts/make-edition.sh friends
-
-  super-mario-maker:
-    runs-on: debian-trixie
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Cache container storage
-        uses: actions/cache@v6
-        with:
-          path: |
-            /var/lib/containers/storage
-            /run/containers/storage
-            ~/.local/share/containers/storage
-          key: image-cache
-
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
-
-      - name: Login to registry
-        run: podman login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
-
-      - name: Build Super Mario Maker edition
-        env:
-          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
-          DATABASE_URL: ${{ secrets.DATABASE_SMM }}
-        run: ./.ci-scripts/make-edition.sh super-mario-maker
-
-  terraria:
-    runs-on: debian-trixie
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Cache container storage
-        uses: actions/cache@v6
-        with:
-          path: |
-            /var/lib/containers/storage
-            /run/containers/storage
-            ~/.local/share/containers/storage
-          key: image-cache
-
-      - name: Login to registry
-        run: docker login -u ${{ secrets.PACKAGE_USER }} -p ${{ secrets.PACKAGE_PWD }} git.spbr.net
-
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::6}" >> $GITHUB_ENV
-
-      - name: Build Terraria edition
-        env:
-          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
-          CI_COMMIT_SHORT_SHA: ${{ env.SHORT_SHA }}
-        run: ./.ci-scripts/make-edition.sh terraria
+          SHORT_SHA: ${{ github.sha }}
+          DATABASE_URL: ${{ matrix.db_secret != '' && secrets[matrix.db_secret] || '' }}
+        run: |
+          echo "SHORT_SHA=${SHORT_SHA::6}" >> $GITHUB_ENV
+          export CI_COMMIT_SHORT_SHA="${SHORT_SHA::6}"
+          ./.ci-scripts/make-edition.sh ${{ matrix.edition }}
