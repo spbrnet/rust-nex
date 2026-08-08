@@ -1,3 +1,5 @@
+#[allow(unused)]
+#[allow(unused_imports)]
 use rnex_rmc::response::ErrorCode;
 use rnex_server::{ConnectionInitData, EnvVarError, RnexManager, RnexModule, env_var};
 use std::str::FromStr;

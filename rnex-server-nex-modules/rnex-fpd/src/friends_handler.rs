@@ -1280,11 +1280,17 @@ impl FriendsWiiU for FriendsUser {
     }
 
     async fn update_presence(&self, mut presence: NintendoPresenceV2) -> Result<(), ErrorCode> {
-        if !query!("select principal_preference_show_currently_playing_title from nintendo_network_accounts where pid = $1", self.pid).fetch_one(&self.fm.db).await.map_err(|_| ErrorCode::FPD_InvalidAccount)?.principal_preference_show_currently_playing_title{
+        if !query!("select principal_preference_show_currently_playing_title from nintendo_network_accounts where pid = $1", self.pid)
+            .fetch_one(&self.fm.db)
+            .await
+            .map_err(|_| ErrorCode::FPD_InvalidAccount)?
+            .principal_preference_show_currently_playing_title 
+        {
             presence.game_server_id = 0;
             presence.game_key = friends_wiiu::GameKey::default();
             presence.app_data = vec![];
         }
+        
         if !query!(
             "select principal_preference_show_online from nintendo_network_accounts where pid = $1",
             self.pid
@@ -1295,14 +1301,39 @@ impl FriendsWiiU for FriendsUser {
         .principal_preference_show_online
         {
             presence.is_online = false;
+        } else {
+            presence.is_online = true;
         }
 
-        presence.is_online = true;
         println!("the presence that was sent is: {:?} from pid {:?}", presence, self.pid);
         let data = Any::new(&presence).expect("type error");
         let mut user_presence = self.presence.write().await;
-        *user_presence = Some(presence);
+        *user_presence = Some(presence.clone());
         drop(user_presence);
+
+        let pid_val = self.pid;
+        let presence_payload = serde_json::json!({
+            "pid": self.pid,
+            "is_online": presence.is_online,
+            "game_server_id": presence.game_server_id,
+            "game_key": {
+                "tid": presence.game_key.tid,
+                "version": presence.game_key.version,
+            },
+            "app_data": presence.app_data,
+            "message": presence.message,
+            "changed_flags": presence.changed_flags
+        });
+        tokio::task::spawn_blocking(move || {
+            let presence_server_url = std::env::var("RNEX_PRESENCE_API_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
+            let presence_server_secret = std::env::var("RNEX_PRESENCE_API_SECRET").unwrap_or_else(|_| "no-secret-defined".to_string());
+            let _ = ureq::post(presence_server_url)
+                    .header("Authorization", &format!("Bearer {}", presence_server_secret))
+                    .send_json(serde_json::json!({
+                        "pid": pid_val,
+                        "presence": presence_payload
+                    }));
+        });
 
         let friends = self.maybe_remote_friend.read().await;
         for friend in friends.iter().filter_map(|f| f.1.upgrade()) {
