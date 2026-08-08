@@ -406,7 +406,7 @@ async fn handle_incoming_loop<T: RmcCallable + Send + Sync + Debug + 'static>(
         let notify = notify.clone();
         let incoming = incoming.clone();
         task::spawn(
-            handle_incoming(sending_conn, remote, notify, incoming, data).in_current_span(),
+            handle_incoming(sending_conn, remote, notify, incoming, data),
         );
     }
 
