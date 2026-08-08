@@ -38,7 +38,7 @@ pub mod config {
 
 pub use paste;
 pub use rnex_util as util;
-use tracing::{Instrument, error, info, info_span, instrument};
+use tracing::{error, info, info_span};
 
 use crate::{
     RemoteCallError::ConnectionBroke,
@@ -322,7 +322,6 @@ impl<T: RemoteDisconnectable> RmcCallable for OnlyRemote<T> {
     }
 }
 
-#[instrument]
 async fn handle_incoming<T: RmcCallable + Send + Sync + Debug + 'static>(
     sending_conn: SendingBufferConnection,
     remote: Arc<T>,
@@ -391,18 +390,10 @@ async fn handle_incoming<T: RmcCallable + Send + Sync + Debug + 'static>(
                 )
             }
         }
-        .instrument(info_span!(
-            "rmc call",
-            protocol_id,
-            method_id,
-            call_id,
-            raw_arguments = hex::encode(&rest_of_data),
-        ))
         .await;
     }
 }
 
-#[instrument]
 async fn handle_incoming_loop<T: RmcCallable + Send + Sync + Debug + 'static>(
     mut connection: SplittableBufferConnection,
     remote: Arc<T>,
@@ -441,9 +432,7 @@ where
 
         let sending_conn = conn.duplicate_sender();
 
-        let exposed_object = (create_internal)(rmc_conn)
-            .instrument(info_span!("initializing inner object"))
-            .await;
+        let exposed_object = (create_internal)(rmc_conn).await;
 
         {
             let exposed_object = exposed_object.clone();
@@ -457,15 +446,13 @@ where
                         sending_conn.send([0, 0, 0, 0, 0].to_vec()).await;
                         sleep(Duration::from_secs(10)).await;
                     }
-                }
-                .instrument(info_span!("timeout sender")),
+                },
             );
         }
 
         exposed_object
     }
     // todo: maybe add info on who we're creating the gateway to somehow
-    .instrument(info_span!("create new rmc gateway connection"))
     .await
 }
 
