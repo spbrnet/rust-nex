@@ -1298,7 +1298,7 @@ impl FriendsWiiU for FriendsUser {
         }
 
         presence.is_online = true;
-        println!("the presence that was sent is: {:?}", presence);
+        println!("the presence that was sent is: {:?} from pid {:?}", presence, self.pid);
         let data = Any::new(&presence).expect("type error");
         let mut user_presence = self.presence.write().await;
         *user_presence = Some(presence);
