@@ -2618,6 +2618,7 @@ dependencies = [
 name = "rnex-rk"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "rnex-rk-protos",
  "rnex-rmc",
  "rnex-server",
