@@ -364,15 +364,14 @@ pub fn env_var(name: &'static str) -> Result<String, EnvVarError> {
 
 pub async fn with_setup(f: impl AsyncFnOnce() -> anyhow::Result<()>) {
     println!("setting up logger and dotenv");
+    let options = sentry::ClientOptions::new()
+      .release(rnex_release())
+      .send_default_pii(true);
     dotenv::dotenv().ok();
     let _maybe_sentry = if let Ok(sentry_url) = std::env::var("SENTRY_URL") {
         Some(sentry::init((
             sentry_url,
-            sentry::ClientOptions {
-                release: Some(Cow::Owned(rnex_release())),
-                send_default_pii: true,
-                ..Default::default()
-            },
+            options
         )))
     } else {
         None

@@ -10,7 +10,7 @@ dotenv = "0.15.0"
 paste = "1.0.15"
 rnex-rmc = { path = "../rnex-rmc" }
 rnex-util = { path = "../rnex-util" }
-sentry = { version = "0.48.4", features = ["tracing"] }
+sentry = { version = "0.49.0", features = ["tracing"] }
 thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = ["net"] }
 tracing = "0.1.44"
