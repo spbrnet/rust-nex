@@ -136,8 +136,7 @@ impl MatchmakeManager {
             }
 
             if bool_matched_criteria {
-                let guard = session.lock().await;
-                info!("matched session: {:?}", *guard);
+                println!("matched session: {:?}", session);
 
                 list.push(session.clone());
             }
