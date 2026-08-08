@@ -20,7 +20,7 @@ pub trait MatchmakeExtension {
     #[method_id(4)]
     async fn browse_matchmake_session(
         &self,
-        borwse_criteria: MatchmakeSessionSearchCriteria,
+        browse_criteria: MatchmakeSessionSearchCriteria,
         result_range: ResultsRange,
     ) -> Result<Vec<Any<Gathering>>, ErrorCode>;
     #[method_id(6)]
