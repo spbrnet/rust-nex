@@ -12,6 +12,8 @@ rnex-fpd = {path = "../../rnex-server-nex-modules/rnex-fpd", optional = true}
 rnex-msg = {path = "../../rnex-server-nex-modules/rnex-msg", optional = true}
 rnex-rk = {path = "../../rnex-server-nex-modules/rnex-rk", optional = true}
 tokio = { version = "1.52.3", features = ["time", "sync", "rt-multi-thread"] }
+rnex-server-api = { path = "../../rnex-server-api" }
+tonic = { version = "0.14.6", features = ["transport"] }
 
 [features]
 match-making = ["dep:rnex-mm"]

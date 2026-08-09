@@ -21,7 +21,28 @@ message ApiFeatures {
   repeated ApiFeature api_features = 1;
 }
 
+message Empty {}
+
 service ServerMetaService {
   rpc GetBuildInfo(google.protobuf.Empty) returns (BuildInfo);
   rpc GetApiFeatures(google.protobuf.Empty) returns (ApiFeatures);
+}
+
+message KickPidsRequest {
+  repeated uint64 pids = 1;
+  string reason = 2;
+}
+
+message KickPidsResponse {
+  repeated uint64 kicked = 1;
+  repeated uint64 missing = 2;
+}
+
+message OnlinePidsResponse {
+  repeated uint64 pids = 1;
+}
+
+service AdminService {
+  rpc KickPids(KickPidsRequest) returns (KickPidsResponse);
+  rpc ListOnlinePids(Empty) returns (OnlinePidsResponse);
 }

@@ -2667,6 +2667,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rnex-server-api"
+version = "0.1.0"
+dependencies = [
+ "prost",
+ "tonic",
+ "tonic-prost",
+ "tonic-prost-build",
+]
+
+[[package]]
 name = "rnex-server-backend-auth"
 version = "0.1.0"
 dependencies = [
@@ -2686,7 +2696,9 @@ dependencies = [
  "rnex-msg",
  "rnex-rk",
  "rnex-server",
+ "rnex-server-api",
  "tokio",
+ "tonic",
 ]
 
 [[package]]

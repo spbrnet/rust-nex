@@ -18,6 +18,7 @@ pub use anyhow;
 pub use paste;
 pub use rnex_rmc as rmc;
 use rnex_rmc::{RmcCallable, RmcConnection, RmcSerialize, serialization::RmcSerialize, util::PID};
+use rnex_util::{SendingBufferConnection, SplittableBufferConnection, UnitPacketRead};
 pub use rnex_util as util;
 use thiserror::Error;
 pub use tokio;
@@ -31,6 +32,62 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 pub struct ConnectionInitData {
     pub addr: SocketAddr,
     pub pid: PID,
+}
+#[derive(Debug, Default)]
+pub struct ConnectionRegistry {
+    connections: tokio::sync::RwLock<HashMap<PID, SendingBufferConnection>>,
+}
+
+impl ConnectionRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub async fn register(&self, pid: PID, conn: SendingBufferConnection) {
+        let old = self.connections.write().await.insert(pid, conn);
+        if let Some(old) = old {
+            old.disconnect().await;
+        }
+    }
+
+    pub async fn online_pids(&self) -> Vec<PID> {
+        self.connections.read().await.keys().copied().collect()
+    }
+
+    pub async fn kick(&self, pid: PID) -> bool {
+        let Some(conn) = self.connections.write().await.remove(&pid) else {
+            return false;
+        };
+
+        conn.disconnect().await;
+        true
+    }
+
+    pub async fn kick_many(
+        &self,
+        pids: impl IntoIterator<Item = PID>,
+    ) -> (Vec<PID>, Vec<PID>) {
+        let mut kicked = Vec::new();
+        let mut missing = Vec::new();
+
+        for pid in pids {
+            if self.kick(pid).await {
+                kicked.push(pid);
+            } else {
+                missing.push(pid);
+            }
+        }
+
+        (kicked, missing)
+    }
+}
+
+static CONNECTION_REGISTRY: OnceLock<Arc<ConnectionRegistry>> = OnceLock::new();
+
+pub fn connection_registry() -> Arc<ConnectionRegistry> {
+    CONNECTION_REGISTRY
+        .get_or_init(|| Arc::new(ConnectionRegistry::new()))
+        .clone()
 }
 #[derive(Debug, Default)]
 pub struct ModuleHolder {
@@ -273,7 +330,13 @@ macro_rules! launch_rnex_module_server {
                             return;
                         };
 
-                        $crate::rmc::new_rmc_gateway_connection(stream.into(),
+                        let stream = <$crate::util::SplittableBufferConnection as From<_>>::from(stream);
+                        $crate::connection_registry()
+                            .register(conn_data.pid, stream.duplicate_sender())
+                            .await;
+
+                        $crate::rmc::new_rmc_gateway_connection(
+                            stream,
                             async |r| {
                                $crate::tracing::info!("creating module holder for module users");
                                let mut holder = $crate::ModuleHolder::default();
