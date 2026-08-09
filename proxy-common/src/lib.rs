@@ -44,7 +44,7 @@ impl Into<Error> for (&'static str, AddrParseError) {
 
 pub struct ProxyStartupParam {
     pub forward_destination: SocketAddr,
-    pub edge_node_holder: SocketAddr,
+    // pub edge_node_holder: SocketAddr,
     pub self_public: SocketAddrV4,
     pub self_private: SocketAddrV4,
     pub virtual_port: VirtualPort,
@@ -85,7 +85,7 @@ impl ProxyStartupParam {
 
         Ok(Self {
             forward_destination: try_get_env("FORWARD_DESTINATION")?,
-            edge_node_holder: try_get_env("EDGE_NODE_HOLDER")?,
+            // edge_node_holder: try_get_env("EDGE_NODE_HOLDER")?,
             self_private,
             self_public,
             virtual_port: match prox_ty {

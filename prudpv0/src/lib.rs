@@ -14,12 +14,12 @@ cfg_if! {
         mod packet;
         mod server;
 
-        pub static EDGE_NODE_HOLDER: LazyLock<SocketAddrV4> = LazyLock::new(|| {
-            env::var("EDGE_NODE_HOLDER")
-                .ok()
-                .and_then(|s| s.parse().ok())
-                .expect("EDGE_NODE_HOLDER not set")
-        });
+        // pub static EDGE_NODE_HOLDER: LazyLock<SocketAddrV4> = LazyLock::new(|| {
+        //     env::var("EDGE_NODE_HOLDER")
+        //         .ok()
+        //         .and_then(|s| s.parse().ok())
+        //         .expect("EDGE_NODE_HOLDER not set")
+        // });
 
         pub static FORWARD_DESTINATION: LazyLock<SocketAddrV4> = LazyLock::new(|| {
             env::var("FORWARD_DESTINATION")

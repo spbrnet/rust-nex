@@ -15,7 +15,7 @@ cfg_if! {
     }
 }
 
-pub fn edge_node_dc_callback() {
-    error!("disconnected from node holder, aborting!");
-    abort()
-}
+// pub fn edge_node_dc_callback() {
+//     error!("disconnected from node holder, aborting!");
+//     abort()
+// }
