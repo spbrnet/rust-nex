@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 rnex-rmc = { path = "../../rnex-rmc" }
 rnex-auth-protos = { path = "../../rnex-protocols/auth-protos" }
-rnex-reggie-protos = { path = "../../rnex-protocols/reggie-protos" }
 rnex-server = { path = "../../rnex-server" }
 rnex-prudp = { path = "../../rnex-prudp" }
 hex = "0.4.3"
@@ -17,6 +16,7 @@ tracing = "0.1.44"
 cfg-if = "1.0.4"
 anyhow = "1.0.103"
 tokio = { version = "1.52.3", features = ["net"] }
+thiserror = "2.0.20"
 
 [features]
 rmc_struct_header = []

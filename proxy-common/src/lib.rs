@@ -1,8 +1,7 @@
 use rnex_prudp::{socket_addr::PRUDPSockAddr, virtual_port::VirtualPort};
-use rnex_reggie_protos::reggie::{EdgeNodeHolderConnectOption, RemoteEdgeNodeHolder};
 use rnex_rmc::{
     RemoteDisconnectable, RmcCallable, RmcConnection, RmcPureRemoteObject,
-    new_rmc_gateway_connection, serialization::RmcSerialize,
+    serialization::RmcSerialize,
 };
 use rnex_server::{ConnectionInitData, try_get_ip};
 use rnex_util::{PID, SendingBufferConnection, SplittableBufferConnection, UnitPacketWrite};
@@ -13,7 +12,7 @@ use std::{
     ops::Deref,
     panic,
     str::FromStr,
-    sync::{Arc, LazyLock},
+    sync::LazyLock,
 };
 use thiserror::Error;
 use tokio::net::TcpStream;
@@ -120,6 +119,7 @@ impl<T: RemoteDisconnectable, C: FnOnce() + Send + Sync + 'static> Deref for OnR
 impl<T: RemoteDisconnectable + RmcPureRemoteObject, C: FnOnce() + Send + Sync + 'static>
     OnRemoteDrop<T, C>
 {
+    #[allow(dead_code)]
     pub fn new(conn: RmcConnection, drop_func: C) -> Self {
         Self(T::new(conn), Some(drop_func))
     }
@@ -150,34 +150,6 @@ impl<T: RemoteDisconnectable, C: FnOnce() + Send + Sync + 'static> Drop for OnRe
     fn drop(&mut self) {
         self.1.take().unwrap()();
     }
-}
-
-pub async fn setup_edge_node_connection(
-    param: &ProxyStartupParam,
-    shutdown_callback: impl FnOnce() + Send + Sync + 'static,
-) {
-    let conn = tokio::net::TcpStream::connect(&param.edge_node_holder)
-        .await
-        .unwrap();
-
-    let conn: SplittableBufferConnection = conn.into();
-
-    conn.send(
-        EdgeNodeHolderConnectOption::Register(param.self_public)
-            .to_data()
-            .unwrap(),
-    )
-    .await;
-
-    println!("{:?}", param.self_public);
-    //leave the inner object floating so that it gets destroyed once we disconnect
-    new_rmc_gateway_connection(conn, async move |r| {
-        Arc::new(OnRemoteDrop::<RemoteEdgeNodeHolder, _>::new(
-            r,
-            shutdown_callback,
-        ))
-    })
-    .await;
 }
 
 pub async fn new_backend_connection(

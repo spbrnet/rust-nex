@@ -21,7 +21,7 @@ cp $TARGET_DIR/proxy_secure dist/
 cp $TARGET_DIR/rnex-server-backend-auth dist/
 cp $TARGET_DIR/rnex-server-backend-secure dist/
 
-TARGETS=("node-holder" "proxy-secure" "proxy-insecure" "backend-auth" "backend-secure")
+TARGETS=("proxy-secure" "proxy-insecure" "backend-auth" "backend-secure")
 
 for TARGET in "${TARGETS[@]}"; do
     $RNEX_CONTAINER_PLATFORM build \

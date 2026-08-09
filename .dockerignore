@@ -3,10 +3,8 @@ target
 .dockerignore
 Dockerfile
 CODE_OF_CONDUCT.md
-CONTRIBUTING.md
 README.md
 .gitignore
 LICENSE
-.devcontainer.json
-.ci-scripts/make-edition.sh
+.forgejo/workflows/build.sh
 .forgejo/workflows/build.yml

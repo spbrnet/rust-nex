@@ -2160,7 +2160,6 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "rnex-prudp",
- "rnex-reggie-protos",
  "rnex-rmc",
  "rnex-server",
  "rnex-util",
@@ -2422,9 +2421,9 @@ dependencies = [
  "rand 0.10.2",
  "rnex-auth-protos",
  "rnex-prudp",
- "rnex-reggie-protos",
  "rnex-rmc",
  "rnex-server",
+ "thiserror",
  "tokio",
  "tonic",
  "tracing",
@@ -2582,16 +2581,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rnex-node-holder"
-version = "0.1.0"
-dependencies = [
- "rnex-reggie-protos",
- "rnex-rmc",
- "rnex-server",
- "tokio",
-]
-
-[[package]]
 name = "rnex-prudp"
 version = "0.1.0"
 dependencies = [
@@ -2605,15 +2594,6 @@ dependencies = [
  "tracing",
  "typenum",
  "v-byte-helpers",
-]
-
-[[package]]
-name = "rnex-reggie-protos"
-version = "0.1.0"
-dependencies = [
- "ctor",
- "rnex-rmc",
- "tracing",
 ]
 
 [[package]]
@@ -2691,16 +2671,6 @@ name = "rnex-server-backend-auth"
 version = "0.1.0"
 dependencies = [
  "rnex-auth",
- "rnex-server",
- "tokio",
-]
-
-[[package]]
-name = "rnex-server-backend-node-holder"
-version = "0.1.0"
-dependencies = [
- "rnex-node-holder",
- "rnex-reggie-protos",
  "rnex-server",
  "tokio",
 ]

@@ -360,8 +360,6 @@ impl<T: CryptoHandler> InternalSocket<T> {
     async fn connection_thread(
         connection: Weak<InternalConnectionMutex<T::CryptoConnectionInstance>>,
     ) {
-        //todo: handle stuff like resending packets if they arent acknowledged in here
-
         while let Some(conn) = connection.upgrade() {
             let mut conn = conn.lock().await;
 

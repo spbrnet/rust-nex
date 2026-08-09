@@ -62,4 +62,4 @@ jobs:
         run: |
           echo "SHORT_SHA=${SHORT_SHA::6}" >> $GITHUB_ENV
           export CI_COMMIT_SHORT_SHA="${SHORT_SHA::6}"
-          ./.ci-scripts/make-edition.sh ${{ matrix.edition }}
+          ./.forgejo/workflows/build.sh ${{ matrix.edition }}

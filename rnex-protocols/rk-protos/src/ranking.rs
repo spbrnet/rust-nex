@@ -1,12 +1,13 @@
 use bytemuck::{Pod, Zeroable};
 use rnex_base_protos::ResultsRange;
 use rnex_rmc::{
-    RmcSerialize, method_id,
+    RmcSerialize,
     qbuffer::QBuffer,
-    response::ErrorCode,
     rmc_proto,
     util::{PID, date_time::DateTime},
 };
+#[cfg(feature = "splatoon")]
+use rnex_rmc::{method_id, response::ErrorCode};
 
 #[derive(RmcSerialize, Debug)]
 #[rmc_struct(0)]

@@ -1,9 +1,5 @@
-use std::{
-    hash::{DefaultHasher, Hasher},
-    net::SocketAddrV4,
-    sync::LazyLock,
-};
-
+use std::{env, hash::{DefaultHasher, Hasher}, net::SocketAddrV4, sync::LazyLock};
+use std::str::FromStr;
 use cfg_if::cfg_if;
 use nex_account::{grpc, grpc_client};
 use rnex_auth_protos::{
@@ -11,7 +7,6 @@ use rnex_auth_protos::{
     auth::{Auth, ConnectionData, ConnectionDataOld},
 };
 use rnex_prudp::kerberos::{Ticket, TicketInternalData};
-use rnex_reggie_protos::reggie::RemoteEdgeNodeManagement;
 use rnex_rmc::{
     any::Any,
     qresult::QResult,
@@ -47,6 +42,14 @@ pub fn generate_ticket(
     }
     .encrypt(source_key, &encrypted_inner)
 }
+
+fn try_get_env<T: FromStr>(name: &'static str) -> Result<T, ErrorCode> {
+    env::var(name)
+        .ok()
+        .and_then(|val| val.parse::<T>().ok())
+        .ok_or(ErrorCode::Core_Unknown)
+}
+
 pub fn generate_ticket_with_string_user_key(
     source_act: PID,
     dest_act_login_data: (PID, [u8; 16]),
@@ -193,9 +196,14 @@ impl Auth for AuthHandler {
 
         hasher.write(name.as_bytes());
 
-        let Ok(addr) = self.am.control_server.get_url(hasher.finish()).await else {
-            warn!("no secure proxies");
-            return Err(ErrorCode::Core_Exception);
+        // let Ok(addr) = self.am.control_server.get_url(hasher.finish()).await else {
+        //     warn!("no secure proxies");
+        //     return Err(ErrorCode::Core_Exception);
+        // };
+
+        let addr = match try_get_env("FORWARD_DESTINATION") {
+            Ok(val) => val,
+            Err(e) => return Err(e),
         };
 
         let connection_data = ConnectionDataOld {
@@ -231,9 +239,14 @@ impl Auth for AuthHandler {
 
                 hasher.write(name.as_bytes());
 
-                let Ok(addr) = self.control_server.get_url(hasher.finish()).await else {
-                    warn!("no secure proxies");
-                    return Err(ErrorCode::Core_Exception);
+                // let Ok(addr) = self.control_server.get_url(hasher.finish()).await else {
+                //     warn!("no secure proxies");
+                //     return Err(ErrorCode::Core_Exception);
+                // };
+
+                let addr = match try_get_env("FORWARD_DESTINATION") {
+                    Ok(val) => val,
+                    Err(e) => return Err(e),
                 };
 
                 let connection_data = ConnectionData {
@@ -291,9 +304,14 @@ impl Auth for AuthHandler {
 
                 hasher.write(name.as_bytes());
 
-                let Ok(addr) = self.am.control_server.get_url(hasher.finish()).await else {
-                    warn!("no secure proxies");
-                    return Err(ErrorCode::Core_Exception);
+                // let Ok(addr) = self.am.control_server.get_url(hasher.finish()).await else {
+                //     warn!("no secure proxies");
+                //     return Err(ErrorCode::Core_Exception);
+                // };
+
+                let addr = match try_get_env("FORWARD_DESTINATION") {
+                    Ok(val) => val,
+                    Err(e) => return Err(e),
                 };
 
                 let connection_data = ConnectionData {

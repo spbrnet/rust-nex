@@ -5,10 +5,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
-FROM base AS node-holder
-COPY dist/rnex-server-backend-node-holder /rnex-server-backend-node-holder
-ENTRYPOINT ["/rnex-server-backend-node-holder"]
-
 FROM base AS proxy-insecure
 COPY dist/proxy_insecure /proxy_insecure
 ENTRYPOINT ["/proxy_insecure"]
