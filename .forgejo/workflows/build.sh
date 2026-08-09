@@ -15,7 +15,6 @@ export TARGET_DIR="target/release"
 ./build-edition.sh
 
 mkdir -p dist/
-cp $TARGET_DIR/rnex-server-backend-node-holder dist/
 cp $TARGET_DIR/proxy_insecure dist/
 cp $TARGET_DIR/proxy_secure dist/
 cp $TARGET_DIR/rnex-server-backend-auth dist/
