@@ -59,6 +59,23 @@ cfg_if! {
             pub user_password_enabled: bool,
             pub system_password_enabled: bool,
         }
+    } else if #[cfg(feature = "v3-4-7")] {
+        #[derive(RmcSerialize, Debug, Clone, Default, PartialEq)]
+        #[rmc_struct(0)]
+        pub struct MatchmakeSession {
+            //inherits from
+            #[extends]
+            pub gathering: Gathering,
+
+            pub gamemode: u32,
+            pub attributes: Vec<u32>,
+            pub open_participation: bool,
+            pub matchmake_system_type: u32,
+            pub application_buffer: Vec<u8>,
+            pub participation_count: u32,
+            pub progress_score: u8,
+            pub session_key: Vec<u8>,
+        }
     } else {
         #[derive(RmcSerialize, Debug, Clone, Default, PartialEq)]
         #[rmc_struct(0)]
@@ -97,6 +114,21 @@ cfg_if! {
             pub exclude_user_password_set: bool,
             pub exclude_system_password_set: bool,
             pub refer_gid: u32,
+        }
+    } else if #[cfg(feature = "v3-4-7")] {
+        #[derive(RmcSerialize, Debug, Clone)]
+        #[rmc_struct(0)]
+        pub struct MatchmakeSessionSearchCriteria {
+            pub attribs: Vec<String>,
+            pub game_mode: String,
+            pub minimum_participants: String,
+            pub maximum_participants: String,
+            pub matchmake_system_type: String,
+            pub vacant_only: bool,
+            pub exclude_locked: bool,
+            pub exclude_non_host_pid: bool,
+            pub selection_method: u32,
+            pub vacant_participants: u16,
         }
     } else {
         #[derive(RmcSerialize, Debug, Clone)]
@@ -213,6 +245,8 @@ pub trait Matchmake {
     async fn get_detailed_participants(&self, gid: u32) -> Result<Vec<ParticipantDetails>, ErrorCode>;
     #[method_id(21)]
     async fn find_by_single_id(&self, gid: u32) -> Result<(bool, Any<Gathering>), ErrorCode>;
+    #[method_id(40)]
+    async fn update_session_host_v1(&self, gid: u32) -> Result<(), ErrorCode>;
     #[method_id(41)]
     async fn get_session_urls(&self, gid: u32) -> Result<Vec<StationUrl>, ErrorCode>;
     #[method_id(42)]

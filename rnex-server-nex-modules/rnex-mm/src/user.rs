@@ -24,7 +24,7 @@ use rnex_util::{
 };
 use tokio::sync::Mutex;
 use tracing::info;
-
+use rnex_mm_protos::matchmake::gathering_flags;
 use crate::matchmake::{ExtendedMatchmakeSession, MatchmakeManager};
 
 /*cfg_if! {
@@ -108,7 +108,7 @@ impl MatchmakeExtension for MatchmakeUser {
         browse_criteria: MatchmakeSessionSearchCriteria,
         result_range: ResultsRange,
     ) -> Result<Vec<Any<Gathering>>, ErrorCode> {
-        info!("browsing matchmake sessions with criteria: {:?}", browse_criteria);
+        println!("browsing matchmake sessions with criteria: {:?}", browse_criteria);
 
         let results = self
             .matchmake_manager
@@ -116,20 +116,20 @@ impl MatchmakeExtension for MatchmakeUser {
             .await?;
 
         let mm_list = result_range.make_from_list(&results[..]);
-        info!("filtered mm_list count: {}", mm_list.len());
+        println!("filtered mm_list count: {}", mm_list.len());
 
         let mut list = Vec::with_capacity(mm_list.len());
 
         for (index, mm_sess) in mm_list.iter().enumerate() {
             let mm_sess_guard = mm_sess.lock().await;
             
-            info!("processing session [{}]: {:?}", index, *mm_sess_guard);
+            println!("processing session [{}]: {:?}", index, *mm_sess_guard);
 
             let gathering_any = Any::new(&mm_sess_guard.session).expect("type error");
             list.push(gathering_any);
         }
 
-        info!("successfully collected {} sessions into output list", list.len());
+        println!("successfully collected {} sessions into output list", list.len());
 
         Ok(list)
     }
@@ -153,7 +153,7 @@ impl MatchmakeExtension for MatchmakeUser {
         &self,
         create_session_param: CreateMatchmakeSessionParam,
     ) -> Result<MatchmakeSession, ErrorCode> {
-        info!("session paramater: {:?}", create_session_param);
+        println!("session paramater: {:?}", create_session_param);
 
         let gid = self.matchmake_manager.next_gid();
 
@@ -269,7 +269,7 @@ impl MatchmakeExtension for MatchmakeUser {
         &self,
         param: AutoMatchmakeParam,
     ) -> Result<MatchmakeSession, ErrorCode> {
-        info!("autommparam: {:?}", param);
+        println!("autommparam: {:?}", param);
 
         let mut joining_players = vec![self.this.clone()];
 
@@ -315,7 +315,7 @@ impl MatchmakeExtension for MatchmakeUser {
 
         drop(sessions);
 
-        info!("making new session!");
+        println!("making new session!");
 
         let AutoMatchmakeParam {
             join_message,
@@ -366,7 +366,7 @@ impl MatchmakeExtension for MatchmakeUser {
         gathering: Any<Gathering>,
         message: String,
     ) -> Result<(u32, Vec<u8>), ErrorCode> {
-        info!("gathering: {:?}", gathering);
+        println!("gathering: {:?}", gathering);
         let session: MatchmakeSession = gathering.try_get_as()?;
 
         let session = self
@@ -485,7 +485,7 @@ impl MatchmakeExtension for MatchmakeUser {
     ) -> Result<Any<Gathering>, ErrorCode> {
         let session: MatchmakeSession = gathering.try_get_as()?;
 
-        info!("automm criteria: {:?}", criteria);
+        println!("automm criteria: {:?}", criteria);
 
         let session = self
             .auto_matchmake_with_param_postpone(AutoMatchmakeParam {
@@ -653,6 +653,17 @@ impl Matchmake for MatchmakeUser {
         }
 
         Ok(participant_details)
+    }
+
+    async fn update_session_host_v1(&self, gid: u32) -> Result<(), ErrorCode> {
+        let should_migrate_owner = {
+            let session = self.matchmake_manager.get_session(gid).await?;
+            let session = session.lock().await;
+
+            (session.session.gathering.flags & gathering_flags::PARTICIPANTS_CHANGE_OWNER) != 0
+        };
+
+        self.update_session_host(gid, should_migrate_owner).await
     }
 }
 

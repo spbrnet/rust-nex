@@ -27,8 +27,7 @@ wii-sports-club:
   include-in-checkall: true
   features:
     - prudpv1
-    - third-notif-param
-    - v3-8-15
+    - v3-4-7
     - match-making
     - ranking
     - datastore

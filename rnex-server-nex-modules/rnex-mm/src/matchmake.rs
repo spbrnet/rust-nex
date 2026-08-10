@@ -70,7 +70,7 @@ impl MatchmakeManager {
     }
 
     async fn garbage_collect(&self) {
-        info!("running rnex garbage collector over all sessions and users");
+        println!("running rnex garbage collector over all sessions and users");
 
         let mut idx = 0;
 
@@ -121,24 +121,35 @@ impl MatchmakeManager {
     ) -> Result<Vec<Arc<Mutex<ExtendedMatchmakeSession>>>, ErrorCode> {
         let sessions = self.sessions.read().await;
         let mut list = Vec::with_capacity(sessions.len());
-        for session in sessions.values() {
+
+        for (key, session) in sessions.iter() {
             let inner_session = session.lock().await;
+
             if !inner_session.is_joinable() {
+                println!("dropped session {:?}: not joinable", key);
                 continue;
             }
 
             let mut bool_matched_criteria = false;
 
             for criteria in criterias {
-                if inner_session.matches_criteria(criteria)? {
-                    bool_matched_criteria = true;
+                match inner_session.matches_criteria(criteria) {
+                    Ok(true) => {
+                        bool_matched_criteria = true;
+                    }
+                    Ok(false) => {}
+                    Err(e) => {
+                        println!("dropped session {:?}: criteria check returned error {:?}", key, e);
+                        return Err(e);
+                    }
                 }
             }
 
             if bool_matched_criteria {
                 println!("matched session: {:?}", session);
-
                 list.push(session.clone());
+            } else {
+                println!("dropped session {:?}: did not match any criteria", key);
             }
         }
 
@@ -357,11 +368,23 @@ impl ExtendedMatchmakeSession {
     }
 
     pub fn has_min_active_players(&self) -> bool {
-        self.connected_players
+        let required = self.session.gathering.minimum_participants as usize;
+
+        let active_count = self
+            .connected_players
             .iter()
-            .filter(|v| v.upgrade().is_some())
-            .count()
-            >= self.session.gathering.minimum_participants as _
+            .filter_map(|v| v.upgrade())
+            .filter(|player| {
+                true
+            })
+            .count();
+
+        println!(
+            "[DEBUG] has_min_active_players: active_count={}, required={}",
+            active_count, required
+        );
+
+        active_count >= required
     }
 
     #[inline]
@@ -372,20 +395,53 @@ impl ExtendedMatchmakeSession {
 
     #[inline]
     pub fn is_reachable(&self) -> bool {
-        self.get_active_players()
-            .any(|v| v.base.pid == self.session.gathering.host_pid)
-            && (if self.session.gathering.flags & PERSISTENT_GATHERING != 0 {
-                if self.has_min_active_players() {
-                    true
-                } else {
-                    self.session.open_participation
-                }
+        let host_pid = self.session.gathering.host_pid;
+        let host_active = self
+            .get_active_players()
+            .any(|v| v.base.pid == host_pid);
+
+        let is_persistent = (self.session.gathering.flags & PERSISTENT_GATHERING) != 0;
+        let has_min_players = self.has_min_active_players();
+        let open_part = self.session.open_participation;
+
+        #[cfg(feature = "v3-4-7")]
+        let persistent_check_passed = if is_persistent || open_part {
+            has_min_players || open_part
+        } else {
+            has_min_players
+        };
+
+        #[cfg(not(feature = "v3-4-7"))]
+        let persistent_check_passed = (if is_persistent {
+            if has_min_players {
+                true
             } else {
-                self.has_min_active_players()
-            }) & self.has_min_active_players()
+                open_part
+            }
+        } else {
+            has_min_players
+        }) & has_min_players;
+
+        let result = host_active && persistent_check_passed;
+
+        println!(
+            "[DEBUG] is_reachable: host_active={}, host_pid={}, is_persistent={}, has_min_players={}, open_participation={}, persistent_check_passed={}, final_result={}",
+            host_active,
+            host_pid,
+            is_persistent,
+            has_min_players,
+            open_part,
+            persistent_check_passed,
+            result
+        );
+
+        result
     }
+
     #[inline]
     pub fn is_joinable(&self) -> bool {
+        #[cfg(feature = "v3-4-7")]
+        let is_open = true;
         #[cfg(not(feature = "splatoon"))]
         let is_open = self.session.open_participation;
         #[cfg(feature = "splatoon")]
