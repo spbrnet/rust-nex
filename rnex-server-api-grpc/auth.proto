@@ -1,0 +1,13 @@
+syntax = "proto3";
+package auth;
+
+message MaintenanceState {
+  bool enabled = 1;
+}
+
+message Empty {}
+
+service AuthAdminService {
+  rpc SetMaintenance(MaintenanceState) returns (Empty);
+  rpc GetMaintenance(Empty) returns (MaintenanceState);
+}

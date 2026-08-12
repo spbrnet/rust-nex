@@ -25,3 +25,5 @@ big_pid = []
 rnex-server = {path = ".."}
 rnex-auth = {path = "../../rnex-server-nex-modules/rnex-auth"}
 tokio = { version = "1.52.3", features = ["rt-multi-thread"] }
+rnex-server-api = { path = "../../rnex-server-api" }
+tonic = { version = "0.14.6", features = ["transport"] }

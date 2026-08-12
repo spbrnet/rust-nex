@@ -2682,7 +2682,9 @@ version = "0.1.0"
 dependencies = [
  "rnex-auth",
  "rnex-server",
+ "rnex-server-api",
  "tokio",
+ "tonic",
 ]
 
 [[package]]

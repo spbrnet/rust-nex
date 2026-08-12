@@ -4,3 +4,7 @@ pub mod meta {
 pub mod gatherings {
     tonic::include_proto!("gatherings");
 }
+
+pub mod auth {
+    tonic::include_proto!("auth");
+}

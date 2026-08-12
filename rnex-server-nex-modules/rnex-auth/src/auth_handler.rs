@@ -18,7 +18,7 @@ use rnex_rmc::{
 use rnex_server::PassthroughInitModule;
 use tracing::{info, warn};
 
-use crate::AuthManager;
+use crate::{AuthManager, is_maintenance};
 
 #[derive(Debug)]
 #[rmc_struct(AuthProtocol)]
@@ -188,6 +188,10 @@ impl Auth for AuthHandler {
         &self,
         name: String,
     ) -> Result<(QResult, PID, Vec<u8>, ConnectionDataOld, String), ErrorCode> {
+        if is_maintenance() {
+            return Err(ErrorCode::RendezVous_GameServerMaintenance);
+        }
+
         let (pid, ticket) = self.generate_ticket_from_name(&name).await?;
 
         let result = QResult::success(ErrorCode::Core_Unknown);
@@ -231,6 +235,10 @@ impl Auth for AuthHandler {
                 name: String,
                 _extra_data: Any,
             ) -> Result<(QResult, PID, Vec<u8>, ConnectionData, String, String), ErrorCode> {
+                if is_maintenance() {
+                    return Err(ErrorCode::RendezVous_GameServerMaintenance);
+                }
+
                 let (pid, key, ticket) = self.generate_ticket_from_name_string_user_key(&name).await?;
 
                 let result = QResult::success(Core_Unknown);
@@ -296,6 +304,10 @@ impl Auth for AuthHandler {
                 name: String,
                 _extra_data: Any,
             ) -> Result<(QResult, PID, Vec<u8>, ConnectionData, String), ErrorCode> {
+                if is_maintenance() {
+                    return Err(ErrorCode::RendezVous_GameServerMaintenance);
+                }
+
                 let (pid, ticket) = self.generate_ticket_from_name(&name).await?;
 
                 let result = QResult::success(ErrorCode::Core_Unknown);

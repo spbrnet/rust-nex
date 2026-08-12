@@ -7,6 +7,26 @@ use rnex_server::{ConnectionInitData, RnexManager, RnexModule, WeakPassthroughIn
 use tracing::info;
 
 use crate::auth_handler::AuthHandler;
+use std::sync::{
+    Arc, OnceLock,
+    atomic::{AtomicBool, Ordering},
+};
+
+static MAINTENANCE: OnceLock<Arc<AtomicBool>> = OnceLock::new();
+
+pub fn maintenance_flag() -> Arc<AtomicBool> {
+    MAINTENANCE
+        .get_or_init(|| Arc::new(AtomicBool::new(false)))
+        .clone()
+}
+
+pub fn set_maintenance(on: bool) {
+    maintenance_flag().store(on, Ordering::Relaxed);
+}
+
+pub fn is_maintenance() -> bool {
+    maintenance_flag().load(Ordering::Relaxed)
+}
 
 #[derive(Debug)]
 pub struct AuthManager {
