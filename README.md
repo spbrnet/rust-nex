@@ -1,16 +1,29 @@
-# Rust NEX monorepo
+# Rust NEX MonoRepo
 
-This repo contains the code for all game servers using RNEX.
+Rust-Nex (referred to as RNEX,) is a modern, performance first replacement for Nintendo's NEX.
 
-## Credits:
-- Kinnay for his huge work on reversing nex servers and documentation(https://github.com/Kinnay/NintendoClients/)
-- Splatfestival testing team for helping us test our messes of code
-- The SPFN team(redbinder0526, bloxerhd, kittentm, et al.)
-- Pretendo team for their reverse engineering efforts 
+Nintendo didn't exactly build NEX themselves, they built it upon [Quazal](https://web.archive.org/web/20161030054749/http://quazal.com/index.html)'s (now owned by Ubisoft,) [Rendez-vous](https://web.archive.org/web/20161030054839/http://quazal.com/rendez-vous.htm). It is speculated that Nintendo offered NEX in C++.
 
-This NEX implementation was not created to rival Pretendo, we don't want any bad blood between anyone.
-This project would never have been possible without their reverse engineering efforts.
-As such if you want to respect the Authors wishes, do not use it if you mean any harm to Pretendo. (harm falls under e.g. using this software while also sabotaging pretendo) If you do show intent to harm them you will be blocked from ever contributing and will be refused support.
+## Overview
+At the highest level, NEX provides a bunch of [services](https://github.com/kinnay/NintendoClients/wiki/NEX-Protocols). Each service provides one or more methods. To achieve this, NEX uses a simple [RMC protocol](https://github.com/kinnay/NintendoClients/wiki/RMC-Protocol) (remote method call). Whenever a game wants to call a method on a service, NEX builds an RMC request and sends it through the underlying connection.
 
-We felt like this needed to be said as there are far too many Pretendo copycats who blatantly copy their code and use their reversal efforts with no credits in sight in an attempt to harm them for some grudge or stupid reason. 
-We feel that by working together and not against each other we can reach a better and healthier future for the community, health of developers and numerous more reasons.
+The underlying protocol varies per game and platform. Originally, the purpose of [PRUDP](https://github.com/kinnay/NintendoClients/wiki/PRUDP-Protocol) was to reliably send UDP packets. Starting with Nintendo Switch, NEX also supports TCP and WebSocket as underlying protocol however.
+
+<table>
+  <tr>
+    <td><b>3DS</b></td><td>Packets are encoded using <a href="https://github.com/kinnay/NintendoClients/wiki/PRUDP-Protocol#v0-format">PRUDP V0</a> or <a href="https://github.com/kinnay/NintendoClients/wiki/PRUDP-Protocol#v1-format">PRUDP V1</a></td>
+  </tr>
+  <tr>
+    <td><b>Wii U</b></td><td>Packets are normally encoded using <a href="https://github.com/kinnay/NintendoClients/wiki/PRUDP-Protocol#v1-format">PRUDP V1</a>. Only one server still uses <a href="https://github.com/kinnay/NintendoClients/wiki/PRUDP-Protocol#v0-format">PRUDP V0</a>: the friends server.</td>
+  </tr>
+  <tr>
+    <td><b>Switch</b></td><td>Switch games use <a href="https://github.com/kinnay/NintendoClients/wiki/PRUDP-Protocol#lite-format">PRUDP Lite</a> on top of WebSockets.</td>
+  </tr>
+</table>
+
+###### Excerpt sourced from [Kinnay's Nintendo Clients.](https://github.com/kinnay/NintendoClientsWiki/blob/master/NEX-Overview-(Game-Servers).md) Mystiko does not host it's own NEX documentation, instead contributing to third parties already existing documentation.
+
+## Attribution
+Rust-Nex is the only service offered by Mystiko that is AGPL. RNEX is free for all to use!
+
+### Thank you to all contributors and all testers! Your help is appreciated :3
