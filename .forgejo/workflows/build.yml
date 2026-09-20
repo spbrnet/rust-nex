@@ -56,7 +56,7 @@ jobs:
 
       - name: Set environment variables & build
         env:
-          CI_REGISTRY_IMAGE: git.spbr.net/spacebar/rust-nex
+          CI_REGISTRY_IMAGE: git.spbr.net/mystiko/rust-nex
           SHORT_SHA: ${{ github.sha }}
           DATABASE_URL: ${{ matrix.db_secret != '' && secrets[matrix.db_secret] || '' }}
         run: |
