@@ -1,10 +1,16 @@
 use bytemuck::{Pod, Zeroable};
 use std::fmt::{Debug, Formatter};
-use v_byte_helpers::SwapEndian;
+use rnex_util::byte::SwapEndian;
 
 #[repr(transparent)]
-#[derive(PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Pod, Zeroable, SwapEndian, Hash, Default)]
+#[derive(PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Pod, Zeroable, Hash, Default)]
 pub struct VirtualPort(pub u8);
+
+impl SwapEndian for VirtualPort {
+    fn swap_endian(self) -> Self {
+        self
+    }
+}
 
 impl VirtualPort {
     #[inline]

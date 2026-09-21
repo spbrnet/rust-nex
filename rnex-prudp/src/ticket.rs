@@ -3,7 +3,7 @@ use std::io::Cursor;
 use rc4::{KeyInit, Rc4, StreamCipher};
 use rnex_util::{PID, account::Account};
 use tracing::error;
-use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
+use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions};
 
 use crate::{
     kerberos::{SESSION_KEY_LENGTH, TicketInternalData},

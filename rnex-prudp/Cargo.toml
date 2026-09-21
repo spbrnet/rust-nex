@@ -13,7 +13,6 @@ rnex-util = { path = "../rnex-util" }
 bytemuck = { version = "1.25.0", features = ["derive"] }
 rand = "0.10.2"
 tracing = "0.1.44"
-v-byte-helpers = { git = "https://github.com/RusticMaple/VByteMacros", version = "0.1.1" }
 
 [features]
 splatoon = ["v3-5-0"]

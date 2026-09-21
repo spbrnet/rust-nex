@@ -1,13 +1,41 @@
+use hmac::{Hmac, KeyInit, Mac};
 use md5::{Digest, Md5};
-use nex_account::{grpc::Pid, grpc_client};
+use thiserror::Error;
 
 use crate::PID;
+
+type HmacMd5 = Hmac<Md5>;
+
+pub fn derive_pid_hmac(pid: PID, key: &str) -> [u8; 16] {
+    let mut mac = HmacMd5::new_from_slice(key.as_bytes()).expect("HMAC accepts keys of any size");
+    mac.update(&(pid as u32).to_le_bytes());
+    mac.finalize().into_bytes().into()
+}
 
 #[derive(Clone, Debug)]
 pub struct Account {
     pub pid: PID,
     pub username: String,
     pub nex_key: [u8; 16],
+}
+
+#[cfg(test)]
+mod tests {
+    use super::derive_pid_hmac;
+
+    #[test]
+    fn pid_hmac_uses_little_endian_pid() {
+        assert_eq!(
+            hex::encode(derive_pid_hmac(0x1234_5678, "secret")),
+            "b1c5e88bab384fcd3460804ef3ff473e"
+        );
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum AccountConfigError {
+    #[error("missing {0}")]
+    MissingEnvironmentVariable(&'static str),
 }
 
 impl Account {
@@ -45,17 +73,13 @@ impl Account {
     pub fn get_login_data(&self) -> (PID, [u8; 16]) {
         (self.pid, self.nex_key)
     }
-    pub async fn from_nexact(pid: PID, username: &str) -> Option<Self> {
-        let key: [u8; 16] = grpc_client()
-            .await
-            .ok()?
-            .get_nex_key_by_pid(Pid { pid })
-            .await
-            .ok()?
-            .into_inner()
-            .key
-            .try_into()
-            .ok()?;
-        Some(Self::new_raw_key(pid, username, key))
+    pub fn from_password_env(
+        pid: PID,
+        username: &str,
+        variable: &'static str,
+    ) -> Result<Self, AccountConfigError> {
+        let password = std::env::var(variable)
+            .map_err(|_| AccountConfigError::MissingEnvironmentVariable(variable))?;
+        Ok(Self::new(pid, username, &password))
     }
 }

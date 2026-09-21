@@ -1,6 +1,5 @@
 #![cfg(feature = "friends")]
 use crate::friends_handler::{FriendsGuest, FriendsUser};
-use nex_account::GUEST_PID;
 use rnex_fpd_protos::RemoteFriendRemote;
 use rnex_rmc::{RmcCallable, RmcPureRemoteObject};
 use rnex_server::{
@@ -14,6 +13,8 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::RwLock;
+
+const GUEST_PID: PID = 100;
 pub mod friends_handler;
 
 #[derive(Error, Debug)]

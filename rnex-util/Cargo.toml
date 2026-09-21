@@ -9,8 +9,11 @@ tracing = "0.1.44"
 chrono = "0.4.39"
 bytemuck = { version = "1.25.0", features = ["derive"] }
 md-5 = "0.11.0"
+hmac = "0.13.0"
+hex = "0.4.3"
 thiserror = "2.0.18"
-nex-account = { version = "0.2.4", registry = "spbr" }
+serde = { version = "1.0.228", features = ["derive"] }
+ureq = { version = "3.4.0", features = ["json"] }
 
 [features]
 rmc_struct_header = []

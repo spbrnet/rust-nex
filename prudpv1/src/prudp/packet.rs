@@ -21,8 +21,7 @@ use std::net::SocketAddr;
 use std::net::SocketAddrV4;
 use thiserror::Error;
 use tracing::{error, warn};
-use v_byte_helpers::SwapEndian;
-use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
+use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions, SwapEndian};
 
 type Md5Hmac = Hmac<Md5>;
 
@@ -43,7 +42,7 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable, SwapEndian, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable, Eq, PartialEq)]
 pub struct PRUDPV1Header {
     pub magic: [u8; 2],
     pub version: u8,
@@ -55,6 +54,23 @@ pub struct PRUDPV1Header {
     pub session_id: u8,
     pub substream_id: u8,
     pub sequence_id: u16,
+}
+
+impl SwapEndian for PRUDPV1Header {
+    fn swap_endian(self) -> Self {
+        Self {
+            magic: self.magic,
+            version: self.version,
+            packet_specific_size: self.packet_specific_size,
+            payload_size: self.payload_size.swap_bytes(),
+            source_port: self.source_port.swap_endian(),
+            destination_port: self.destination_port.swap_endian(),
+            types_and_flags: self.types_and_flags.swap_endian(),
+            session_id: self.session_id,
+            substream_id: self.substream_id,
+            sequence_id: self.sequence_id.swap_bytes(),
+        }
+    }
 }
 
 impl Default for PRUDPV1Header {

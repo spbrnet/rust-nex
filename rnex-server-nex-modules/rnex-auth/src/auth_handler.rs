@@ -1,10 +1,9 @@
 use std::{env, hash::{DefaultHasher, Hasher}, net::SocketAddrV4, sync::LazyLock};
 use std::str::FromStr;
 use cfg_if::cfg_if;
-use nex_account::{grpc, grpc_client};
 use rnex_auth_protos::{
     LocalAuthProtocol,
-    auth::{Auth, ConnectionData, ConnectionDataOld},
+    auth::{Auth, AuthenticationInfo, ConnectionData, ConnectionDataOld},
 };
 use rnex_prudp::kerberos::{Ticket, TicketInternalData};
 use rnex_rmc::{
@@ -13,9 +12,15 @@ use rnex_rmc::{
     rand,
     response::ErrorCode,
     rmc_struct,
-    util::{PID, account::Account, date_time::DateTime},
+    util::{
+        PID,
+        account::Account,
+        date_time::DateTime,
+        nnas::{NnasError, validate_nex_token},
+    },
 };
 use rnex_server::PassthroughInitModule;
+use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use crate::{AuthManager, is_maintenance};
@@ -24,6 +29,7 @@ use crate::{AuthManager, is_maintenance};
 #[rmc_struct(AuthProtocol)]
 pub struct AuthHandler {
     pub(crate) am: PassthroughInitModule<AuthManager>,
+    pub(crate) authenticated_account: RwLock<Option<Account>>,
 }
 
 pub fn generate_ticket(
@@ -71,26 +77,6 @@ pub fn generate_ticket_with_string_user_key(
     (key_string, encrypted_session_ticket)
 }
 
-async fn get_login_data_by_pid(pid: PID) -> Option<(PID, [u8; 16])> {
-    if pid == GUEST_ACCOUNT.pid {
-        let source_login_data = GUEST_ACCOUNT.get_login_data();
-
-        return Some((source_login_data.0, source_login_data.1));
-    }
-
-    let Ok(mut client) = nex_account::grpc_client().await else {
-        return None;
-    };
-
-    let Ok(passwd) = client.get_nex_key_by_pid(grpc::Pid { pid }).await else {
-        return None;
-    };
-
-    let passwd = passwd.into_inner().key.try_into().ok()?;
-
-    Some((pid, passwd))
-}
-
 fn station_url_from_sock_addr(sock_addr: SocketAddrV4) -> String {
     format!(
         "prudps:/PID=2;sid=1;stream=10;type=2;address={};port={};CID=1",
@@ -103,6 +89,48 @@ static GUEST_ACCOUNT: LazyLock<Account> =
     LazyLock::new(|| Account::new(100, "guest", "MMQea3n!fsik"));
 
 impl AuthHandler {
+    async fn validate_account(
+        &self,
+        name: &str,
+        extra_data: &Any,
+    ) -> Result<Account, ErrorCode> {
+        let authentication = extra_data
+            .try_get_as::<AuthenticationInfo>()
+            .map_err(|_| ErrorCode::Authentication_InvalidParam)?;
+        let account = validate_nex_token(&authentication.auth_token)
+            .await
+            .map_err(|error| {
+                match error {
+                    NnasError::InvalidToken => warn!("NNAS rejected a NEX token"),
+                    _ => warn!("NNAS token validation failed: {error}"),
+                }
+                ErrorCode::RendezVous_NotAuthenticated
+            })?;
+        let pid = account.rnex_pid();
+        if name.parse::<PID>().ok() != Some(pid) {
+            warn!("NEX login name did not match the validated token PID");
+            return Err(ErrorCode::Authentication_PrincipalIdUnmatched);
+        }
+
+        Ok(Account::new(pid, &account.username, &account.nex_password))
+    }
+
+    async fn remember_account(&self, account: Account) {
+        *self.authenticated_account.write().await = Some(account);
+    }
+
+    async fn remembered_login_data(&self, pid: PID) -> Option<(PID, [u8; 16])> {
+        if pid == GUEST_ACCOUNT.pid {
+            return Some(GUEST_ACCOUNT.get_login_data());
+        }
+        self.authenticated_account
+            .read()
+            .await
+            .as_ref()
+            .filter(|account| account.pid == pid)
+            .map(Account::get_login_data)
+    }
+
     pub async fn generate_ticket_from_name(
         &self,
         name: &str,
@@ -122,38 +150,13 @@ impl AuthHandler {
         }
 
         info!("parsing pid");
-        let Ok(pid) = name.parse() else {
+        let Ok(pid) = name.parse::<PID>() else {
             warn!("unable to connect to parse pid: {}", name);
             return Err(ErrorCode::Core_InvalidArgument);
         };
 
-        info!("creating account grpc client");
-        let Ok(mut client) = grpc_client().await else {
-            warn!("unable to connect to grpc");
-            return Err(ErrorCode::Core_Exception);
-        };
-
-        info!("grabbing nex key");
-        let Ok(passwd) = client.get_nex_key_by_pid(grpc::Pid { pid }).await else {
-            warn!("unable to get nex password for pid: {}:", pid);
-            return Err(ErrorCode::Core_Exception);
-        };
-
-        let passwd = passwd
-            .into_inner()
-            .key
-            .try_into()
-            .map_err(|_| ErrorCode::RendezVous_InvalidPassword)?;
-        info!("source login data");
-        let source_login_data = (pid, passwd);
-        info!("pid: {}, passwd: {:?}", pid, passwd);
-        let destination_login_data = self.am.destination_server_acct.get_login_data();
-
-        info!("we are a-ok here");
-        Ok((
-            pid,
-            generate_ticket(source_login_data, destination_login_data),
-        ))
+        warn!("login without a NEX bearer token is not supported for PID {pid}");
+        Err(ErrorCode::RendezVous_NotAuthenticated)
     }
 
     pub fn generate_ticket_from_name_string_user_key(
@@ -233,15 +236,18 @@ impl Auth for AuthHandler {
             async fn login_ex(
                 &self,
                 name: String,
-                _extra_data: Any,
+                extra_data: Any,
             ) -> Result<(QResult, PID, Vec<u8>, ConnectionData, String, String), ErrorCode> {
                 if is_maintenance() {
                     return Err(ErrorCode::RendezVous_GameServerMaintenance);
                 }
 
-                let (pid, key, ticket) = self.generate_ticket_from_name_string_user_key(&name).await?;
+                let account = self.validate_account(&name, &extra_data).await?;
+                let pid = account.pid;
+                self.remember_account(account).await;
+                let (pid, key, ticket) = self.generate_ticket_from_name_string_user_key(&pid.to_string())?;
 
-                let result = QResult::success(Core_Unknown);
+                let result = QResult::success(ErrorCode::Core_Unknown);
 
                 let mut hasher = DefaultHasher::new();
 
@@ -261,7 +267,7 @@ impl Auth for AuthHandler {
                     station_url: station_url_from_sock_addr(addr),
                     special_station_url: "".to_string(),
                     //date_time: KerberosDateTime::new(1,1,1,1,1,1),
-                    date_time: KerberosDateTime::now(),
+                    date_time: DateTime::now(),
                     special_protocols: Vec::new(),
                 };
 
@@ -270,7 +276,7 @@ impl Auth for AuthHandler {
                     pid,
                     ticket.into(),
                     connection_data,
-                    self.build_name.to_string(),
+                    self.am.build_name.to_string(),
                     key
                 );
 
@@ -282,17 +288,17 @@ impl Auth for AuthHandler {
                 source_pid: PID,
                 destination_pid: PID,
             ) -> Result<(QResult, Vec<u8>, String), ErrorCode> {
-                let Some((pid, _)) = get_login_data_by_pid(source_pid).await else {
+                let Some((pid, _)) = self.remembered_login_data(source_pid).await else {
                     return Err(ErrorCode::Core_Exception);
                 };
 
-                let desgination_login_data = if destination_pid == self.destination_server_acct.pid {
-                    self.destination_server_acct.get_login_data()
+                let desgination_login_data = if destination_pid == self.am.destination_server_acct.pid {
+                    self.am.destination_server_acct.get_login_data()
                 } else {
                     return Err(ErrorCode::RendezVous_InvalidOperation);
                 };
 
-                let result = QResult::success(Core_Unknown);
+                let result = QResult::success(ErrorCode::Core_Unknown);
 
                 let ticket = generate_ticket_with_string_user_key(pid, desgination_login_data);
 
@@ -302,13 +308,20 @@ impl Auth for AuthHandler {
             async fn login_ex(
                 &self,
                 name: String,
-                _extra_data: Any,
+                extra_data: Any,
             ) -> Result<(QResult, PID, Vec<u8>, ConnectionData, String), ErrorCode> {
                 if is_maintenance() {
                     return Err(ErrorCode::RendezVous_GameServerMaintenance);
                 }
 
-                let (pid, ticket) = self.generate_ticket_from_name(&name).await?;
+                let account = self.validate_account(&name, &extra_data).await?;
+                let source_login_data = account.get_login_data();
+                let pid = account.pid;
+                let ticket = generate_ticket(
+                    source_login_data,
+                    self.am.destination_server_acct.get_login_data(),
+                );
+                self.remember_account(account).await;
 
                 let result = QResult::success(ErrorCode::Core_Unknown);
 
@@ -350,7 +363,7 @@ impl Auth for AuthHandler {
                 source_pid: PID,
                 destination_pid: PID,
             ) -> Result<(QResult, Vec<u8>), ErrorCode> {
-                let Some((pid, passwd)) = get_login_data_by_pid(source_pid).await else {
+                let Some((pid, passwd)) = self.remembered_login_data(source_pid).await else {
                     return Err(ErrorCode::Core_Exception);
                 };
 

@@ -2,7 +2,7 @@ use bytemuck::bytes_of;
 use std::io;
 use std::io::{Read, Seek, Write};
 use tracing::error;
-use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
+use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions};
 
 use crate::response::{ErrorCode, RMCResponseResult};
 

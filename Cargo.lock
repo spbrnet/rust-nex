@@ -166,17 +166,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "aes"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1fc76eaeac4c9164506c466d4ffdd8ec9d0c5bf57ee97177c4d8eceb3a0e138"
-dependencies = [
- "cipher",
- "cpubits",
- "cpufeatures 0.3.0",
-]
-
-[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -528,12 +517,6 @@ name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
-
-[[package]]
-name = "cpubits"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15b85f9c39137c3a891689859392b1bd49812121d0d61c9caf00d46ed5ce06ae"
 
 [[package]]
 name = "cpufeatures"
@@ -1203,7 +1186,6 @@ version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "818356c5132c1fede50f837ca96afbe78ff42413047f4abb886217845e1b6c8c"
 dependencies = [
- "bytemuck",
  "typenum",
 ]
 
@@ -1560,16 +1542,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
 
 [[package]]
-name = "macros"
-version = "0.1.1"
-source = "git+https://github.com/RusticMaple/VByteMacros#e2f31bded8c5591e847ba03faf79ae0351e43e69"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "matchers"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1652,28 +1624,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nex-account"
-version = "0.2.5"
-source = "sparse+https://crates.spbr.net/api/v1/crates/"
-checksum = "7cb5867c4f4771dd7125dce1f911753cc9291b65cd7908c0e7ca182e7b2a57a3"
-dependencies = [
- "base64 0.23.1",
- "bytemuck",
- "hmac",
- "log",
- "md-5",
- "prost",
- "simplelog",
- "spbr-common",
- "sqlx",
- "thiserror",
- "tokio",
- "tonic",
- "tonic-prost",
- "tonic-prost-build",
-]
-
-[[package]]
 name = "nix"
 version = "0.31.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1707,15 +1657,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "num_threads"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c7398b9c8b70908f6371f47ed36737907c87c52af34c268fed0bf0ceb92ead9"
-dependencies = [
- "libc",
 ]
 
 [[package]]
@@ -2203,7 +2144,6 @@ dependencies = [
  "tokio",
  "tracing",
  "typenum",
- "v-byte-helpers",
 ]
 
 [[package]]
@@ -2417,7 +2357,6 @@ dependencies = [
  "anyhow",
  "cfg-if",
  "hex",
- "nex-account",
  "rand 0.10.2",
  "rnex-auth-protos",
  "rnex-prudp",
@@ -2425,7 +2364,6 @@ dependencies = [
  "rnex-server",
  "thiserror",
  "tokio",
- "tonic",
  "tracing",
 ]
 
@@ -2504,9 +2442,6 @@ dependencies = [
  "bytemuck",
  "chrono",
  "hex",
- "hmac",
- "md-5",
- "nex-account",
  "rand 0.10.2",
  "rnex-base",
  "rnex-fpd-protos",
@@ -2593,7 +2528,6 @@ dependencies = [
  "rnex-util",
  "tracing",
  "typenum",
- "v-byte-helpers",
 ]
 
 [[package]]
@@ -2637,7 +2571,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "v-byte-helpers",
 ]
 
 [[package]]
@@ -2709,11 +2642,14 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "chrono",
+ "hex",
+ "hmac",
  "md-5",
- "nex-account",
+ "serde",
  "thiserror",
  "tokio",
  "tracing",
+ "ureq",
 ]
 
 [[package]]
@@ -3089,17 +3025,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "703d5c7ef118737c72f1af64ad2f6f8c5e1921f818cdcb97b8fe6fc69bf66214"
 
 [[package]]
-name = "simplelog"
-version = "0.12.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16257adbfaef1ee58b1363bdc0664c9b8e1e30aed86049635fb5f147d065a9c0"
-dependencies = [
- "log",
- "termcolor",
- "time",
-]
-
-[[package]]
 name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3132,22 +3057,6 @@ checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "spbr-common"
-version = "0.1.0"
-source = "sparse+https://crates.spbr.net/api/v1/crates/"
-checksum = "04f4e4710d23bb730a95d00b853e304a4c1c9e86276792cd32a92057e9833452"
-dependencies = [
- "aes",
- "base64 0.22.1",
- "bytemuck",
- "hmac",
- "hybrid-array",
- "md-5",
- "rand 0.10.2",
- "thiserror",
 ]
 
 [[package]]
@@ -3359,17 +3268,6 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "syn"
-version = "1.0.109"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237"
-dependencies = [
- "proc-macro2",
- "quote",
- "unicode-ident",
-]
-
-[[package]]
-name = "syn"
 version = "2.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e665b8803e7b1d2a727f4023456bbbbe74da67099c585258af0ad9c5013b9b99"
@@ -3424,15 +3322,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "termcolor"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
-dependencies = [
- "winapi-util",
-]
-
-[[package]]
 name = "thiserror"
 version = "2.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3469,9 +3358,7 @@ checksum = "743bd48c283afc0388f9b8827b976905fb217ad9e647fae3a379a9283c4def2c"
 dependencies = [
  "deranged",
  "itoa",
- "libc",
  "num-conv",
- "num_threads",
  "powerfmt",
  "serde_core",
  "time-core",
@@ -3910,15 +3797,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "v-byte-helpers"
-version = "0.1.1"
-source = "git+https://github.com/RusticMaple/VByteMacros#e2f31bded8c5591e847ba03faf79ae0351e43e69"
-dependencies = [
- "bytemuck",
- "macros",
-]
-
-[[package]]
 name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4107,15 +3985,6 @@ name = "winapi-i686-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
-
-[[package]]
-name = "winapi-util"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
-dependencies = [
- "windows-sys 0.61.2",
-]
 
 [[package]]
 name = "winapi-x86_64-pc-windows-gnu"

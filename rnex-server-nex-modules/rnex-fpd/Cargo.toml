@@ -13,11 +13,8 @@ rnex-server = { path = "../../rnex-server" }
 tokio = { version = "1.52.3", features = ["sync"] }
 rand = "0.10.2"
 tracing = "0.1.44"
-sqlx = { version = "0.9.0", features = ["chrono"] }
+sqlx = { version = "0.9.0", features = ["chrono", "postgres", "runtime-tokio"] }
 chrono = "0.4.45"
-hmac = "0.13.0"
-md-5 = "0.11.0"
-nex-account = { version = "0.2.4", registry = "spbr" }
 hex = "0.4.3"
 thiserror = "2.0.18"
 ureq = { version = "3.4.0", features = ["json"] }

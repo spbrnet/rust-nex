@@ -1,11 +1,17 @@
 use std::fmt::{Debug, Formatter};
 
 use bytemuck::{Pod, Zeroable};
-use v_byte_helpers::SwapEndian;
+use rnex_util::byte::SwapEndian;
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Pod, Zeroable, SwapEndian, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Pod, Zeroable, Default, Eq, PartialEq)]
 pub struct TypesFlags(pub u16);
+
+impl SwapEndian for TypesFlags {
+    fn swap_endian(self) -> Self {
+        Self(self.0.swap_bytes())
+    }
+}
 
 impl TypesFlags {
     #[inline]

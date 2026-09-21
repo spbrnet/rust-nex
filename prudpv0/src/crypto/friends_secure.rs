@@ -56,9 +56,8 @@ impl Crypto for Secure {
     type Instance = SecureInstance;
     async fn new() -> Self {
         Self(
-            Account::from_nexact(2, "Quazal Rendez-Vous")
-                .await
-                .expect("unable to get account info"),
+            Account::from_password_env(2, "Quazal Rendez-Vous", "RNEX_SERVER_PASSWORD")
+                .expect("RNEX_SERVER_PASSWORD is required"),
         )
     }
     fn calculate_checksum(&self, data: &[u8]) -> u8 {

@@ -7,7 +7,6 @@ use std::{
 
 use bytemuck::{Pod, Zeroable};
 use chrono::{TimeZone, Utc};
-use nex_account::{derive_pid_hmac, grpc::ActCreateInfo, grpc_client};
 use rnex_fpd_protos::{
     LocalFriendsGuest, LocalFriendsUser, RemoteFriendRemote,
     account_management::{AccountExtraInfo, AccountManagement, NintendoCreateAccountData},
@@ -27,7 +26,12 @@ use rnex_fpd_protos::{
 };
 use rnex_rmc::{any::Any, data::Data, qbuffer::QBuffer, response::ErrorCode, rmc_struct};
 use rnex_server::PassthroughInitModule;
-use rnex_util::{PID, date_time::DateTime};
+use rnex_util::{
+    PID,
+    account::derive_pid_hmac,
+    date_time::DateTime,
+    nnas::validate_nex_token,
+};
 use sqlx::query;
 use tokio::{spawn, sync::RwLock, time::sleep};
 use tracing::{error, info, warn};
@@ -1586,9 +1590,6 @@ impl FriendsWiiU for FriendsUser {
     }
 }
 
-// unused?
-// type HMacMd5 = hmac::Hmac<md5::Md5>;
-
 impl Drop for FriendsUser {
     fn drop(&mut self) {
         let friends = mem::take(&mut self.maybe_remote_friend);
@@ -1636,9 +1637,9 @@ impl AccountManagement for FriendsGuest {
     async fn nintendo_create_account(
         &self,
         principal_name: String,
-        _key: String,
+        key: String,
         _groups: u32,
-        email: String,
+        _email: String,
         auth_data: Any,
     ) -> Result<(PID, String), ErrorCode> {
         let nex_token = if let Ok(extra_info) = auth_data.try_get_as::<AccountExtraInfo>() {
@@ -1648,40 +1649,15 @@ impl AccountManagement for FriendsGuest {
         } else {
             return Err(ErrorCode::Authentication_InvalidParam);
         };
-        let (pid, nex_key) = nex_account::decode_nexact_token(&nex_token).map_err(|e| {
-            error!("failed to decode token: {e}");
-            info!("{nex_token:?}");
-            ErrorCode::Authentication_InvalidParam
+        let account = validate_nex_token(&nex_token).await.map_err(|error| {
+            error!("NNAS rejected NintendoCreateAccount token: {error}");
+            ErrorCode::Authentication_ValidationFailed
         })?;
-
-        //let mac = derive_pid_hmac(data.nna_info.principal_basic_info.pid, &nexkey);
-
-        let mut client = grpc_client().await.map_err(|e| {
-            error!("error occurred in gRPC client: {e:?}");
-            ErrorCode::Core_Unknown
-        })?;
-
-        let new_account: ActCreateInfo = ActCreateInfo {
-            principal_name,
-            key: nex_key.into(),
-            email,
-            pid,
-        };
-
-        let nex_key = client
-            .create_new_sequential_or_update_and_get_account(new_account)
-            .await
-            .map_err(|_| ErrorCode::Core_Unknown)?
-            .into_inner();
-
-        if nex_key.key.len() != 16 {
-            error!("nex key was not 16 bytes long");
-            return Err(ErrorCode::Authentication_InvalidParam);
+        if principal_name != account.username {
+            return Err(ErrorCode::Authentication_PrincipalIdUnmatched);
         }
-
-        let nexkeyarray: [u8; 16] = nex_key.key.try_into().expect("how...?");
-
-        let mac = derive_pid_hmac(pid, &nexkeyarray);
+        let pid = account.rnex_pid();
+        let mac = derive_pid_hmac(pid, &key);
 
         let hex_str = hex::encode(mac);
 

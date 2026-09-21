@@ -1,6 +1,6 @@
 use bytemuck::{bytes_of, bytes_of_mut};
 use std::io::{Read, Write};
-use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
+use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions};
 
 use crate::serialization::{Result, RmcSerialize};
 

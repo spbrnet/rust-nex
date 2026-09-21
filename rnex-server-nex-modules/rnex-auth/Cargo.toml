@@ -10,8 +10,6 @@ rnex-server = { path = "../../rnex-server" }
 rnex-prudp = { path = "../../rnex-prudp" }
 hex = "0.4.3"
 rand = "0.10.2"
-nex-account = { version = "0.2.4", registry = "spbr" }
-tonic = "0.14.6"
 tracing = "0.1.44"
 cfg-if = "1.0.4"
 anyhow = "1.0.103"

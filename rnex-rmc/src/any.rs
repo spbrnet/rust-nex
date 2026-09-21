@@ -6,7 +6,7 @@ use std::{
     io::{Cursor, Read, Write},
     marker::PhantomData,
 };
-use v_byte_helpers::{IS_BIG_ENDIAN, ReadExtensions};
+use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions};
 
 use crate::data::Data;
 

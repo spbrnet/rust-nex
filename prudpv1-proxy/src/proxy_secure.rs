@@ -22,9 +22,8 @@ pub async fn start(param: ProxyStartupParam) {
             VirtualPort::new(1, 10),
             Secure(
                 RNEX_ACCESS_KEY,
-                Account::from_nexact(2, "Quazal Rendez-Vous")
-                    .await
-                    .expect("failed to get account"),
+                Account::from_password_env(2, "Quazal Rendez-Vous", "RNEX_SERVER_PASSWORD")
+                    .expect("RNEX_SERVER_PASSWORD is required"),
             ),
         )
         .await

@@ -1,7 +1,6 @@
 #[allow(async_fn_in_trait)]
 pub mod auth_handler;
 
-use nex_account::{grpc::Pid, grpc_client};
 use rnex_rmc::util::account::Account;
 use rnex_server::{ConnectionInitData, RnexManager, RnexModule, WeakPassthroughInitModule};
 use tracing::info;
@@ -11,6 +10,7 @@ use std::sync::{
     Arc, OnceLock,
     atomic::{AtomicBool, Ordering},
 };
+use tokio::sync::RwLock;
 
 static MAINTENANCE: OnceLock<Arc<AtomicBool>> = OnceLock::new();
 
@@ -47,7 +47,10 @@ impl RnexManager for AuthManager {
         _: WeakPassthroughInitModule<Self::User>,
     ) -> Self::User {
         info!(target: "proxy_connections", address = ?init_data, "user connected");
-        Self::User { am: this }
+        Self::User {
+            am: this,
+            authenticated_account: RwLock::new(None),
+        }
     }
 }
 
@@ -59,19 +62,11 @@ impl RnexModule for AuthModule {
     ) -> Result<Self::Manager, Self::InitError> {
         Ok(AuthManager {
             build_name: option_env!("AUTH_REPORT_VERSION").unwrap_or("no version specified"),
-            // todo: update nex-account to allow pulling the entire account info for rnex
-            destination_server_acct: Account::new_raw_key(
+            destination_server_acct: Account::from_password_env(
                 2,
                 "Quazal Rendez-Vous",
-                grpc_client()
-                    .await?
-                    .get_nex_key_by_pid(Pid { pid: 2 })
-                    .await?
-                    .into_inner()
-                    .key
-                    .try_into()
-                    .map_err(|_| anyhow::Error::msg("invalid key size"))?,
-            ),
+                "RNEX_SERVER_PASSWORD",
+            )?,
         })
     }
 }

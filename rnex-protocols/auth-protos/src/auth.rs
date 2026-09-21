@@ -79,7 +79,7 @@ pub trait Auth {
 
 #[derive(RmcSerialize)]
 #[rmc_struct(0)]
-struct AuthenticationInfo {
+pub struct AuthenticationInfo {
     #[extends]
     pub data: Data,
     pub auth_token: String,

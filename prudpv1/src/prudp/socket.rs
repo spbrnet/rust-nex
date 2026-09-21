@@ -18,8 +18,7 @@ use std::sync::{Arc, Weak};
 use tokio::spawn;
 use tracing::error;
 use tracing::{info, warn};
-use v_byte_helpers::ReadExtensions;
-use v_byte_helpers::little_endian::read_u16;
+use rnex_util::byte::{ReadExtensions, network_endian::read_u16};
 
 use std::time::Duration;
 use tokio::net::UdpSocket;
