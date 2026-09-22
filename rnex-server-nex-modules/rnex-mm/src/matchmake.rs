@@ -30,7 +30,6 @@ use tokio::{
     sync::{Mutex, RwLock},
     time::sleep,
 };
-use tracing::info;
 
 use crate::user::MatchmakeUser;
 
@@ -374,7 +373,7 @@ impl ExtendedMatchmakeSession {
             .connected_players
             .iter()
             .filter_map(|v| v.upgrade())
-            .filter(|player| {
+            .filter(|_player| {
                 true
             })
             .count();
@@ -440,8 +439,10 @@ impl ExtendedMatchmakeSession {
 
     #[inline]
     pub fn is_joinable(&self) -> bool {
+        #[allow(unused_variables)]
         #[cfg(feature = "v3-4-7")]
         let is_open = true;
+        #[warn(unused_variables)]
         #[cfg(not(feature = "splatoon"))]
         let is_open = self.session.open_participation;
         #[cfg(feature = "splatoon")]

@@ -7,9 +7,6 @@ sonic-transformed:
     - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.4.x.3 build:3_4_13_3_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 10000
     RNEX_ACCESS_KEY: "b26a3421"
 ac-new-leaf:
   include-in-checkall: false
@@ -19,9 +16,6 @@ ac-new-leaf:
     - v3-10-22
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.10.x.200x build:3_10_22_2006_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 10000
     RNEX_ACCESS_KEY: "d6f08b40"
 wii-sports-club:
   include-in-checkall: true
@@ -33,9 +27,6 @@ wii-sports-club:
     - datastore
   settings:
     AUTH_REPORT_VERSION: "branch:origin/project/appsp build:3_4_24_4_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 10000
     RNEX_ACCESS_KEY: "4d324052"
 puyopuyo:
   include-in-checkall: true
@@ -48,9 +39,6 @@ puyopuyo:
     - datastore
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.5.x.1000 build:3_5_16_1000_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 10000
     RNEX_ACCESS_KEY: "4eb0ca36"
 minecraft-wiiu:
   include-in-checkall: true
@@ -62,9 +50,6 @@ minecraft-wiiu:
     - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.10.x.200x build:3_10_22_2006_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 13000
     RNEX_ACCESS_KEY: "f1b61c8e"
 mario-tennis:
   include-in-checkall: true
@@ -76,9 +61,6 @@ mario-tennis:
     - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.9.x.200x build:3_9_19_2005_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 10000
     RNEX_ACCESS_KEY: "c69b92a0"
 wii-u-chat:
   include-in-checkall: true
@@ -89,9 +71,6 @@ wii-u-chat:
     - match-making
   settings:
     AUTH_REPORT_VERSION: "branch:origin/project/wup-agmj build:3_8_15_2004_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 10000
     RNEX_ACCESS_KEY: "e7a47214"
 fast-racing-neo:
   include-in-checkall: true
@@ -102,9 +81,6 @@ fast-racing-neo:
     - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.9.x.200x build:3_9_19_2005_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 10000
     RNEX_ACCESS_KEY: "811aa39f"
 splatoon:
   include-in-checkall: true
@@ -116,9 +92,6 @@ splatoon:
     - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/project/wup-agmj build:3_8_15_2004_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 6000
     RNEX_ACCESS_KEY: "6f599f81"
 splatoon-testfire:
   include-in-checkall: true
@@ -130,9 +103,6 @@ splatoon-testfire:
     - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/project/wup-agmj build:3_8_15_2004_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 10000
     RNEX_ACCESS_KEY: "da693ee5"
 friends:
   include-in-checkall: false
@@ -140,9 +110,6 @@ friends:
     - friends
   settings:
     AUTH_REPORT_VERSION: "branch:origin/feature/45925_FixAutoReconnect build:3_10_11_2006_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 6000
     RNEX_ACCESS_KEY: "ridfebb9"
 super-mario-maker:
   include-in-checkall: false
@@ -153,9 +120,6 @@ super-mario-maker:
     - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/project/wup-ama build:3_8_29_3022_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 6000
     RNEX_ACCESS_KEY: "9f2b4678"
 terraria:
   include-in-checkall: true
@@ -167,7 +131,4 @@ terraria:
     - ranking
   settings:
     AUTH_REPORT_VERSION: "branch:origin/release/ngs/3.8.x.200x build:3_8_13_2004_0"
-    RNEX_VIRTUAL_PORT_INSECURE: "1:10"
-    RNEX_VIRTUAL_PORT_SECURE: "1:10"
-    RNEX_DEFAULT_PORT: 10000
     RNEX_ACCESS_KEY: "3d37fbdb"

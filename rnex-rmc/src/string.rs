@@ -6,7 +6,7 @@ use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions};
 use crate::serialization::{Result, RmcSerialize};
 
 impl RmcSerialize for String {
-    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> Result<Self> {
         let len: u16 = reader.read_struct(IS_BIG_ENDIAN)?;
         if len == 0 {
             return Ok("".to_string());

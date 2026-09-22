@@ -1,9 +1,13 @@
 #[allow(unused)]
 #[allow(unused_imports)]
 use rnex_rmc::response::ErrorCode;
-use rnex_server::{ConnectionInitData, EnvVarError, RnexManager, RnexModule, env_var};
+use rnex_server::{ConnectionInitData, EnvVarError, RnexManager, RnexModule};
+#[cfg(feature = "splatoon")]
+use rnex_server::env_var;
+#[cfg(feature = "splatoon")]
 use std::str::FromStr;
 use cfg_if::cfg_if;
+#[cfg(feature = "splatoon")]
 use tracing::error;
 
 use crate::user::RankingUser;
@@ -12,8 +16,11 @@ pub mod user;
 
 #[derive(Debug)]
 pub struct RankingManager {
+    #[cfg(feature = "splatoon")]
     rnex_result_get: String,
+    #[cfg(feature = "splatoon")]
     rnex_result_votes_get: String,
+    #[cfg(feature = "splatoon")]
     rnex_result_post: String,
 }
 
@@ -88,11 +95,7 @@ impl RnexModule for RankingModule {
                     rnex_result_get: env_var("RNEX_SPLATOON_RESULTS_GET")?,
                 })
             } else {
-                Ok(RankingManager {
-                    rnex_result_get: "".into(),
-                    rnex_result_post: "".into(),
-                    rnex_result_votes_get: "".into(),
-                })
+                Ok(RankingManager {})
             }
         }
     }

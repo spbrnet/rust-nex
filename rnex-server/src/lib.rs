@@ -18,7 +18,7 @@ pub use anyhow;
 pub use paste;
 pub use rnex_rmc as rmc;
 use rnex_rmc::{RmcCallable, RmcConnection, RmcSerialize, serialization::RmcSerialize, util::PID};
-use rnex_util::{SendingBufferConnection, SplittableBufferConnection, UnitPacketRead};
+use rnex_util::{SendingBufferConnection};
 pub use rnex_util as util;
 use thiserror::Error;
 pub use tokio;

@@ -22,7 +22,7 @@ impl<T: RmcSerialize> RmcSerialize for Vec<T> {
         Ok(())
     }
 
-    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> Result<Self> {
         println!("reading list");
         let len: u32 = reader.read_struct(IS_BIG_ENDIAN)?;
 

@@ -5,7 +5,7 @@ use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions};
 use crate::serialization::{Error, Result, RmcSerialize};
 
 impl RmcSerialize for SocketAddr {
-    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> Result<Self>
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> Result<Self>
     where
         Self: Sized,
     {

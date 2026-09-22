@@ -1,7 +1,4 @@
-use std::process::abort;
-
 use cfg_if::cfg_if;
-use tracing::error;
 
 cfg_if! {
     if #[cfg(feature = "prudpv0")]{
@@ -14,8 +11,3 @@ cfg_if! {
         compile_error!("no proxy type has been set");
     }
 }
-
-// pub fn edge_node_dc_callback() {
-//     error!("disconnected from node holder, aborting!");
-//     abort()
-// }

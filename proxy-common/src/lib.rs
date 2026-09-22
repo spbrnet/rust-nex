@@ -10,18 +10,12 @@ use std::{
     fmt::Debug,
     net::{AddrParseError, Ipv4Addr, SocketAddr, SocketAddrV4},
     ops::Deref,
-    panic,
     str::FromStr,
     sync::LazyLock,
 };
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tracing::{error, info};
-
-const RNEX_DEFAULT_PORT: u16 = match u16::from_str_radix(env!("RNEX_DEFAULT_PORT"), 10) {
-    Ok(v) => v,
-    Err(_) => panic!("unable to get default port from env"),
-};
 
 pub const RNEX_ACCESS_KEY: &'static str = env!("RNEX_ACCESS_KEY");
 
@@ -63,13 +57,13 @@ pub enum ProxyType {
     Secure,
 }
 const VIRTUAL_PORT_INSECURE: LazyLock<VirtualPort> =
-    LazyLock::new(|| VirtualPort::parse(env!("RNEX_VIRTUAL_PORT_INSECURE")).unwrap());
+    LazyLock::new(|| VirtualPort::parse("1:10").unwrap());
 const VIRTUAL_PORT_SECURE: LazyLock<VirtualPort> =
-    LazyLock::new(|| VirtualPort::parse(env!("RNEX_VIRTUAL_PORT_SECURE")).unwrap());
+    LazyLock::new(|| VirtualPort::parse(&"1:10").unwrap());
 impl ProxyStartupParam {
     #[inline(always)]
     pub fn new(prox_ty: ProxyType) -> Result<Self, Error> {
-        let port = RNEX_DEFAULT_PORT
+        let port = 10000
             + match prox_ty {
                 ProxyType::Insecure => 0,
                 ProxyType::Secure => 1,
@@ -85,7 +79,6 @@ impl ProxyStartupParam {
 
         Ok(Self {
             forward_destination: try_get_env("FORWARD_DESTINATION")?,
-            // edge_node_holder: try_get_env("EDGE_NODE_HOLDER")?,
             self_private,
             self_public,
             virtual_port: match prox_ty {

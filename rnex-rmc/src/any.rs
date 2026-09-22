@@ -27,7 +27,7 @@ impl<T: RmcStruct> RmcSerialize for Any<T> {
 
         Ok(())
     }
-    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> Result<Self> {
         let name = String::deserialize(reader)?;
 
         if !T::get_struct_info().is_inheritor(&name) {

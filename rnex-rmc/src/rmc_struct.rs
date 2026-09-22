@@ -97,7 +97,7 @@ impl<T: Read + ?Sized> Read for SubRead<'_, T> {
 
 #[cfg(feature = "rmc_struct_header")]
 pub fn read_struct<T: Sized, R: Read + ?Sized>(
-    mut reader: &mut R,
+    reader: &mut R,
     version: u8,
     pred: impl FnOnce(&mut SubRead<R>) -> Result<T>,
 ) -> Result<T> {

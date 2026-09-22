@@ -17,7 +17,7 @@ impl RmcSerialize for QBuffer {
         Ok(())
     }
 
-    fn deserialize(mut reader: &mut (impl Read + ?Sized)) -> Result<Self> {
+    fn deserialize(reader: &mut (impl Read + ?Sized)) -> Result<Self> {
         let size: u16 = reader.read_struct(IS_BIG_ENDIAN)?;
 
         let mut vec = vec![0; size as usize];

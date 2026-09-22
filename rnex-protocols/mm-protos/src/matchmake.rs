@@ -1,5 +1,6 @@
 use cfg_if::cfg_if;
 #[cfg(all(not(any(feature="v3-8-13"))))]
+#[cfg(not(feature="v3-4-7"))]
 use rnex_rmc::string_set::StringSet;
 use rnex_rmc::{
     RmcSerialize,

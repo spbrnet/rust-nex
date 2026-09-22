@@ -1,14 +1,18 @@
 use rnex_rk_protos::{
     LocalRankingProtocol,
-    ranking::{
-        CompetitionRankingGetParam, CompetitionRankingScoreData, CompetitionRankingScoreInfo,
-        Ranking, UploadCompetitionData,
-    },
+    ranking::Ranking
 };
-use rnex_rmc::{qbuffer::QBuffer, response::ErrorCode, rmc_struct};
+#[cfg(feature = "splatoon")]
+use rnex_rk_protos::ranking::{CompetitionRankingGetParam, CompetitionRankingScoreData, CompetitionRankingScoreInfo, UploadCompetitionData};
+#[cfg(feature = "splatoon")]
+use rnex_rmc::{qbuffer::QBuffer, response::ErrorCode};
+use rnex_rmc::rmc_struct;
 use rnex_server::PassthroughInitModule;
-use rnex_util::{PID, date_time::DateTime};
+use rnex_util::PID;
+#[cfg(feature = "splatoon")]
+use rnex_util::date_time::DateTime;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "splatoon")]
 use tracing::{error, info};
 
 use crate::RankingManager;
