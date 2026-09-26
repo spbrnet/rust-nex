@@ -1,5 +1,3 @@
-use std::{env, hash::{DefaultHasher, Hasher}, net::SocketAddrV4, sync::LazyLock};
-use std::str::FromStr;
 use cfg_if::cfg_if;
 use rnex_auth_protos::{
     LocalAuthProtocol,
@@ -20,6 +18,13 @@ use rnex_rmc::{
     },
 };
 use rnex_server::PassthroughInitModule;
+use std::str::FromStr;
+use std::{
+    env,
+    hash::{DefaultHasher, Hasher},
+    net::SocketAddrV4,
+    sync::LazyLock,
+};
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 
@@ -89,11 +94,7 @@ static GUEST_ACCOUNT: LazyLock<Account> =
     LazyLock::new(|| Account::new(100, "guest", "MMQea3n!fsik"));
 
 impl AuthHandler {
-    async fn validate_account(
-        &self,
-        name: &str,
-        extra_data: &Any,
-    ) -> Result<Account, ErrorCode> {
+    async fn validate_account(&self, extra_data: &Any) -> Result<Account, ErrorCode> {
         let authentication = extra_data
             .try_get_as::<AuthenticationInfo>()
             .map_err(|_| ErrorCode::Authentication_InvalidParam)?;
@@ -107,11 +108,6 @@ impl AuthHandler {
                 ErrorCode::RendezVous_NotAuthenticated
             })?;
         let pid = account.rnex_pid();
-        if name.parse::<PID>().ok() != Some(pid) {
-            warn!("NEX login name did not match the validated token PID");
-            return Err(ErrorCode::Authentication_PrincipalIdUnmatched);
-        }
-
         Ok(Account::new(pid, &account.username, &account.nex_password))
     }
 
@@ -242,7 +238,7 @@ impl Auth for AuthHandler {
                     return Err(ErrorCode::RendezVous_GameServerMaintenance);
                 }
 
-                let account = self.validate_account(&name, &extra_data).await?;
+                let account = self.validate_account(&extra_data).await?;
                 let pid = account.pid;
                 self.remember_account(account).await;
                 let (pid, key, ticket) = self.generate_ticket_from_name_string_user_key(&pid.to_string())?;
@@ -314,7 +310,7 @@ impl Auth for AuthHandler {
                     return Err(ErrorCode::RendezVous_GameServerMaintenance);
                 }
 
-                let account = self.validate_account(&name, &extra_data).await?;
+                let account = self.validate_account(&extra_data).await?;
                 let source_login_data = account.get_login_data();
                 let pid = account.pid;
                 let ticket = generate_ticket(
