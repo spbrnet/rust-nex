@@ -1642,21 +1642,34 @@ impl AccountManagement for FriendsGuest {
         _email: String,
         auth_data: Any,
     ) -> Result<(PID, String), ErrorCode> {
-        let nex_token = if let Ok(extra_info) = auth_data.try_get_as::<AccountExtraInfo>() {
-            extra_info.nex_token
-        } else if let Ok(data) = auth_data.try_get_as::<NintendoCreateAccountData>() {
-            data.nex_token
-        } else {
-            return Err(ErrorCode::Authentication_InvalidParam);
-        };
+        info!(
+            principal_name = %principal_name,
+            "NintendoCreateAccount received principal_name"
+        );
+
+        let (nex_token, claimed_pid) =
+            if let Ok(extra_info) = auth_data.try_get_as::<AccountExtraInfo>() {
+                (extra_info.nex_token, None)
+            } else if let Ok(data) = auth_data.try_get_as::<NintendoCreateAccountData>() {
+                (data.nex_token, Some(data.nna_info.principal_basic_info.pid))
+            } else {
+                return Err(ErrorCode::Authentication_InvalidParam);
+            };
         let account = validate_nex_token(&nex_token).await.map_err(|error| {
             error!("NNAS rejected NintendoCreateAccount token: {error}");
             ErrorCode::Authentication_ValidationFailed
         })?;
-        if principal_name != account.username {
+        let pid = account.rnex_pid();
+        if let Some(claimed_pid) = claimed_pid
+            && claimed_pid != pid
+        {
+            warn!(
+                claimed_pid,
+                validated_pid = pid,
+                "NintendoCreateAccount data PID did not match the validated token"
+            );
             return Err(ErrorCode::Authentication_PrincipalIdUnmatched);
         }
-        let pid = account.rnex_pid();
         let mac = derive_pid_hmac(pid, &key);
 
         let hex_str = hex::encode(mac);
