@@ -14,7 +14,7 @@ use rnex_rmc::{
         PID,
         account::Account,
         date_time::DateTime,
-        nnas::{NnasError, validate_nex_token},
+        nnas::{NnasError, get_nex_login_data, validate_nex_token},
     },
 };
 use rnex_server::PassthroughInitModule;
@@ -151,8 +151,23 @@ impl AuthHandler {
             return Err(ErrorCode::Core_InvalidArgument);
         };
 
-        warn!("login without a NEX bearer token is not supported for PID {pid}");
-        Err(ErrorCode::RendezVous_NotAuthenticated)
+        let login_data = get_nex_login_data(pid).await.map_err(|error| {
+            warn!("unable to obtain NEX login data for PID {pid}: {error}");
+            ErrorCode::RendezVous_NotAuthenticated
+        })?;
+        let account = Account::new(
+            login_data.rnex_pid(),
+            &login_data.username,
+            &login_data.nex_password,
+        );
+        let source_login_data = account.get_login_data();
+        let destination_login_data = self.am.destination_server_acct.get_login_data();
+        self.remember_account(account).await;
+
+        Ok((
+            source_login_data.0,
+            generate_ticket(source_login_data, destination_login_data),
+        ))
     }
 
     pub fn generate_ticket_from_name_string_user_key(
