@@ -66,6 +66,9 @@ pub struct Server<C: Crypto> {
 
 impl<C: Crypto> Server<C> {
     async fn send_data_packet(self: Arc<Self>, conn: Arc<Connection<C::Instance>>, data: &[u8]) {
+        if data.is_empty() || data.len() > rnex_util::MAX_PACKET_SIZE {
+            return;
+        }
         /*let type_flags = TypesFlags::default().types(DATA).flags(HAS_SIZE | NEED_ACK);
         let vec = vec![0; precalc_size(type_flags, data.len())];
         let mut packet = PRUDPV0Packet::new(vec);
@@ -111,7 +114,7 @@ impl<C: Crypto> Server<C> {
                 &mut inner.crypto_instance,
                 &(&self).crypto,
             );
-            inner.server_packet_counter += 1;
+            inner.server_packet_counter = inner.server_packet_counter.wrapping_add(1);
 
             let packet = Arc::new(packet);
             let packet_ref = Arc::downgrade(&packet);
@@ -153,7 +156,7 @@ impl<C: Crypto> Server<C> {
                 conns.remove(&(conn.addr, conn.session_id));
                 drop(conns);
             });
-            frag_num += 1;
+            frag_num = if frag_num == 255 { 1 } else { frag_num + 1 };
         }
         drop(inner);
     }
@@ -246,6 +249,15 @@ impl<C: Crypto> Server<C> {
             .ok();
     }
     async fn handle_connect(self: Arc<Self>, packet: PRUDPV0Packet<Vec<u8>>, addr: PRUDPSockAddr) {
+        let Some(header) = packet.header() else {
+            return;
+        };
+        {
+            let conns = self.connections.read().await;
+            if conns.len() >= 1024 && !conns.contains_key(&(addr, header.session_id)) {
+                return;
+            }
+        }
         let Some(data) = packet.payload() else {
             warn!("malformed packet from: {:?}", addr.regular_socket_addr);
             return;
@@ -269,6 +281,29 @@ impl<C: Crypto> Server<C> {
             warn!("unable to instantiate crypto instance");
             return;
         };
+
+        if let Some(existing) = self.get_connection((addr, header.session_id)).await {
+            let inner = existing.inner.lock().await;
+            if inner.crypto_instance.get_user_id() != ci.get_user_id() {
+                return;
+            }
+            drop(inner);
+            let response = new_connect_packet(
+                ACK,
+                header.destination,
+                header.source,
+                self_signat,
+                remote_signat,
+                header.session_id,
+                &data,
+                &self.crypto,
+            );
+            self.socket
+                .send_to(&response, addr.regular_socket_addr)
+                .await
+                .ok();
+            return;
+        }
 
         let pid = ci.get_user_id();
         println!("user with pid {} is connecting", pid);
@@ -296,8 +331,8 @@ impl<C: Crypto> Server<C> {
         });
 
         let mut conns = self.connections.write().await;
-        if conns.contains_key(&(addr, header.session_id)) {
-            error!("client already connected but tried to connect again");
+        if conns.len() >= 1024 || conns.contains_key(&(addr, header.session_id)) {
+            return;
         }
         conns.insert((addr, header.session_id), conn.clone());
         drop(conns);
@@ -335,7 +370,7 @@ impl<C: Crypto> Server<C> {
             warn!("invalid packet from: {:?}", addr);
             return;
         };
-        let Some(header) = packet.header() else {
+        let Some(&header) = packet.header() else {
             warn!("invalid packet from: {:?}", addr);
             return;
         };
@@ -367,6 +402,21 @@ impl<C: Crypto> Server<C> {
             .send_to(&ack, addr.regular_socket_addr)
             .await
             .ok();
+        if header.sequence_id.wrapping_sub(conn.client_packet_counter) >= 256 {
+            return;
+        }
+        if conn.packet_queue.len() >= 256 {
+            return;
+        }
+        let queued_bytes: usize = conn.packet_queue.values().map(|(_, p)| p.0.len()).sum();
+        if queued_bytes.saturating_add(packet.0.len()) > rnex_util::MAX_PACKET_SIZE {
+            drop(conn);
+            self.connections
+                .write()
+                .await
+                .remove(&(addr, header.session_id));
+            return;
+        }
         conn.packet_queue.insert(
             packet.header().unwrap().sequence_id,
             (Instant::now(), packet),
@@ -384,16 +434,35 @@ impl<C: Crypto> Server<C> {
             };
 
             conn.crypto_instance.decrypt_incoming(payload);
+            if conn.packet_buffer.len().saturating_add(payload.len()) > rnex_util::MAX_PACKET_SIZE {
+                drop(conn);
+                self.connections
+                    .write()
+                    .await
+                    .remove(&(addr, header.session_id));
+                return;
+            }
             conn.packet_buffer.extend_from_slice(payload);
-            conn.client_packet_counter += 1;
+            conn.client_packet_counter = conn.client_packet_counter.wrapping_add(1);
             if *packet.fragment_id().unwrap() != 0 {
                 info!("handeling fragmented packet");
                 continue;
             }
 
-            res.target
-                .send(std::mem::take(&mut conn.packet_buffer))
-                .await;
+            if tokio::time::timeout(
+                Duration::from_secs(5),
+                res.target.send(std::mem::take(&mut conn.packet_buffer)),
+            )
+            .await
+            .is_err()
+            {
+                drop(conn);
+                self.connections
+                    .write()
+                    .await
+                    .remove(&(addr, header.session_id));
+                return;
+            }
         }
         info!("finished handeling packets, dropping inner connection");
         drop(conn);
@@ -522,6 +591,7 @@ impl<C: Crypto> Server<C> {
         }
     }
     pub async fn run_task(self: Arc<Self>) {
+        let permits = Arc::new(tokio::sync::Semaphore::new(64));
         loop {
             let mut vec: Vec<u8> = vec![0u8; 65507];
             let (len, addr) = match self.socket.recv_from(&mut vec).await {
@@ -532,7 +602,11 @@ impl<C: Crypto> Server<C> {
                 Ok(v) => v,
             };
             let this = self.clone();
+            let Ok(permit) = permits.clone().try_acquire_owned() else {
+                continue;
+            };
             tokio::spawn(async move {
+                let _permit = permit;
                 let mut data = vec;
                 data.resize(len, 0);
                 let packet = PRUDPV0Packet::new(data);

@@ -2,8 +2,8 @@ use std::net::SocketAddr;
 
 use rnex_auth::{is_maintenance, set_maintenance};
 use rnex_server_api::auth::{
+    Empty, MaintenanceState,
     auth_admin_service_server::{AuthAdminService, AuthAdminServiceServer},
-    MaintenanceState, Empty,
 };
 use tonic::{Request, Response, Status, transport::Server};
 
@@ -13,7 +13,9 @@ pub struct AdminGrpc {
 
 impl AdminGrpc {
     pub fn new(token: Option<String>) -> Self {
-        Self { token }
+        Self {
+            token: token.filter(|value| !value.is_empty()),
+        }
     }
 
     fn authorize<T>(&self, request: &Request<T>) -> Result<(), Status> {
@@ -32,7 +34,9 @@ impl AdminGrpc {
         let supplied = header
             .strip_prefix("Bearer ")
             .or_else(|| header.strip_prefix("bearer "))
-            .ok_or_else(|| Status::unauthenticated("authorization header must use Bearer scheme"))?;
+            .ok_or_else(|| {
+                Status::unauthenticated("authorization header must use Bearer scheme")
+            })?;
 
         if supplied == expected {
             Ok(())
@@ -65,6 +69,10 @@ impl AuthAdminService for AdminGrpc {
 }
 
 pub async fn serve(addr: SocketAddr, token: Option<String>) -> Result<(), tonic::transport::Error> {
+    if !addr.ip().is_loopback() && token.as_ref().is_none_or(|v| v.is_empty()) {
+        rnex_server::tracing::error!("refusing to expose admin gRPC without a token");
+        return Ok(());
+    }
     Server::builder()
         .add_service(AuthAdminServiceServer::new(AdminGrpc::new(token)))
         .serve(addr)

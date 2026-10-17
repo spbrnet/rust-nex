@@ -1,8 +1,11 @@
-use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use rnex_server::{ConnectionRegistry, util::PID};
-use rnex_server_api::meta::{admin_service_server::{AdminService, AdminServiceServer}, KickPidsRequest, KickPidsResponse, OnlinePidsResponse};
-use tonic::{Request, Response, Status, transport::Server};
 use rnex_server_api::meta::Empty;
+use rnex_server_api::meta::{
+    KickPidsRequest, KickPidsResponse, OnlinePidsResponse,
+    admin_service_server::{AdminService, AdminServiceServer},
+};
+use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+use tonic::{Request, Response, Status, transport::Server};
 
 pub struct AdminGrpc {
     registry: Arc<ConnectionRegistry>,
@@ -11,7 +14,10 @@ pub struct AdminGrpc {
 
 impl AdminGrpc {
     pub fn new(registry: Arc<ConnectionRegistry>, token: Option<String>) -> Self {
-        Self { registry, token }
+        Self {
+            registry,
+            token: token.filter(|value| !value.is_empty()),
+        }
     }
 
     fn authorize<T>(&self, request: &Request<T>) -> Result<(), Status> {
@@ -30,7 +36,9 @@ impl AdminGrpc {
         let supplied = header
             .strip_prefix("Bearer ")
             .or_else(|| header.strip_prefix("bearer "))
-            .ok_or_else(|| Status::unauthenticated("authorization header must use Bearer scheme"))?;
+            .ok_or_else(|| {
+                Status::unauthenticated("authorization header must use Bearer scheme")
+            })?;
 
         if supplied == expected {
             Ok(())
@@ -56,9 +64,11 @@ impl AdminService for AdminGrpc {
         let mut missing = Vec::new();
 
         for raw_pid in pids {
-            let pid: PID = raw_pid
-                .try_into()
-                .map_err(|_| Status::invalid_argument(format!("pid {raw_pid} is not a valid pid for this server")))?;
+            let pid: PID = raw_pid.try_into().map_err(|_| {
+                Status::invalid_argument(format!(
+                    "pid {raw_pid} is not a valid pid for this server"
+                ))
+            })?;
 
             if self.registry.kick(pid).await {
                 kicked.push(raw_pid);
@@ -97,6 +107,10 @@ pub async fn serve(
     registry: Arc<ConnectionRegistry>,
     token: Option<String>,
 ) -> Result<(), tonic::transport::Error> {
+    if !addr.ip().is_loopback() && token.as_ref().is_none_or(|v| v.is_empty()) {
+        rnex_server::tracing::error!("refusing to expose admin gRPC without a token");
+        return Ok(());
+    }
     Server::builder()
         .add_service(AdminServiceServer::new(AdminGrpc::new(registry, token)))
         .serve(addr)

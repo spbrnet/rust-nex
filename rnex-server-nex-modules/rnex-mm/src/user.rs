@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
+use crate::matchmake::{ExtendedMatchmakeSession, MatchmakeManager};
 use rnex_base::user::BaseUser;
 use rnex_base_protos::ResultsRange;
+use rnex_mm_protos::matchmake::gathering_flags;
 use rnex_mm_protos::{
     LocalMatchMakingProtocol, RemoteMatchMakingClientProtocol,
     matchmake::{
@@ -24,8 +26,6 @@ use rnex_util::{
 };
 use tokio::sync::Mutex;
 use tracing::info;
-use rnex_mm_protos::matchmake::gathering_flags;
-use crate::matchmake::{ExtendedMatchmakeSession, MatchmakeManager};
 
 /*cfg_if! {
     if #[cfg(feature = "datastore")] {
@@ -87,7 +87,11 @@ impl MatchmakeExtension for MatchmakeUser {
         let session = self.matchmake_manager.get_session(gid).await?;
 
         let mut session = session.lock().await;
-
+        if session.session.gathering.host_pid != self.base.pid
+            && session.session.gathering.owner_pid != self.base.pid
+        {
+            return Err(ErrorCode::RendezVous_PermissionDenied);
+        }
         session.session.open_participation = false;
 
         Ok(())
@@ -97,7 +101,11 @@ impl MatchmakeExtension for MatchmakeUser {
         let session = self.matchmake_manager.get_session(gid).await?;
 
         let mut session = session.lock().await;
-
+        if session.session.gathering.host_pid != self.base.pid
+            && session.session.gathering.owner_pid != self.base.pid
+        {
+            return Err(ErrorCode::RendezVous_PermissionDenied);
+        }
         session.session.open_participation = true;
 
         Ok(())
@@ -108,7 +116,10 @@ impl MatchmakeExtension for MatchmakeUser {
         browse_criteria: MatchmakeSessionSearchCriteria,
         result_range: ResultsRange,
     ) -> Result<Vec<Any<Gathering>>, ErrorCode> {
-        println!("browsing matchmake sessions with criteria: {:?}", browse_criteria);
+        println!(
+            "browsing matchmake sessions with criteria: {:?}",
+            browse_criteria
+        );
 
         let results = self
             .matchmake_manager
@@ -120,16 +131,18 @@ impl MatchmakeExtension for MatchmakeUser {
 
         let mut list = Vec::with_capacity(mm_list.len());
 
-        for (index, mm_sess) in mm_list.iter().enumerate() {
+        for mm_sess in &mm_list {
             let mm_sess_guard = mm_sess.lock().await;
-            
-            println!("processing session [{}]: {:?}", index, *mm_sess_guard);
 
-            let gathering_any = Any::new(&mm_sess_guard.session).expect("type error");
+            let gathering_any =
+                Any::new(&mm_sess_guard.session).map_err(|_| ErrorCode::Core_InvalidArgument)?;
             list.push(gathering_any);
         }
 
-        println!("successfully collected {} sessions into output list", list.len());
+        println!(
+            "successfully collected {} sessions into output list",
+            list.len()
+        );
 
         Ok(list)
     }
@@ -143,7 +156,11 @@ impl MatchmakeExtension for MatchmakeUser {
         let session = self.matchmake_manager.get_session(gid).await?;
 
         let mut session = session.lock().await;
-
+        if session.session.gathering.host_pid != self.base.pid
+            && session.session.gathering.owner_pid != self.base.pid
+        {
+            return Err(ErrorCode::RendezVous_PermissionDenied);
+        }
         session.session.progress_score = progress;
 
         Ok(())
@@ -153,8 +170,6 @@ impl MatchmakeExtension for MatchmakeUser {
         &self,
         create_session_param: CreateMatchmakeSessionParam,
     ) -> Result<MatchmakeSession, ErrorCode> {
-        println!("session paramater: {:?}", create_session_param);
-
         let gid = self.matchmake_manager.next_gid();
 
         let mut new_session = ExtendedMatchmakeSession::from_matchmake_session(
@@ -174,7 +189,12 @@ impl MatchmakeExtension for MatchmakeUser {
             .await
         {
             let old_gathering = old_gathering.lock().await;
-
+            if !old_gathering
+                .get_active_players()
+                .any(|p| p.base.pid == self.base.pid)
+            {
+                return Err(ErrorCode::RendezVous_PermissionDenied);
+            }
             let players = old_gathering
                 .connected_players
                 .iter()
@@ -195,11 +215,14 @@ impl MatchmakeExtension for MatchmakeUser {
         new_session.session.participation_count = create_session_param.participation_count as u32;
         new_session
             .add_players(&joining_players, create_session_param.join_message)
-            .await;
+            .await?;
 
         let session = new_session.session.clone();
 
         let mut sessions = self.matchmake_manager.sessions.write().await;
+        if sessions.len() >= 1024 {
+            return Err(ErrorCode::Core_InvalidArgument);
+        }
         sessions.insert(gid, Arc::new(Mutex::new(new_session)));
         drop(sessions);
 
@@ -215,19 +238,6 @@ impl MatchmakeExtension for MatchmakeUser {
             .get_session(join_session_param.gid)
             .await?;
 
-        let mut session = session.lock().await;
-
-        #[cfg(feature = "v3-5-0")]
-        {
-            if join_session_param.user_password != session.session.user_password {
-                return Err(ErrorCode::RendezVous_MatchmakeSessionUserPasswordUnmatch);
-            }
-        }
-
-        session
-            .connected_players
-            .retain(|v| v.upgrade().is_some_and(|v| v.base.pid != self.base.pid));
-
         let mut joining_players = vec![self.this.clone()];
 
         let users = self.matchmake_manager.users.read().await;
@@ -238,7 +248,12 @@ impl MatchmakeExtension for MatchmakeUser {
             .await
         {
             let old_gathering = old_gathering.lock().await;
-
+            if !old_gathering
+                .get_active_players()
+                .any(|p| p.base.pid == self.base.pid)
+            {
+                return Err(ErrorCode::RendezVous_PermissionDenied);
+            }
             let players = old_gathering
                 .connected_players
                 .iter()
@@ -255,10 +270,21 @@ impl MatchmakeExtension for MatchmakeUser {
         }
 
         drop(users);
-
+        let mut session = session.lock().await;
+        if !session.session.open_participation
+            && !session
+                .get_active_players()
+                .any(|p| p.base.pid == self.base.pid)
+        {
+            return Err(ErrorCode::RendezVous_PermissionDenied);
+        }
+        #[cfg(feature = "v3-5-0")]
+        if join_session_param.user_password != session.session.user_password {
+            return Err(ErrorCode::RendezVous_MatchmakeSessionUserPasswordUnmatch);
+        }
         session
             .add_players(&joining_players, join_session_param.join_message)
-            .await;
+            .await?;
 
         let mm_session = session.session.clone();
 
@@ -269,8 +295,6 @@ impl MatchmakeExtension for MatchmakeUser {
         &self,
         param: AutoMatchmakeParam,
     ) -> Result<MatchmakeSession, ErrorCode> {
-        println!("autommparam: {:?}", param);
-
         let mut joining_players = vec![self.this.clone()];
 
         let users = self.matchmake_manager.users.read().await;
@@ -281,7 +305,12 @@ impl MatchmakeExtension for MatchmakeUser {
             .await
         {
             let old_gathering = old_gathering.lock().await;
-
+            if !old_gathering
+                .get_active_players()
+                .any(|p| p.base.pid == self.base.pid)
+            {
+                return Err(ErrorCode::RendezVous_PermissionDenied);
+            }
             let players = old_gathering
                 .connected_players
                 .iter()
@@ -308,7 +337,7 @@ impl MatchmakeExtension for MatchmakeUser {
             let mut session = session.lock().await;
             session
                 .add_players(&joining_players, param.join_message)
-                .await;
+                .await?;
 
             return Ok(session.session.clone());
         }
@@ -356,7 +385,16 @@ impl MatchmakeExtension for MatchmakeUser {
         let session = self.matchmake_manager.get_session(gid).await?;
         let mut session = session.lock().await;
 
-        session.session.attributes[attrib_index as usize] = attrib_val;
+        if session.session.gathering.host_pid != self.base.pid
+            && session.session.gathering.owner_pid != self.base.pid
+        {
+            return Err(ErrorCode::RendezVous_PermissionDenied);
+        }
+        *session
+            .session
+            .attributes
+            .get_mut(attrib_index as usize)
+            .ok_or(ErrorCode::Core_InvalidArgument)? = attrib_val;
 
         Ok(())
     }
@@ -366,7 +404,6 @@ impl MatchmakeExtension for MatchmakeUser {
         gathering: Any<Gathering>,
         message: String,
     ) -> Result<(u32, Vec<u8>), ErrorCode> {
-        println!("gathering: {:?}", gathering);
         let session: MatchmakeSession = gathering.try_get_as()?;
 
         let session = self
@@ -451,10 +488,9 @@ impl MatchmakeExtension for MatchmakeUser {
 
         let mut session = session.lock().await;
 
-        if session.session.gathering.host_pid == self.base.pid {
-            return Err(ErrorCode::RendezVous_PermissionDenied);
-        }
-        if session.session.gathering.owner_pid == self.base.pid {
+        if session.session.gathering.host_pid != self.base.pid
+            && session.session.gathering.owner_pid != self.base.pid
+        {
             return Err(ErrorCode::RendezVous_PermissionDenied);
         }
 
@@ -472,7 +508,14 @@ impl MatchmakeExtension for MatchmakeUser {
     ) -> Result<Vec<u8>, ErrorCode> {
         let sess = self.matchmake_manager.get_session(gid).await?;
         let mut sess = sess.lock().await;
-        sess.add_players(&[self.this.clone()], message).await;
+        if !sess.session.open_participation
+            && !sess
+                .get_active_players()
+                .any(|p| p.base.pid == self.base.pid)
+        {
+            return Err(ErrorCode::RendezVous_PermissionDenied);
+        }
+        sess.add_players(&[self.this.clone()], message).await?;
 
         Ok(sess.session.session_key.clone())
     }
@@ -551,6 +594,14 @@ impl Matchmake for MatchmakeUser {
         let session = self.matchmake_manager.get_session(gid).await?;
         let mut session = session.lock().await;
 
+        if !session
+            .connected_players
+            .iter()
+            .filter_map(|p| p.upgrade())
+            .any(|p| p.base.pid == self.base.pid)
+        {
+            return Err(ErrorCode::RendezVous_PermissionDenied);
+        }
         session.session.gathering.host_pid = self.base.pid;
 
         for player in &session.connected_players {
@@ -608,7 +659,17 @@ impl Matchmake for MatchmakeUser {
         let mut session = session.lock().await;
 
         let candidate = candidates.get(0).ok_or(ErrorCode::Core_InvalidArgument)?;
-
+        if session.session.gathering.owner_pid != self.base.pid {
+            return Err(ErrorCode::RendezVous_PermissionDenied);
+        }
+        if !session
+            .connected_players
+            .iter()
+            .filter_map(|p| p.upgrade())
+            .any(|p| p.base.pid == *candidate)
+        {
+            return Err(ErrorCode::Core_InvalidArgument);
+        }
         session.session.gathering.owner_pid = *candidate;
 
         for player in &session.connected_players {
@@ -632,8 +693,11 @@ impl Matchmake for MatchmakeUser {
 
         Ok(())
     }
-    
-    async fn get_detailed_participants(&self, gid: u32) -> Result<Vec<ParticipantDetails>, ErrorCode>  {
+
+    async fn get_detailed_participants(
+        &self,
+        gid: u32,
+    ) -> Result<Vec<ParticipantDetails>, ErrorCode> {
         let session = self.matchmake_manager.get_session(gid).await?;
         let session = session.lock().await;
 

@@ -1,7 +1,6 @@
 use bytemuck::bytes_of;
-use std::io::{Read, Write};
-use std::mem::MaybeUninit;
 use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions};
+use std::io::{Read, Write};
 
 use crate::serialization::{Result, RmcSerialize};
 
@@ -23,15 +22,14 @@ impl<T: RmcSerialize> RmcSerialize for Vec<T> {
     }
 
     fn deserialize(reader: &mut (impl Read + ?Sized)) -> Result<Self> {
-        println!("reading list");
         let len: u32 = reader.read_struct(IS_BIG_ENDIAN)?;
-
-        println!("readijg list: {:?}", len);
-        //let mut vec = Vec::with_capacity(len as usize);
-
-        let vec: Vec<T> = (0..len)
-            .map(|_| T::deserialize(reader))
-            .collect::<Result<Vec<_>, _>>()?;
+        if len as usize > rnex_util::MAX_PACKET_SIZE / std::mem::size_of::<T>().max(1) {
+            return Err(crate::serialization::Error::OOB);
+        }
+        let mut vec = Vec::new();
+        for _ in 0..len {
+            vec.push(T::deserialize(reader)?);
+        }
 
         Ok(vec)
     }
@@ -55,17 +53,13 @@ impl<const LEN: usize, T: RmcSerialize> RmcSerialize for [T; LEN] {
     }
 
     fn deserialize(reader: &mut (impl Read + ?Sized)) -> Result<Self> {
-        let mut arr = [const { MaybeUninit::<T>::uninit() }; LEN];
-
-        for i in 0..LEN {
-            arr[i] = MaybeUninit::new(T::deserialize(reader)?);
+        let mut values = Vec::with_capacity(LEN);
+        for _ in 0..LEN {
+            values.push(T::deserialize(reader)?);
         }
-
-        // all of the elements are now initialized so it is safe to assume they are initialized
-
-        let arr = arr.map(|v| unsafe { v.assume_init() });
-
-        Ok(arr)
+        values
+            .try_into()
+            .map_err(|_| crate::serialization::Error::OOB)
     }
     #[inline(always)]
     fn serialize_write_size(&self) -> Result<u32> {

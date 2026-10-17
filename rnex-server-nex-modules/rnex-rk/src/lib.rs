@@ -1,12 +1,12 @@
+use cfg_if::cfg_if;
 #[allow(unused)]
 #[allow(unused_imports)]
 use rnex_rmc::response::ErrorCode;
-use rnex_server::{ConnectionInitData, EnvVarError, RnexManager, RnexModule};
 #[cfg(feature = "splatoon")]
 use rnex_server::env_var;
+use rnex_server::{ConnectionInitData, EnvVarError, RnexManager, RnexModule};
 #[cfg(feature = "splatoon")]
 use std::str::FromStr;
-use cfg_if::cfg_if;
 #[cfg(feature = "splatoon")]
 use tracing::error;
 
@@ -31,11 +31,23 @@ impl RankingManager {
     #[cfg(feature = "splatoon")]
     async fn fetch_team_votes(&self, fest_id: u32) -> Result<Vec<u32>, ErrorCode> {
         let url_votes = format!("{}?splatfest_id={}", self.rnex_result_votes_get, fest_id);
+        let permit = rnex_util::http::REQUEST_SLOTS
+            .acquire()
+            .await
+            .map_err(|_| ErrorCode::Core_Exception)?;
         let Ok(response) = tokio::task::spawn_blocking(move || {
-            ureq::get(&url_votes).call().map_err(|e| {
-                error!("GET for votes failed: {:?}", e);
-                ErrorCode::RendezVous_InvalidConfiguration
-            })
+            let _permit = permit;
+            let mut response = rnex_util::http::agent()
+                .get(&url_votes)
+                .call()
+                .map_err(|e| {
+                    error!("GET for votes failed: {:?}", e);
+                    ErrorCode::RendezVous_InvalidConfiguration
+                })?;
+            response
+                .body_mut()
+                .read_to_string()
+                .map_err(|_| ErrorCode::RendezVous_InvalidConfiguration)
         })
         .await
         else {
@@ -43,12 +55,7 @@ impl RankingManager {
             return Err(ErrorCode::Core_Exception);
         };
 
-        let mut response = response?;
-
-        let body = response.body_mut().read_to_string().map_err(|e| {
-            error!("failed to read votes body: {:?}", e);
-            ErrorCode::RendezVous_InvalidConfiguration
-        })?;
+        let body = response?;
 
         let body = body.trim().trim_start_matches('[').trim_end_matches(']');
         let votes: Result<Vec<u32>, _> = body.split(',').map(|s| u32::from_str(s.trim())).collect();
@@ -87,7 +94,7 @@ impl RnexModule for RankingModule {
     async fn create_manager(
         _: &rnex_server::ModuleHolder,
     ) -> Result<Self::Manager, Self::InitError> {
-        cfg_if!{
+        cfg_if! {
             if #[cfg(feature = "splatoon")] {
                 Ok(RankingManager {
                     rnex_result_votes_get: env_var("RNEX_SPLATOON_RESULTS_VOTES_GET")?,

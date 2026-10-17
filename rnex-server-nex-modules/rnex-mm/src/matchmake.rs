@@ -138,14 +138,16 @@ impl MatchmakeManager {
                     }
                     Ok(false) => {}
                     Err(e) => {
-                        println!("dropped session {:?}: criteria check returned error {:?}", key, e);
+                        println!(
+                            "dropped session {:?}: criteria check returned error {:?}",
+                            key, e
+                        );
                         return Err(e);
                     }
                 }
             }
 
             if bool_matched_criteria {
-                println!("matched session: {:?}", session);
                 list.push(session.clone());
             } else {
                 println!("dropped session {:?}: did not match any criteria", key);
@@ -266,17 +268,31 @@ impl ExtendedMatchmakeSession {
         &mut self,
         conns: &[WeakPassthroughInitModule<MatchmakeUser>],
         join_msg: String,
-    ) {
-        let Some(initiating_user) = conns[0].upgrade() else {
-            return;
+    ) -> Result<(), ErrorCode> {
+        let Some(initiating_user) = conns.first().and_then(|c| c.upgrade()) else {
+            return Err(ErrorCode::Core_InvalidArgument);
         };
 
         let initiating_pid = initiating_user.base.pid;
 
         let old_particip = self.connected_players.clone();
-        for conn in conns {
-            self.connected_players.push(conn.clone());
+        self.connected_players.retain(|c| c.upgrade().is_some());
+        let mut unique = std::collections::HashSet::new();
+        for player in self.get_active_players() {
+            unique.insert(player.base.pid);
         }
+        let mut additions = Vec::new();
+        for conn in conns {
+            if let Some(player) = conn.upgrade() {
+                if unique.insert(player.base.pid) {
+                    additions.push(conn.clone());
+                }
+            }
+        }
+        if unique.len() > usize::from(self.session.gathering.maximum_participants).min(256) {
+            return Err(ErrorCode::Core_InvalidArgument);
+        }
+        self.connected_players.extend(additions);
         self.session.participation_count = self.connected_players.len() as u32;
 
         for other_connection in &conns[1..] {
@@ -364,6 +380,7 @@ impl ExtendedMatchmakeSession {
                     .await;
             }
         }
+        Ok(())
     }
 
     pub fn has_min_active_players(&self) -> bool {
@@ -373,9 +390,7 @@ impl ExtendedMatchmakeSession {
             .connected_players
             .iter()
             .filter_map(|v| v.upgrade())
-            .filter(|_player| {
-                true
-            })
+            .filter(|_player| true)
             .count();
 
         println!(
@@ -395,9 +410,7 @@ impl ExtendedMatchmakeSession {
     #[inline]
     pub fn is_reachable(&self) -> bool {
         let host_pid = self.session.gathering.host_pid;
-        let host_active = self
-            .get_active_players()
-            .any(|v| v.base.pid == host_pid);
+        let host_active = self.get_active_players().any(|v| v.base.pid == host_pid);
 
         let is_persistent = (self.session.gathering.flags & PERSISTENT_GATHERING) != 0;
         let has_min_players = self.has_min_active_players();
@@ -412,11 +425,7 @@ impl ExtendedMatchmakeSession {
 
         #[cfg(not(feature = "v3-4-7"))]
         let persistent_check_passed = (if is_persistent {
-            if has_min_players {
-                true
-            } else {
-                open_part
-            }
+            if has_min_players { true } else { open_part }
         } else {
             has_min_players
         }) & has_min_players;

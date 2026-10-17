@@ -130,6 +130,7 @@ impl RmcResponseReceiver {
 
             tokio::select! {
                 _ = &mut sleep_manual_unlock_fut => {
+                    sleep_manual_unlock_fut.as_mut().reset(Instant::now() + Duration::from_secs(4));
                     continue;
                 }
                 _ = &mut sleep_fut => {
@@ -353,7 +354,18 @@ async fn handle_incoming<T: RmcCallable + Send + Sync + Debug + 'static>(
         info!("got rmc response");
 
         let mut locked = incoming.lock().await;
-
+        let response_bytes = |response: &RMCResponse| match &response.response_result {
+            RMCResponseResult::Success { data, .. } => data.len(),
+            RMCResponseResult::Error { .. } => 0,
+        };
+        let stored_bytes: usize = locked.values().map(response_bytes).sum();
+        if (locked.len() >= 64 && !locked.contains_key(&response.get_call_id()))
+            || stored_bytes.saturating_add(response_bytes(&response)) > rnex_util::MAX_PACKET_SIZE
+        {
+            drop(locked);
+            sending_conn.disconnect().await;
+            return;
+        }
         locked.insert(response.get_call_id(), response);
         notify.notify_waiters();
     } else {
@@ -382,12 +394,7 @@ async fn handle_incoming<T: RmcCallable + Send + Sync + Debug + 'static>(
                 )
                 .await
             {
-                error!(
-                    protocol_id,
-                    method_id,
-                    arguments = hex::encode(&rest_of_data),
-                    "rmc call on unimplemented protocol"
-                )
+                error!(protocol_id, method_id, "rmc call on unimplemented protocol")
             }
         }
         .await;
@@ -400,14 +407,19 @@ async fn handle_incoming_loop<T: RmcCallable + Send + Sync + Debug + 'static>(
     notify: Arc<Notify>,
     incoming: Arc<Mutex<HashMap<u32, RMCResponse>>>,
 ) {
+    let permits = Arc::new(tokio::sync::Semaphore::new(16));
     while let Some(data) = connection.recv().await {
+        let Ok(permit) = permits.clone().acquire_owned().await else {
+            break;
+        };
         let sending_conn = connection.duplicate_sender();
         let remote = remote.clone();
         let notify = notify.clone();
         let incoming = incoming.clone();
-        task::spawn(
-            handle_incoming(sending_conn, remote, notify, incoming, data),
-        );
+        task::spawn(async move {
+            let _permit = permit;
+            handle_incoming(sending_conn, remote, notify, incoming, data).await;
+        });
     }
 
     info!("rmc disconnected")
@@ -440,14 +452,12 @@ where
                 handle_incoming_loop(conn, exposed_object, notify, incoming).await;
             });
 
-            tokio::spawn(
-                async move {
-                    while sending_conn.is_alive() {
-                        sending_conn.send([0, 0, 0, 0, 0].to_vec()).await;
-                        sleep(Duration::from_secs(10)).await;
-                    }
-                },
-            );
+            tokio::spawn(async move {
+                while sending_conn.is_alive() {
+                    sending_conn.send([0, 0, 0, 0, 0].to_vec()).await;
+                    sleep(Duration::from_secs(10)).await;
+                }
+            });
         }
 
         exposed_object

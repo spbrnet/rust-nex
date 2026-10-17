@@ -3,6 +3,7 @@ pub use tracing;
 pub mod account;
 pub mod byte;
 pub mod date_time;
+pub mod http;
 pub mod nnas;
 pub mod result;
 pub mod station_url;
@@ -11,8 +12,8 @@ use std::ops::Deref;
 use std::sync::{Arc, Weak};
 use std::vec;
 use tokio::io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::sync::Notify;
+use tokio::sync::mpsc::{Receiver, Sender, channel};
+use tokio::sync::watch;
 use tokio::task;
 use tracing::{error, info};
 
@@ -21,7 +22,7 @@ pub type PID = i64;
 #[cfg(not(feature = "nx"))]
 pub type PID = i32;
 
-pub const MAX_PACKET_SIZE: usize = 128 * 1024 * 1024;
+pub const MAX_PACKET_SIZE: usize = 1024 * 1024;
 
 pub trait UnitPacketRead: AsyncRead + Unpin {
     async fn read_buffer(&mut self) -> Result<Vec<u8>, io::Error> {
@@ -29,17 +30,27 @@ pub trait UnitPacketRead: AsyncRead + Unpin {
 
         self.read_exact(&mut len_raw).await?;
 
-        let len = u64::from_le_bytes(len_raw) as usize;
+        let len = usize::try_from(u64::from_le_bytes(len_raw))
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "frame length overflow"))?;
 
         if len > MAX_PACKET_SIZE {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("packet size {len} bytes exceeds maximum allowed limit of {MAX_PACKET_SIZE} bytes"),
+                format!(
+                    "packet size {len} bytes exceeds maximum allowed limit of {MAX_PACKET_SIZE} bytes"
+                ),
             ));
         }
 
-        let mut vec = vec![0u8; len];
-        self.read_exact(&mut vec).await?;
+        let mut vec = Vec::new();
+        let mut limited = self.take(len as u64);
+        limited.read_to_end(&mut vec).await?;
+        if vec.len() != len {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "truncated frame",
+            ));
+        }
 
         Ok(vec)
     }
@@ -49,6 +60,12 @@ impl<T: AsyncRead + Unpin + ?Sized> UnitPacketRead for T {}
 
 pub trait UnitPacketWrite: AsyncWrite + Unpin {
     async fn send_buffer(&mut self, data: &[u8]) -> Result<(), io::Error> {
+        if data.len() > MAX_PACKET_SIZE {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "frame too large",
+            ));
+        }
         let len_data = (data.len() as u64).to_le_bytes();
         self.write_all(&len_data[..]).await?;
         self.write_all(data).await?;
@@ -61,7 +78,7 @@ pub trait UnitPacketWrite: AsyncWrite + Unpin {
 impl<T: AsyncWrite + Unpin + ?Sized> UnitPacketWrite for T {}
 
 #[derive(Clone, Debug)]
-pub struct SendingBufferConnection(Sender<Vec<u8>>, Arc<Notify>);
+pub struct SendingBufferConnection(Sender<Vec<u8>>, watch::Sender<bool>);
 
 #[derive(Debug)]
 pub struct SplittableBufferConnection(SendingBufferConnection, Receiver<Vec<u8>>);
@@ -94,25 +111,39 @@ impl SplittableBufferConnection {
         let (outside_send, inside_recv) = channel::<Vec<u8>>(10);
         let (inside_send, outside_recv) = channel::<Vec<u8>>(10);
 
-        let notify = Arc::new(Notify::new());
+        let (notify, mut read_shutdown) = watch::channel(false);
+        let mut write_shutdown = notify.subscribe();
         let (mut reader, mut writer) = io::split(stream);
 
         {
+            let notify = notify.clone();
             task::spawn(async move {
                 loop {
-                    match reader.read_buffer().await {
-                        Ok(data) => {
-                            if inside_send.send(data).await.is_err() {
+                    let result = tokio::select! {
+                        _ = read_shutdown.changed() => break,
+                        result = tokio::time::timeout(std::time::Duration::from_secs(30), reader.read_buffer()) => result,
+                    };
+                    match result {
+                        Ok(Ok(data)) => {
+                            if !matches!(
+                                tokio::time::timeout(
+                                    std::time::Duration::from_secs(10),
+                                    inside_send.send(data)
+                                )
+                                .await,
+                                Ok(Ok(()))
+                            ) {
                                 // reciever dropped
                                 break;
                             }
                         }
-                        Err(e) => {
-                            error!("error receiving data from backend: {e}");
+                        e => {
+                            error!("error receiving data from backend: {e:?}");
                             break;
                         }
                     }
                 }
+                notify.send_replace(true);
             });
         }
 
@@ -129,17 +160,18 @@ impl SplittableBufferConnection {
                                 break;
                             };
 
-                            if let Err(e) = writer.send_buffer(&data[..]).await {
-                                error!("error sending data to backend: {e}");
+                            if let e @ (Err(_) | Ok(Err(_))) = tokio::time::timeout(std::time::Duration::from_secs(10), writer.send_buffer(&data[..])).await {
+                                error!("error sending data to backend: {e:?}");
                                 break;
                             }
                         },
-                        () = notify.notified() => {
+                        _ = write_shutdown.changed() => {
                             info!("shutting down writer task");
                             break;
                         }
                     }
                 }
+                notify.send_replace(true);
                 if let Err(e) = writer.shutdown().await {
                     error!("failed to shut down stream writer: {e}");
                 }
@@ -159,10 +191,7 @@ impl SendingBufferConnection {
         !self.0.is_closed()
     }
     pub async fn disconnect(&self) {
-        while !self.0.is_closed() {
-            self.1.notify_waiters();
-            tokio::task::yield_now().await;
-        }
+        self.1.send_replace(true);
     }
 }
 

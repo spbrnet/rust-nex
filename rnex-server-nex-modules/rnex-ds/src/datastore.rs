@@ -1,3 +1,4 @@
+use crate::DatastoreManager;
 use chrono::Utc;
 use futures::{TryStreamExt, future::join_all};
 use rnex_base::user::BaseUser;
@@ -21,7 +22,6 @@ use rnex_util::{PID, date_time::DateTime};
 use sqlx::query;
 use std::convert;
 use tracing::{error, info, instrument, warn};
-use crate::DatastoreManager;
 
 // todo: refactor this further to make some of the helper functions attached to the user and some to
 // the manager and also move the usages of pid into the helper functions attached to user
@@ -34,6 +34,23 @@ pub struct DatastoreUser {
 }
 
 impl DatastoreUser {
+    async fn check_read_permission(&self, data_id: i64) -> Result<(), ErrorCode> {
+        let (owner, permission, recipients): (Option<i32>, Option<i32>, Option<Vec<i32>>) =
+            sqlx::query_as("SELECT owner, permission::integer, permission_recipients FROM datastore.objects WHERE data_id=$1")
+                .bind(data_id).fetch_one(&self.dm.db_pool).await
+                .map_err(|_| ErrorCode::DataStore_NotFound)?;
+        self.verify_object_permission(
+            owner.unwrap_or(0) as PID,
+            &Permission {
+                permission: permission.unwrap_or(3) as u8,
+                recipient_ids: recipients
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(PID::from)
+                    .collect(),
+            },
+        )
+    }
     #[instrument]
     fn map_row_to_meta_info(
         &self,
@@ -121,7 +138,7 @@ impl DatastoreUser {
             return Err(ErrorCode::DataStore_UnderReviewing);
         }
 
-        Ok(())
+        self.check_read_permission(data_id).await
     }
 
     #[instrument]
@@ -246,6 +263,7 @@ impl DatastoreUser {
             return Err(ErrorCode::DataStore_UnderReviewing);
         }
 
+        self.check_read_permission(row.data_id).await?;
         let ratings = self.get_object_ratings(row.data_id, password).await?;
 
         Ok(self.map_row_to_meta_info(
@@ -689,6 +707,15 @@ impl DatastoreUser {
             ErrorCode::DataStore_NotFound
         })?;
 
+        let owner: Option<i32> =
+            sqlx::query_scalar("SELECT owner FROM datastore.objects WHERE data_id=$1")
+                .bind(param.dataid)
+                .fetch_one(&self.dm.db_pool)
+                .await
+                .map_err(|_| ErrorCode::DataStore_NotFound)?;
+        if owner.map(PID::from) != Some(self.base.pid) {
+            return Err(ErrorCode::DataStore_PermissionDenied);
+        }
         if row.update_password != 0 && row.update_password != param.update_password {
             return Err(ErrorCode::DataStore_InvalidPassword);
         }
@@ -1332,6 +1359,9 @@ impl DataStore for DatastoreUser {
         info!("Data ID: {:?}", complete_attach_param.dataid);
         info!("Success: {:?}", complete_attach_param.success);
 
+        // tbf i don't really know if this is the correct thing to do buuuut whatever i just work here.
+        // self.complete_post_object(complete_attach_param.clone())
+        //     .await?;
         let key = format!("data/{}.jpg", complete_attach_param.dataid);
         let download_url = self.dm.s3_presigner.generate_presigned_get(&key);
 
@@ -1401,8 +1431,7 @@ impl DataStore for DatastoreUser {
     }
 
     async fn change_meta(&self, param: DataStoreChangeMetaParam) -> Result<(), ErrorCode> {
-        let object_info = self.get_object_info_by_data_id(param.dataid, 0).await?;
-        self.verify_object_permission(object_info.owner, &object_info.permission)?;
+        self.change_meta_object_check(&param).await?;
 
         if param.modifies_flag & 0x08 != 0 {
             self.change_meta_object_check(&param).await?;
@@ -1510,6 +1539,12 @@ impl DataStore for DatastoreUser {
                 permission: row.permission.unwrap_or(0) as u8,
                 recipient_ids: row.permission_recipients.unwrap_or_default(),
             };
+            if self
+                .verify_object_permission(row.owner.unwrap_or(0) as PID, &permission)
+                .is_err()
+            {
+                continue;
+            }
 
             let del_permission = Permission {
                 permission: row.delete_permission.unwrap_or(0) as u8,
@@ -1759,6 +1794,21 @@ impl DataStore for DatastoreUser {
         })?;
 
         let passwd = row.update_password;
+        let (owner, permission, recipients): (Option<i32>, Option<i32>, Option<Vec<i32>>) =
+            sqlx::query_as("SELECT owner, delete_permission::integer, delete_permission_recipients FROM datastore.objects WHERE data_id=$1")
+                .bind(param.dataid).fetch_one(&self.dm.db_pool).await
+                .map_err(|_| ErrorCode::DataStore_NotFound)?;
+        self.verify_object_permission(
+            owner.unwrap_or(0) as PID,
+            &Permission {
+                permission: permission.unwrap_or(3) as u8,
+                recipient_ids: recipients
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(PID::from)
+                    .collect(),
+            },
+        )?;
 
         if param.update_password != passwd {
             return Err(ErrorCode::DataStore_PermissionDenied);
@@ -1911,6 +1961,12 @@ impl DataStore for DatastoreUser {
                 permission: row.permission.unwrap_or(0) as u8,
                 recipient_ids: row.permission_recipients.unwrap_or_default(),
             };
+            if self
+                .verify_object_permission(row.owner.unwrap_or(0) as PID, &permission)
+                .is_err()
+            {
+                continue;
+            }
 
             let del_permission = Permission {
                 permission: row.delete_permission.unwrap_or(0) as u8,

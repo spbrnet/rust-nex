@@ -26,12 +26,7 @@ use rnex_fpd_protos::{
 };
 use rnex_rmc::{any::Any, data::Data, qbuffer::QBuffer, response::ErrorCode, rmc_struct};
 use rnex_server::PassthroughInitModule;
-use rnex_util::{
-    PID,
-    account::derive_pid_hmac,
-    date_time::DateTime,
-    nnas::validate_nex_token,
-};
+use rnex_util::{PID, account::derive_pid_hmac, date_time::DateTime, nnas::validate_nex_token};
 use sqlx::query;
 use tokio::{spawn, sync::RwLock, time::sleep};
 use tracing::{error, info, warn};
@@ -1288,13 +1283,13 @@ impl FriendsWiiU for FriendsUser {
             .fetch_one(&self.fm.db)
             .await
             .map_err(|_| ErrorCode::FPD_InvalidAccount)?
-            .principal_preference_show_currently_playing_title 
+            .principal_preference_show_currently_playing_title
         {
             presence.game_server_id = 0;
             presence.game_key = friends_wiiu::GameKey::default();
             presence.app_data = vec![];
         }
-        
+
         if !query!(
             "select principal_preference_show_online from nintendo_network_accounts where pid = $1",
             self.pid
@@ -1309,7 +1304,10 @@ impl FriendsWiiU for FriendsUser {
             presence.is_online = true;
         }
 
-        println!("the presence that was sent is: {:?} from pid {:?}", presence, self.pid);
+        println!(
+            "the presence that was sent is: {:?} from pid {:?}",
+            presence, self.pid
+        );
         let data = Any::new(&presence).expect("type error");
         let mut user_presence = self.presence.write().await;
         *user_presence = Some(presence.clone());
@@ -1328,16 +1326,25 @@ impl FriendsWiiU for FriendsUser {
             "message": presence.message,
             "changed_flags": presence.changed_flags
         });
-        tokio::task::spawn_blocking(move || {
-            let presence_server_url = std::env::var("RNEX_PRESENCE_API_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
-            let presence_server_secret = std::env::var("RNEX_PRESENCE_API_SECRET").unwrap_or_else(|_| "no-secret-defined".to_string());
-            let _ = ureq::post(&format!("{}/api/v1/presence", presence_server_url))
-                    .header("Authorization", &format!("Bearer {}", presence_server_secret))
+        if let Ok(permit) = rnex_util::http::REQUEST_SLOTS.try_acquire() {
+            tokio::task::spawn_blocking(move || {
+                let _permit = permit;
+                let presence_server_url = std::env::var("RNEX_PRESENCE_API_URL")
+                    .unwrap_or_else(|_| "http://localhost:3000".to_string());
+                let presence_server_secret = std::env::var("RNEX_PRESENCE_API_SECRET")
+                    .unwrap_or_else(|_| "no-secret-defined".to_string());
+                let _ = rnex_util::http::agent()
+                    .post(&format!("{}/api/v1/presence", presence_server_url))
+                    .header(
+                        "Authorization",
+                        &format!("Bearer {}", presence_server_secret),
+                    )
                     .send_json(serde_json::json!({
                         "pid": pid_val,
                         "presence": presence_payload
                     }));
-        });
+            });
+        }
 
         let friends = self.maybe_remote_friend.read().await;
         for friend in friends.iter().filter_map(|f| f.1.upgrade()) {
@@ -1597,13 +1604,22 @@ impl Drop for FriendsUser {
         let pid = self.pid;
         let fm = self.fm.clone();
         tokio::spawn(async move {
-            tokio::task::spawn_blocking(move || {
-                let presence_server_url = std::env::var("RNEX_PRESENCE_API_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
-                let presence_server_secret = std::env::var("RNEX_PRESENCE_API_SECRET").unwrap_or_else(|_| "no-secret-defined".to_string());
-                let _ = ureq::delete(&format!("{}/api/v1/presence/{}", presence_server_url, pid))
-                    .header("Authorization", &format!("Bearer {}", presence_server_secret))
-                    .call();
-            });
+            if let Ok(permit) = rnex_util::http::REQUEST_SLOTS.try_acquire() {
+                tokio::task::spawn_blocking(move || {
+                    let _permit = permit;
+                    let presence_server_url = std::env::var("RNEX_PRESENCE_API_URL")
+                        .unwrap_or_else(|_| "http://localhost:3000".to_string());
+                    let presence_server_secret = std::env::var("RNEX_PRESENCE_API_SECRET")
+                        .unwrap_or_else(|_| "no-secret-defined".to_string());
+                    let _ = rnex_util::http::agent()
+                        .delete(&format!("{}/api/v1/presence/{}", presence_server_url, pid))
+                        .header(
+                            "Authorization",
+                            &format!("Bearer {}", presence_server_secret),
+                        )
+                        .call();
+                });
+            }
 
             for user in users {
                 let Some(user) = user.1.upgrade() else {

@@ -1,9 +1,10 @@
 use std::io::Cursor;
 
+use hmac::{Hmac, Mac};
 use rc4::{KeyInit, Rc4, StreamCipher};
+use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions};
 use rnex_util::{PID, account::Account};
 use tracing::error;
-use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions};
 
 use crate::{
     kerberos::{SESSION_KEY_LENGTH, TicketInternalData},
@@ -15,14 +16,13 @@ pub fn read_secure_connection_data(
     act: &Account,
 ) -> Option<([u8; SESSION_KEY_LENGTH], PID, u32)> {
     let (mut ticket_data, remainder) = read_buffer(data)?;
-    let (mut request_data, _) = read_buffer(remainder)?;
-    tracing::info!("done request data {}", SESSION_KEY_LENGTH);
-
-    let ticket_data_size = ticket_data.len();
-
-    let ticket_data = &mut ticket_data[0..ticket_data_size - 0x10];
+    let (mut request_data, trailing) = read_buffer(remainder)?;
+    if !trailing.is_empty() || ticket_data.len() != std::mem::size_of::<TicketInternalData>() + 16 {
+        return None;
+    }
 
     let server_key = act.nex_key;
+    let ticket_data = authenticated_ciphertext(&mut ticket_data, &server_key)?;
 
     let mut rc4 = Rc4::new_from_slice(&server_key).expect("unable to init rc4 keystream");
 
@@ -33,10 +33,8 @@ pub fn read_secure_connection_data(
         return None;
     }
 
-    // todo: add ticket expiration
-    let ticket_data_struct: TicketInternalData = bytemuck::pod_read_unaligned(
-        &ticket_data[..std::mem::size_of::<TicketInternalData>()],
-    );
+    let ticket_data_struct: TicketInternalData =
+        bytemuck::pod_read_unaligned(&ticket_data[..std::mem::size_of::<TicketInternalData>()]);
 
     let TicketInternalData {
         session_key,
@@ -44,9 +42,17 @@ pub fn read_secure_connection_data(
         issued_time,
     } = ticket_data_struct;
 
-    // todo: add checking if tickets are signed with a valid md5-hmac
-    let request_data_length = request_data.len();
-    let request_data = &mut request_data[0..request_data_length - 0x10];
+    let age = rnex_util::date_time::DateTime::now()
+        .to_regular_time()
+        .signed_duration_since(issued_time.to_regular_time())
+        .num_seconds();
+    if !(-60..=86400).contains(&age) {
+        return None;
+    }
+    if request_data.len() != std::mem::size_of::<PID>() + 8 + 16 {
+        return None;
+    }
+    let request_data = authenticated_ciphertext(&mut request_data, &session_key)?;
 
     let mut rc4: Rc4 = Rc4::new_from_slice(&session_key).expect("unable to init rc4 keystream");
 
@@ -70,4 +76,13 @@ pub fn read_secure_connection_data(
     let response_check: u32 = reqest_data_cursor.read_struct(IS_BIG_ENDIAN).ok()?;
 
     Some((session_key, pid, response_check))
+}
+
+fn authenticated_ciphertext<'a>(data: &'a mut [u8], key: &[u8]) -> Option<&'a mut [u8]> {
+    let split = data.len().checked_sub(16)?;
+    let (ciphertext, tag) = data.split_at_mut(split);
+    let mut mac = <Hmac<md5::Md5> as KeyInit>::new_from_slice(key).ok()?;
+    mac.update(ciphertext);
+    mac.verify_slice(tag).ok()?;
+    Some(ciphertext)
 }

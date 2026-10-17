@@ -151,10 +151,15 @@ pub async fn new_backend_connection(
     pid: PID,
 ) -> Option<SplittableBufferConnection> {
     info!("attempting to connect to: {}", param.forward_destination);
-    let mut stream = match TcpStream::connect(param.forward_destination).await {
-        Ok(v) => v,
-        Err(e) => {
-            error!("unable to establish connection to backend: {}", e);
+    let mut stream = match tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        TcpStream::connect(param.forward_destination),
+    )
+    .await
+    {
+        Ok(Ok(v)) => v,
+        e => {
+            error!("unable to establish connection to backend: {:?}", e);
             return None;
         }
     };

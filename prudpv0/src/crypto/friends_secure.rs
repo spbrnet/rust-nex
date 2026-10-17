@@ -1,3 +1,8 @@
+use crate::crypto::{
+    Crypto, CryptoInstance,
+    common_crypto::common_checksum,
+    friends_common::{ACCESS_KEY, HmacMd5},
+};
 use hmac::Mac;
 use md5::{Digest, Md5};
 use rc4::{KeyInit, Rc4, StreamCipher};
@@ -8,11 +13,6 @@ use rnex_prudp::{
 };
 use rnex_rmc::serialization::RmcSerialize;
 use rnex_util::{PID, account::Account};
-use crate::crypto::{
-    Crypto, CryptoInstance,
-    common_crypto::common_checksum,
-    friends_common::{ACCESS_KEY, HmacMd5},
-};
 
 pub struct SecureInstance {
     pair: EncryptionPair<Rc4>,
@@ -71,7 +71,7 @@ impl Crypto for Secure {
     ) -> Option<(Self::Instance, Vec<u8>)> {
         let (session_key, pid, check_value) = read_secure_connection_data(data, &self.0)?;
 
-        let check_value_response = check_value + 1;
+        let check_value_response = check_value.wrapping_add(1);
 
         let data = bytemuck::bytes_of(&check_value_response);
 

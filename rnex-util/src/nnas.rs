@@ -63,9 +63,15 @@ pub async fn validate_nex_token(token: &str) -> Result<NexTokenAccount, NnasErro
         base_url.trim_end_matches('/')
     );
     let authorization = format!("Bearer {token}");
+    let permit = crate::http::REQUEST_SLOTS
+        .acquire()
+        .await
+        .map_err(|e| NnasError::Task(e.to_string()))?;
 
     tokio::task::spawn_blocking(move || {
-        let mut response = ureq::post(&url)
+        let _permit = permit;
+        let mut response = crate::http::agent()
+            .post(&url)
             .header("Authorization", &authorization)
             .send_empty()
             .map_err(|error| match error {
@@ -90,9 +96,15 @@ pub async fn get_nex_login_data(pid: PID) -> Result<NexLoginData, NnasError> {
     let url = format!("{}{path}", base_url.trim_end_matches('/'));
     let timestamp = chrono::Utc::now().timestamp();
     let authorization = internal_authorization(&internal_token, &path, timestamp)?;
+    let permit = crate::http::REQUEST_SLOTS
+        .acquire()
+        .await
+        .map_err(|e| NnasError::Task(e.to_string()))?;
 
     tokio::task::spawn_blocking(move || {
-        let mut response = ureq::post(&url)
+        let _permit = permit;
+        let mut response = crate::http::agent()
+            .post(&url)
             .header("Authorization", &authorization)
             .header(INTERNAL_TIMESTAMP_HEADER, timestamp.to_string())
             .send_empty()

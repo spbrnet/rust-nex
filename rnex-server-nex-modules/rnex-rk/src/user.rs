@@ -1,12 +1,12 @@
-use rnex_rk_protos::{
-    LocalRankingProtocol,
-    ranking::Ranking
-};
 #[cfg(feature = "splatoon")]
-use rnex_rk_protos::ranking::{CompetitionRankingGetParam, CompetitionRankingScoreData, CompetitionRankingScoreInfo, UploadCompetitionData};
+use rnex_rk_protos::ranking::{
+    CompetitionRankingGetParam, CompetitionRankingScoreData, CompetitionRankingScoreInfo,
+    UploadCompetitionData,
+};
+use rnex_rk_protos::{LocalRankingProtocol, ranking::Ranking};
+use rnex_rmc::rmc_struct;
 #[cfg(feature = "splatoon")]
 use rnex_rmc::{qbuffer::QBuffer, response::ErrorCode};
-use rnex_rmc::rmc_struct;
 use rnex_server::PassthroughInitModule;
 use rnex_util::PID;
 #[cfg(feature = "splatoon")]
@@ -42,18 +42,25 @@ impl Ranking for RankingUser {
         let fest_id = param.festival_ids.get(0).copied().unwrap_or(0);
 
         let url_results = format!("{}?splatfest_id={}", self.rm.rnex_result_get, fest_id);
-        let Ok(response_results) =
-            tokio::task::spawn_blocking(move || ureq::get(&url_results).call()).await
+        let permit = rnex_util::http::REQUEST_SLOTS
+            .acquire()
+            .await
+            .map_err(|_| ErrorCode::Core_Exception)?;
+        let Ok(response_results) = tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            let mut response = rnex_util::http::agent().get(&url_results).call()?;
+            response
+                .body_mut()
+                .read_json::<Vec<CompetitionPostResults>>()
+        })
+        .await
         else {
             error!("failed to join task");
             return Err(ErrorCode::Core_Exception);
         };
 
         let results: Vec<CompetitionPostResults> = match response_results {
-            Ok(mut res) => res.body_mut().read_json().map_err(|e| {
-                error!("failed to parse JSON: {:?}", e);
-                ErrorCode::RendezVous_InvalidConfiguration
-            })?,
+            Ok(results) => results,
             Err(e) => {
                 error!("GET failed: {:?}", e);
                 return Err(ErrorCode::RendezVous_InvalidConfiguration);

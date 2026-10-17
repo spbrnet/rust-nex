@@ -33,7 +33,8 @@ impl S3Presigner {
             "expiration": expiration,
             "conditions": [
                 {"bucket": self.bucket},
-                ["starts-with", "$key", key],
+                {"key": key},
+                ["content-length-range", 0, 128 * 1024 * 1024],
                 {"x-amz-credential": credential},
                 {"x-amz-algorithm": "AWS4-HMAC-SHA256"},
                 {"x-amz-date": date_full}

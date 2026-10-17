@@ -18,8 +18,8 @@ pub use anyhow;
 pub use paste;
 pub use rnex_rmc as rmc;
 use rnex_rmc::{RmcCallable, RmcConnection, RmcSerialize, serialization::RmcSerialize, util::PID};
-use rnex_util::{SendingBufferConnection};
 pub use rnex_util as util;
+use rnex_util::SendingBufferConnection;
 use thiserror::Error;
 pub use tokio;
 pub use tracing;
@@ -63,10 +63,7 @@ impl ConnectionRegistry {
         true
     }
 
-    pub async fn kick_many(
-        &self,
-        pids: impl IntoIterator<Item = PID>,
-    ) -> (Vec<PID>, Vec<PID>) {
+    pub async fn kick_many(&self, pids: impl IntoIterator<Item = PID>) -> (Vec<PID>, Vec<PID>) {
         let mut kicked = Vec::new();
         let mut missing = Vec::new();
 
@@ -296,17 +293,24 @@ macro_rules! launch_rnex_module_server {
             }
             .instrument($crate::tracing::info_span!("initializing rnex server modules"))
             .await?;
+            let managers = ::std::sync::Arc::new(managers);
+            let allowed_proxies = $crate::allowed_proxy_ips()?;
+            let handshake_slots = ::std::sync::Arc::new($crate::tokio::sync::Semaphore::new(64));
             let socket = $crate::tokio::net::TcpListener::bind(::std::net::SocketAddrV4::new(*$crate::OWN_IP_PRIVATE, *$crate::SERVER_PORT))
                 .instrument($crate::tracing::info_span!("binding to tcp socket"))
                 .await?;
             async move {
-                while let Ok((mut stream, _addr)) = socket.accept().await {
+                while let Ok((mut stream, peer)) = socket.accept().await {
+                    if !allowed_proxies.contains(&peer.ip()) { continue; }
+                    let Ok(permit) = handshake_slots.clone().try_acquire_owned() else { continue };
+                    let managers = managers.clone();
                     $crate::tracing::info!("new incoming connection");
-                    async {
+                    $crate::tokio::spawn(async move {
+                        let _permit = permit;
                         let Some(conn_data) = async {
-                            let buffer = match stream.read_buffer().await {
-                                Ok(v) => v,
-                                Err(e) => {
+                            let buffer = match $crate::tokio::time::timeout(::std::time::Duration::from_secs(5), stream.read_buffer()).await {
+                                Ok(Ok(v)) => v,
+                                e => {
                                     $crate::tracing::error!(
                                         "an error ocurred whilst reading connection data buffer: {e:?}",
                                     );
@@ -382,9 +386,7 @@ macro_rules! launch_rnex_module_server {
                             }
                         ).instrument($crate::tracing::info_span!("initializing user"))
                         .await;
-                    }
-                    .instrument($crate::tracing::info_span!("handeling new incoming connection"))
-                    .await;
+                    }.instrument($crate::tracing::info_span!("handeling new incoming connection")));
                 }
             }
             .instrument($crate::tracing::info_span!("awaiting connections"))
@@ -427,14 +429,11 @@ pub fn env_var(name: &'static str) -> Result<String, EnvVarError> {
 pub async fn with_setup(f: impl AsyncFnOnce() -> anyhow::Result<()>) {
     println!("setting up logger and dotenv");
     let options = sentry::ClientOptions::new()
-      .release(rnex_release())
-      .send_default_pii(true);
+        .release(rnex_release())
+        .send_default_pii(true);
     dotenv::dotenv().ok();
     let _maybe_sentry = if let Ok(sentry_url) = std::env::var("SENTRY_URL") {
-        Some(sentry::init((
-            sentry_url,
-            options
-        )))
+        Some(sentry::init((sentry_url, options)))
     } else {
         None
     };
@@ -547,8 +546,16 @@ pub static OWN_IP_PRIVATE: LazyLock<Ipv4Addr> = LazyLock::new(|| {
     env::var("RNEX_SERVER_IP")
         .ok()
         .map(|s| s.parse().expect("invalid ip address"))
-        .unwrap_or(Ipv4Addr::UNSPECIFIED)
+        .unwrap_or(Ipv4Addr::LOCALHOST)
 });
+
+pub fn allowed_proxy_ips() -> Result<Vec<std::net::IpAddr>, std::net::AddrParseError> {
+    env::var("RNEX_TRUSTED_PROXY_IPS")
+        .unwrap_or_else(|_| "127.0.0.1,::1".to_owned())
+        .split(',')
+        .map(|ip| ip.trim().parse())
+        .collect()
+}
 
 pub static OWN_IP_PUBLIC: LazyLock<Ipv4Addr> = LazyLock::new(|| {
     env::var("RNEX_SERVER_IP_PUBLIC")

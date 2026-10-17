@@ -10,15 +10,14 @@ use rnex_prudp::types_flags::flags::{ACK, HAS_SIZE, MULTI_ACK, NEED_ACK, RELIABL
 use rnex_prudp::types_flags::types::{CONNECT, DATA, DISCONNECT, PING, SYN};
 use rnex_prudp::virtual_port::VirtualPort;
 use rnex_util::PID;
+use rnex_util::byte::{ReadExtensions, network_endian::read_u16};
 use std::collections::{BTreeMap, HashMap};
 use std::io::Cursor;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::sync::{Arc, Weak};
-use tokio::spawn;
 use tracing::error;
 use tracing::{info, warn};
-use rnex_util::byte::{ReadExtensions, network_endian::read_u16};
 
 use std::time::Duration;
 use tokio::net::UdpSocket;
@@ -35,6 +34,7 @@ pub struct CommonConnection {
     pub socket_addr: PRUDPSockAddr,
     pub server_port: VirtualPort,
     session_id: u8,
+    substream_count: u8,
 }
 
 struct InternalConnection<E: CryptoHandlerConnectionInstance> {
@@ -179,7 +179,7 @@ pub(super) struct InternalSocket<T: CryptoHandler> {
     internal_connections: Arc<
         Mutex<BTreeMap<PRUDPSockAddr, Arc<InternalConnectionMutex<T::CryptoConnectionInstance>>>>,
     >,
-    connection_establishment_data_sender: Mutex<Option<Sender<PRUDPV1Packet>>>,
+    connection_establishment_data_sender: Mutex<Option<(PRUDPSockAddr, Sender<PRUDPV1Packet>)>>,
     connection_sender: Sender<ExternalConnection<T::CryptoConnectionInstance>>,
 }
 
@@ -230,6 +230,9 @@ pub(super) trait AnyInternalSocket:
 
 impl<E: CryptoHandlerConnectionInstance> InternalConnectionMutex<E> {
     async fn send_data_packet(&self, data: Vec<u8>) {
+        if data.is_empty() {
+            return;
+        }
         let pieces = data.chunks(600);
         let max_piece = pieces.len() - 1;
         let mut piece_num = 1;
@@ -262,7 +265,7 @@ impl<E: CryptoHandlerConnectionInstance> InternalConnectionMutex<E> {
 
                 locked.crypto_handler_instance.sign_packet(&mut packet);
 
-                piece_num += 1;
+                piece_num = if piece_num == 255 { 1 } else { piece_num + 1 };
                 packet
             })
             .collect();
@@ -290,10 +293,9 @@ async fn send_raw_prudp_to_sockaddr(
         .write_to(&mut vec)
         .expect("somehow failed to convert backet to bytes");
 
-    udp_socket
-        .send_to(&vec, dest.regular_socket_addr)
-        .await
-        .expect("failed to send data back");
+    if let Err(e) = udp_socket.send_to(&vec, dest.regular_socket_addr).await {
+        warn!(%e, "UDP send failed");
+    }
 }
 
 impl<T: CryptoHandler> InternalSocket<T> {
@@ -411,11 +413,13 @@ impl<T: CryptoHandler> InternalSocket<T> {
         session_id: u8,
         is_instantiator: bool,
         supported_function_version: u32,
-    ) {
+        substream_count: u8,
+    ) -> bool {
         let common = Arc::new(CommonConnection {
             user_id: crypto_handler_instance.get_user_id(),
             socket_addr,
             session_id,
+            substream_count,
             server_port: self.virtual_port,
         });
 
@@ -449,17 +453,19 @@ impl<T: CryptoHandler> InternalSocket<T> {
         };
 
         let mut connections = self.internal_connections.lock().await;
-
+        if connections.contains_key(&socket_addr) || connections.len() >= 1024 {
+            return false;
+        }
+        if self.connection_sender.try_send(external).is_err() {
+            return false;
+        }
         connections.insert(socket_addr, internal.clone());
 
         drop(connections);
 
         tokio::spawn(Self::connection_thread(Arc::downgrade(&internal)));
 
-        self.connection_sender
-            .send(external)
-            .await
-            .expect("connection to external socket lost");
+        true
     }
 
     async fn handle_connect(&self, address: PRUDPSockAddr, packet: PRUDPV1Packet) {
@@ -484,12 +490,15 @@ impl<T: CryptoHandler> InternalSocket<T> {
         };
 
         let session_id = packet.header.session_id;
+        let Some(substream_count) = max_substream.checked_add(1) else {
+            return;
+        };
 
         let Some((return_data, crypto)) = self.crypto_handler.instantiate(
             remote_signature,
             *own_signature,
             &packet.payload,
-            1 + *max_substream,
+            substream_count,
         ) else {
             error!("someone attempted to connect with invalid data");
             return;
@@ -530,10 +539,32 @@ impl<T: CryptoHandler> InternalSocket<T> {
 
         crypto.sign_connect(&mut response);
 
+        if let Some(existing) = self.get_connection(address).await {
+            let conn = existing.lock().await;
+            if conn.session_id != session_id || conn.user_id != crypto.get_user_id() {
+                return;
+            }
+            conn.crypto_handler_instance.sign_connect(&mut response);
+            drop(conn);
+            self.send_packet_unbuffered(address, &response).await;
+            return;
+        }
+
         //println!("connect out: {:?}", response);
 
-        self.create_connection(crypto, address, session_id, false, functions)
-            .await;
+        if !self
+            .create_connection(
+                crypto,
+                address,
+                session_id,
+                false,
+                functions,
+                substream_count,
+            )
+            .await
+        {
+            return;
+        }
 
         self.send_packet_unbuffered(address, &response).await;
     }
@@ -568,6 +599,20 @@ impl<T: CryptoHandler> InternalSocket<T> {
 
         self.send_packet_unbuffered(address, &response).await;
 
+        let distance = packet
+            .header
+            .sequence_id
+            .wrapping_sub(conn.reliable_client_counter);
+        if distance >= 256 {
+            return;
+        }
+        let queued_bytes: usize = conn.packet_queue.values().map(|p| p.payload.len()).sum();
+        if conn.packet_queue.len() >= 256
+            || queued_bytes.saturating_add(packet.payload.len()) > rnex_util::MAX_PACKET_SIZE
+        {
+            conn.close_connection().await;
+            return;
+        }
         conn.packet_queue.insert(packet.header.sequence_id, packet);
 
         let mut counter = conn.reliable_client_counter;
@@ -575,9 +620,17 @@ impl<T: CryptoHandler> InternalSocket<T> {
         while let Some(mut packet) = conn.packet_queue.remove(&counter) {
             conn.crypto_handler_instance
                 .decrypt_incoming(packet.header.substream_id, &mut packet.payload[..]);
-
+            if conn
+                .partial_packet
+                .len()
+                .saturating_add(packet.payload.len())
+                > rnex_util::MAX_PACKET_SIZE
+            {
+                conn.close_connection().await;
+                return;
+            }
             conn.partial_packet
-	                .extend_from_slice(&mut packet.payload[..]);
+                .extend_from_slice(&mut packet.payload[..]);
 
             conn.reliable_client_counter = conn.reliable_client_counter.overflowing_add(1).0;
             counter = conn.reliable_client_counter;
@@ -594,7 +647,10 @@ impl<T: CryptoHandler> InternalSocket<T> {
 
             let packet = std::mem::take(&mut conn.partial_packet);
 
-            conn.data_sender.send(packet).await.ok();
+            if conn.data_sender.try_send(packet).is_err() {
+                conn.close_connection().await;
+                return;
+            }
         }
     }
 
@@ -651,6 +707,15 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
 
         if let Some(conn) = self.get_connection(address).await {
             let mut conn = conn.lock().await;
+            if packet.header.session_id != conn.session_id {
+                return;
+            }
+            if packet.header.types_and_flags.get_types() == DATA
+                && packet.header.types_and_flags.get_flags() & (ACK | MULTI_ACK) == 0
+                && packet.header.substream_id >= conn.substream_count
+            {
+                return;
+            }
 
             // reset timeout
             conn.last_packet_time = Instant::now();
@@ -673,8 +738,11 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                 let sender = self.connection_establishment_data_sender.lock().await;
                 info!("redirecting ack to active connection establishment code");
 
-                if let Some(conn) = sender.as_ref() {
-                    if let Err(e) = conn.send(packet).await {
+                if let Some((expected_peer, conn)) = sender.as_ref() {
+                    if *expected_peer != address {
+                        return;
+                    }
+                    if let Err(e) = conn.try_send(packet) {
                         error!(
                             "error whilst sending data to connection establishment: {}",
                             e
@@ -776,7 +844,7 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
         let (send, mut recv) = channel(10);
 
         let mut sender = self.connection_establishment_data_sender.lock().await;
-        *sender = Some(send);
+        *sender = Some((address, send));
         drop(sender);
 
         let remote_signature = address.calculate_connection_signature();
@@ -800,7 +868,11 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
 
         self.send_packet_unbuffered(address, &packet).await;
 
-        let Some(syn_ack_packet) = recv.recv().await else {
+        let Some(syn_ack_packet) = tokio::time::timeout(Duration::from_secs(5), recv.recv())
+            .await
+            .ok()
+            .flatten()
+        else {
             error!("what");
             return None;
         };
@@ -833,7 +905,11 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
 
         self.send_packet_unbuffered(address, &packet).await;
 
-        let Some(_connect_ack_packet) = recv.recv().await else {
+        let Some(_connect_ack_packet) = tokio::time::timeout(Duration::from_secs(5), recv.recv())
+            .await
+            .ok()
+            .flatten()
+        else {
             error!("what");
             return None;
         };
@@ -843,7 +919,9 @@ impl<T: CryptoHandler> AnyInternalSocket for InternalSocket<T> {
                 .instantiate(remote_signature, *own_signature, &[], 1)?;
 
         //todo: make this work for secure servers as well
-        self.create_connection(crypt, address, 0, true, 4).await;
+        if !self.create_connection(crypt, address, 0, true, 4, 1).await {
+            return None;
+        }
 
         Some(())
     }
@@ -934,10 +1012,11 @@ impl<E: CryptoHandlerConnectionInstance> ExternalConnection<E> {
 
 impl<E: CryptoHandlerConnectionInstance> SendingConnection<E> {
     pub async fn send(&self, data: Vec<u8>) -> Option<()> {
+        if data.len() > rnex_util::MAX_PACKET_SIZE {
+            return None;
+        }
         let internal = self.internal.upgrade()?;
-        spawn(async move {
-            internal.send_data_packet(data).await;
-        });
+        internal.send_data_packet(data).await;
         Some(())
     }
 

@@ -223,7 +223,7 @@ impl RmcProtocolData {
             quote! {
                 #[inline(always)]
                 #attribs
-                #[::rnex_rmc::tracing::instrument]
+                #[::rnex_rmc::tracing::instrument(skip_all)]
                 async fn #raw_name (&self, data: &[u8]) #optional_return{
                     let mut cursor = ::std::io::Cursor::new(data);
                     #deser_params

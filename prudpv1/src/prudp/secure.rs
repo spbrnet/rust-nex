@@ -5,7 +5,7 @@ use rnex_prudp::encryption::EncryptionPair;
 use rnex_prudp::ticket::read_secure_connection_data;
 use rnex_util::PID;
 use rnex_util::account::Account;
-use std::io::{Write, Result};
+use std::io::{Result, Write};
 
 //type Rc4U32 = StreamCipherCoreWrapper<Rc4Core<U32>>;
 
@@ -69,7 +69,7 @@ impl CryptoHandler for Secure {
     ) -> Option<(Vec<u8>, Self::CryptoConnectionInstance)> {
         let (session_key, pid, check_value) = read_secure_connection_data(payload, &self.1)?;
 
-        let check_value_response = check_value + 1;
+        let check_value_response = check_value.wrapping_add(1);
 
         let data = bytemuck::bytes_of(&check_value_response);
 

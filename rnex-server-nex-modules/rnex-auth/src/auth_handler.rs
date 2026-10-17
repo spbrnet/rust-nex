@@ -116,7 +116,7 @@ impl AuthHandler {
     }
 
     async fn remembered_login_data(&self, pid: PID) -> Option<(PID, [u8; 16])> {
-        if pid == GUEST_ACCOUNT.pid {
+        if cfg!(feature = "guest_login") && pid == GUEST_ACCOUNT.pid {
             return Some(GUEST_ACCOUNT.get_login_data());
         }
         self.authenticated_account
@@ -162,7 +162,6 @@ impl AuthHandler {
         );
         let source_login_data = account.get_login_data();
         let destination_login_data = self.am.destination_server_acct.get_login_data();
-        self.remember_account(account).await;
 
         Ok((
             source_login_data.0,
@@ -175,7 +174,7 @@ impl AuthHandler {
         name: &str,
     ) -> Result<(PID, String, Box<[u8]>), ErrorCode> {
         {
-            if name == GUEST_ACCOUNT.username {
+            if cfg!(feature = "guest_login") && name == GUEST_ACCOUNT.username {
                 let source_login_data = GUEST_ACCOUNT.get_login_data();
                 let destination_login_data = self.am.destination_server_acct.get_login_data();
                 let ticket = generate_ticket_with_string_user_key(
@@ -238,7 +237,6 @@ impl Auth for AuthHandler {
             self.am.build_name.to_string(),
         );
 
-        info!("data: {:?}", ret);
         Ok(ret)
     }
     cfg_if! {
@@ -291,7 +289,6 @@ impl Auth for AuthHandler {
                     key
                 );
 
-                info!("data: {:?}", ret);
                 Ok(ret)
             }
             async fn request_ticket(
@@ -366,7 +363,6 @@ impl Auth for AuthHandler {
                     self.am.build_name.to_string(),
                 );
 
-                info!("data: {:?}", ret);
                 Ok(ret)
             }
             async fn request_ticket(

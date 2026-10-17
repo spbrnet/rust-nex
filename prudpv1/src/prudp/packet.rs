@@ -14,14 +14,14 @@ use rnex_prudp::socket_addr::PRUDPSockAddr;
 use rnex_prudp::types_flags::TypesFlags;
 use rnex_prudp::types_flags::flags::ACK;
 use rnex_prudp::virtual_port::VirtualPort;
+use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions, SwapEndian};
 use std::fmt::Debug;
 use std::io;
 use std::io::{Cursor, Read, Seek, Write};
 use std::net::SocketAddr;
 use std::net::SocketAddrV4;
 use thiserror::Error;
-use tracing::{error, warn};
-use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions, SwapEndian};
+use tracing::error;
 
 type Md5Hmac = Hmac<Md5>;
 
@@ -206,8 +206,6 @@ impl PRUDPV1Packet {
         let packet_signature: [u8; 16] = reader.read_struct(IS_BIG_ENDIAN)?;
         //let packet_signature: [u8; 16] = [0; 16];
 
-        assert_eq!(reader.stream_position().ok(), Some(14 + 16));
-
         let mut packet_specific_buffer = vec![0u8; header.packet_specific_size as usize];
 
         reader.read_exact(&mut packet_specific_buffer)?;
@@ -217,24 +215,9 @@ impl PRUDPV1Packet {
 
         let mut options = Vec::new();
 
-        loop {
-            let Ok(option_id): io::Result<u8> =
-                packet_specific_data_cursor.read_struct(IS_BIG_ENDIAN)
-            else {
-                break;
-            };
-
-            let Ok(value_size): io::Result<u8> =
-                packet_specific_data_cursor.read_struct(IS_BIG_ENDIAN)
-            else {
-                break;
-            };
-
-            if value_size == 0 {
-                // skip it if its 0 and dont check?
-                warn!("reading packets options might be going wrong");
-                continue;
-            }
+        while packet_specific_data_cursor.position() < packet_specific_buffer.len() as u64 {
+            let option_id: u8 = packet_specific_data_cursor.read_struct(IS_BIG_ENDIAN)?;
+            let value_size: u8 = packet_specific_data_cursor.read_struct(IS_BIG_ENDIAN)?;
 
             let option_id: OptionId = OptionId::new(option_id)?;
 
@@ -247,13 +230,7 @@ impl PRUDPV1Packet {
             }
 
             let mut option_data = vec![0u8; value_size as usize];
-            if packet_specific_data_cursor
-                .read_exact(&mut option_data[..])
-                .is_err()
-            {
-                error!("unable to read options");
-                break;
-            }
+            packet_specific_data_cursor.read_exact(&mut option_data[..])?;
 
             options.push(PacketOption::from(option_id, &option_data)?);
         }

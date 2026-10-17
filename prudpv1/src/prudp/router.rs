@@ -1,7 +1,7 @@
 use crate::prudp::packet::PRUDPV1Packet;
 use crate::prudp::router::Error::VirtualPortTaken;
 use crate::prudp::socket::{AnyInternalSocket, CryptoHandler, ExternalSocket, new_socket_pair};
-use tracing::{error, info};
+use rnex_prudp::virtual_port::VirtualPort;
 use std::io;
 use std::io::Cursor;
 use std::marker::PhantomData;
@@ -15,7 +15,7 @@ use tokio::select;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
-use rnex_prudp::virtual_port::VirtualPort;
+use tracing::{error, info};
 
 pub struct Router {
     endpoints: RwLock<[Option<Arc<dyn AnyInternalSocket>>; 16]>,
@@ -71,12 +71,13 @@ impl Router {
             // Dont keep the locked structure for too long
             drop(endpoints);
 
-            tokio::spawn(async move { endpoint.receive_packet(connection, packet).await });
+            endpoint.receive_packet(connection, packet).await;
         }
     }
 
     async fn server_thread_send_entry(this: Weak<Self>, socket: Arc<UdpSocket>) {
         info!("starting datagram thread");
+        let permits = Arc::new(tokio::sync::Semaphore::new(64));
 
         while let Some(this) = this.upgrade() {
             // yes we actually allow the max udp to be read lol
@@ -84,7 +85,7 @@ impl Router {
 
             let (len, addr) = select! {
                 r = socket.recv_from(&mut msg_buffer) => {
-                    r.expect("Datagram thread crashed due to unexpected error from recv_from")
+                    match r { Ok(v) => v, Err(e) => { error!(%e, "UDP receive failed"); continue; } }
                 }
                 _ = sleep(Duration::from_secs(5)) => {
                     continue;
@@ -98,7 +99,15 @@ impl Router {
 
             let current_msg = &msg_buffer[0..len];
 
-            tokio::spawn(this.process_prudp_packets(socket.clone(), addr, current_msg.to_vec()));
+            let Ok(permit) = permits.clone().try_acquire_owned() else {
+                continue;
+            };
+            let socket = socket.clone();
+            let message = current_msg.to_vec();
+            tokio::spawn(async move {
+                let _permit = permit;
+                this.process_prudp_packets(socket, addr, message).await;
+            });
         }
 
         println!("exitting datagram")
