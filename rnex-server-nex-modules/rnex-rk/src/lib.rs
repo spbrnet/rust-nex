@@ -1,75 +1,25 @@
-use cfg_if::cfg_if;
-#[allow(unused)]
-#[allow(unused_imports)]
-use rnex_rmc::response::ErrorCode;
 #[cfg(feature = "splatoon")]
-use rnex_server::env_var;
-use rnex_server::{ConnectionInitData, EnvVarError, RnexManager, RnexModule};
+use rnex_mm::matchmake::MatchmakeManager;
 #[cfg(feature = "splatoon")]
-use std::str::FromStr;
-#[cfg(feature = "splatoon")]
-use tracing::error;
+use rnex_server::PassthroughInitModule;
+use rnex_server::{ConnectionInitData, RnexManager, RnexModule};
 
 use crate::user::RankingUser;
 
+#[cfg(feature = "splatoon")]
+mod results_grpc;
 pub mod user;
 
 #[derive(Debug)]
 pub struct RankingManager {
     #[cfg(feature = "splatoon")]
-    rnex_result_get: String,
-    #[cfg(feature = "splatoon")]
-    rnex_result_votes_get: String,
-    #[cfg(feature = "splatoon")]
-    rnex_result_post: String,
+    pub(crate) matchmake_manager: PassthroughInitModule<MatchmakeManager>,
 }
 
 pub struct RankingModule;
 
-impl RankingManager {
-    // Seperate function because I cannot give a fuck right now
-    #[cfg(feature = "splatoon")]
-    async fn fetch_team_votes(&self, fest_id: u32) -> Result<Vec<u32>, ErrorCode> {
-        let url_votes = format!("{}?splatfest_id={}", self.rnex_result_votes_get, fest_id);
-        let permit = rnex_util::http::REQUEST_SLOTS
-            .acquire()
-            .await
-            .map_err(|_| ErrorCode::Core_Exception)?;
-        let Ok(response) = tokio::task::spawn_blocking(move || {
-            let _permit = permit;
-            let mut response = rnex_util::http::agent()
-                .get(&url_votes)
-                .call()
-                .map_err(|e| {
-                    error!("GET for votes failed: {:?}", e);
-                    ErrorCode::RendezVous_InvalidConfiguration
-                })?;
-            response
-                .body_mut()
-                .read_to_string()
-                .map_err(|_| ErrorCode::RendezVous_InvalidConfiguration)
-        })
-        .await
-        else {
-            error!("failed to make request");
-            return Err(ErrorCode::Core_Exception);
-        };
-
-        let body = response?;
-
-        let body = body.trim().trim_start_matches('[').trim_end_matches(']');
-        let votes: Result<Vec<u32>, _> = body.split(',').map(|s| u32::from_str(s.trim())).collect();
-
-        votes.map_err(|e| {
-            error!("failed to parse votes: {:?}", e);
-            ErrorCode::RendezVous_InvalidConfiguration
-        })
-    }
-}
-
 impl RnexManager for RankingManager {
     type User = RankingUser;
-
     type InitData = ConnectionInitData;
 
     async fn init_new_user(
@@ -88,22 +38,26 @@ impl RnexManager for RankingManager {
 
 impl RnexModule for RankingModule {
     type Manager = RankingManager;
-
-    type InitError = EnvVarError;
+    #[cfg(feature = "splatoon")]
+    type InitError = anyhow::Error;
+    #[cfg(not(feature = "splatoon"))]
+    type InitError = std::convert::Infallible;
 
     async fn create_manager(
-        _: &rnex_server::ModuleHolder,
+        module_holder: &rnex_server::ModuleHolder,
     ) -> Result<Self::Manager, Self::InitError> {
-        cfg_if! {
-            if #[cfg(feature = "splatoon")] {
-                Ok(RankingManager {
-                    rnex_result_votes_get: env_var("RNEX_SPLATOON_RESULTS_VOTES_GET")?,
-                    rnex_result_post: env_var("RNEX_SPLATOON_RESULTS_POST")?,
-                    rnex_result_get: env_var("RNEX_SPLATOON_RESULTS_GET")?,
-                })
-            } else {
-                Ok(RankingManager {})
-            }
+        #[cfg(feature = "splatoon")]
+        {
+            let matchmake_manager = module_holder
+                .get_ref_init_pt::<MatchmakeManager>()
+                .ok_or_else(|| anyhow::anyhow!("splatoon ranking requires matchmaking"))?;
+            results_grpc::start(matchmake_manager.results.clone()).await?;
+            Ok(RankingManager { matchmake_manager })
+        }
+        #[cfg(not(feature = "splatoon"))]
+        {
+            let _ = module_holder;
+            Ok(RankingManager {})
         }
     }
 }

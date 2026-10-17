@@ -1,0 +1,43 @@
+syntax = "proto3";
+package splatfest_results;
+
+message FestivalRequest { uint32 fest_id = 1; }
+message FestivalSummary {
+  uint32 fest_id = 1;
+  repeated uint64 team_wins = 2;
+  repeated uint64 team_votes = 3;
+  uint64 pending_matches = 4;
+  uint64 conflicted_matches = 5;
+}
+message ListMatchesRequest {
+  uint32 fest_id = 1;
+  uint32 offset = 2;
+  uint32 limit = 3;
+}
+message MatchRecord {
+  string id = 1;
+  uint32 fest_id = 2;
+  uint32 gid = 3;
+  uint32 game_mode = 4;
+  repeated int64 roster = 5;
+  string status = 6;
+  optional uint32 winner_team = 7;
+  int64 started_at_unix = 8;
+  uint32 report_count = 9;
+}
+message ListMatchesResponse { repeated MatchRecord matches = 1; }
+message MatchRequest { string id = 1; }
+message ReportRecord {
+  int64 pid = 1;
+  uint32 score = 2;
+  uint32 team_id = 3;
+  bool team_win = 4;
+  int64 submitted_at_unix = 5;
+}
+message ListReportsResponse { repeated ReportRecord reports = 1; }
+
+service SplatfestResultsReadService {
+  rpc GetFestivalSummary(FestivalRequest) returns (FestivalSummary);
+  rpc ListMatches(ListMatchesRequest) returns (ListMatchesResponse);
+  rpc ListReports(MatchRequest) returns (ListReportsResponse);
+}

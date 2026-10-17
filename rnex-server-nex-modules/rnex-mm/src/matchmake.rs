@@ -40,6 +40,8 @@ pub struct MatchmakeManager {
     pub rv_cid_counter: AtomicU32,
     pub users: RwLock<HashMap<u32, WeakPassthroughInitModule<MatchmakeUser>>>,
     pub users_by_pid: RwLock<HashMap<PID, WeakPassthroughInitModule<MatchmakeUser>>>,
+    #[cfg(feature = "splatoon")]
+    pub results: crate::results::ResultsStore,
 }
 
 impl MatchmakeManager {

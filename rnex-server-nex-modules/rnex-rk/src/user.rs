@@ -1,4 +1,6 @@
 #[cfg(feature = "splatoon")]
+use rnex_mm::results::{ResultReport, SubmitOutcome};
+#[cfg(feature = "splatoon")]
 use rnex_rk_protos::ranking::{
     CompetitionRankingGetParam, CompetitionRankingScoreData, CompetitionRankingScoreInfo,
     UploadCompetitionData,
@@ -11,9 +13,6 @@ use rnex_server::PassthroughInitModule;
 use rnex_util::PID;
 #[cfg(feature = "splatoon")]
 use rnex_util::date_time::DateTime;
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "splatoon")]
-use tracing::{error, info};
 
 use crate::RankingManager;
 
@@ -24,85 +23,47 @@ pub struct RankingUser {
     pub pid: PID,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct CompetitionPostResults {
-    pub splatfest_id: u32,
-    pub score: u32,
-    pub team_id: u8,
-    pub team_win: u8,
-    pub user: PID,
-}
-
 impl Ranking for RankingUser {
     #[cfg(feature = "splatoon")]
     async fn competition_ranking_get_param(
         &self,
         param: CompetitionRankingGetParam,
     ) -> Result<Vec<CompetitionRankingScoreInfo>, ErrorCode> {
-        let fest_id = param.festival_ids.get(0).copied().unwrap_or(0);
-
-        let url_results = format!("{}?splatfest_id={}", self.rm.rnex_result_get, fest_id);
-        let permit = rnex_util::http::REQUEST_SLOTS
-            .acquire()
+        let fest_id = param.festival_ids.first().copied().unwrap_or(0);
+        let store = &self.rm.matchmake_manager.results;
+        let scores = store
+            .scores(fest_id, param.range.offset, param.range.size)
             .await
-            .map_err(|_| ErrorCode::Core_Exception)?;
-        let Ok(response_results) = tokio::task::spawn_blocking(move || {
-            let _permit = permit;
-            let mut response = rnex_util::http::agent().get(&url_results).call()?;
-            response
-                .body_mut()
-                .read_json::<Vec<CompetitionPostResults>>()
-        })
-        .await
-        else {
-            error!("failed to join task");
-            return Err(ErrorCode::Core_Exception);
-        };
-
-        let results: Vec<CompetitionPostResults> = match response_results {
-            Ok(results) => results,
-            Err(e) => {
-                error!("GET failed: {:?}", e);
-                return Err(ErrorCode::RendezVous_InvalidConfiguration);
-            }
-        };
-
-        let offset = param.range.offset as usize;
-        let size = param.range.size as usize;
-
-        let start = offset.min(results.len());
-        let end = (start + size).min(results.len());
-
-        let team_votes = self.rm.fetch_team_votes(fest_id).await?;
-        let mut wins = vec![0u32, 0u32];
-        for r in &results {
-            let won_team = (r.team_id ^ (!r.team_win)) & 1;
-            if let Some(team) = wins.get_mut(won_team as usize) {
-                *team += 1
-            };
-        }
-
-        let score_data: Vec<CompetitionRankingScoreData> = results[start..end]
-            .iter()
-            .map(|r| CompetitionRankingScoreData {
+            .map_err(|error| {
+                tracing::error!(?error, "could not read splatfest scores");
+                ErrorCode::Core_Exception
+            })?;
+        let team_wins = store.team_wins(fest_id).await.map_err(|error| {
+            tracing::error!(?error, "could not read splatfest wins");
+            ErrorCode::Core_Exception
+        })?;
+        let team_votes = store.team_votes(fest_id).await.map_err(|error| {
+            tracing::error!(?error, "could not read splatfest votes");
+            ErrorCode::Core_Exception
+        })?;
+        let score_data = scores
+            .into_iter()
+            .map(|(pid, score)| CompetitionRankingScoreData {
                 unk: 1,
-                pid: r.user,
-                score: r.score,
+                pid,
+                score,
                 modified: DateTime::now(),
                 unk2: 1,
                 appdata: QBuffer(vec![]),
             })
             .collect();
-
-        let info = CompetitionRankingScoreInfo {
+        Ok(vec![CompetitionRankingScoreInfo {
             fest_id,
             score_data,
             unk: 0,
-            team_wins: wins,
+            team_wins,
             team_votes,
-        };
-
-        Ok(vec![info])
+        }])
     }
 
     #[cfg(feature = "splatoon")]
@@ -110,50 +71,23 @@ impl Ranking for RankingUser {
         &self,
         param: UploadCompetitionData,
     ) -> Result<bool, ErrorCode> {
-        info!("fest results for user {:?}:", self.pid);
-        info!("fest id: {:?}", param.splatfest_id);
-        info!("score: {:?}", param.score);
-        info!("team id: {:?}", param.team_id);
-        info!("did current team win: {:?}", param.team_win);
-
-        let payload = CompetitionPostResults {
-            splatfest_id: param.splatfest_id,
+        if param.team_id > 1 || param.team_win > 1 {
+            return Ok(false);
+        }
+        let report = ResultReport {
+            fest_id: param.splatfest_id,
+            pid: self.pid,
             score: param.score,
             team_id: param.team_id,
-            team_win: param.team_win,
-            user: self.pid,
+            team_win: param.team_win == 1,
         };
-
-        let json_body = match serde_json::to_string(&payload) {
-            Ok(j) => j,
-            Err(e) => {
-                error!("error making json_body: {:?}", e);
-                return Ok(false);
-            }
-        };
-
-        let rm = self.rm.clone();
-
-        let Ok(response) = tokio::task::spawn_blocking(move || {
-            ureq::post(&rm.rnex_result_post)
-                .header("Content-Type", "application/json")
-                .send(json_body)
-        })
-        .await
-        else {
-            error!("unable to spawn blocking");
-            return Err(ErrorCode::Core_Exception);
-        };
-
-        match response {
-            Ok(res) => {
-                info!("POST worked: {}", res.status());
-            }
-            Err(e) => {
-                error!("POST borked: {:?}", e);
+        match self.rm.matchmake_manager.results.submit(report).await {
+            Ok(SubmitOutcome::Stored | SubmitOutcome::Duplicate) => Ok(true),
+            Ok(SubmitOutcome::Rejected) => Ok(false),
+            Err(error) => {
+                tracing::error!(?error, "could not store splatfest result");
+                Err(ErrorCode::Core_Exception)
             }
         }
-
-        Ok(true)
     }
 }

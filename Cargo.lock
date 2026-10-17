@@ -2413,6 +2413,7 @@ dependencies = [
 name = "rnex-mm"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bytemuck",
  "cfg-if",
  "rand",
@@ -2423,9 +2424,11 @@ dependencies = [
  "rnex-server",
  "rnex-util",
  "serde",
+ "sqlx",
  "tokio",
  "tracing",
  "ureq",
+ "uuid",
 ]
 
 [[package]]
@@ -2478,16 +2481,20 @@ dependencies = [
 name = "rnex-rk"
 version = "0.1.0"
 dependencies = [
- "cfg-if",
+ "anyhow",
+ "rnex-mm",
  "rnex-rk-protos",
  "rnex-rmc",
  "rnex-server",
+ "rnex-server-api",
  "rnex-util",
- "serde",
- "serde_json",
+ "sqlx",
+ "subtle",
  "tokio",
+ "tokio-stream",
+ "tonic",
  "tracing",
- "ureq",
+ "uuid",
 ]
 
 [[package]]
@@ -3059,6 +3066,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]
@@ -3125,6 +3133,7 @@ dependencies = [
  "sqlx-core",
  "thiserror",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -3160,6 +3169,7 @@ dependencies = [
  "stringprep",
  "thiserror",
  "tracing",
+ "uuid",
  "whoami",
 ]
 
@@ -3186,6 +3196,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]
@@ -3390,6 +3401,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-rustls"
+version = "0.26.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0c85f2c3ef0b1cd58b36682f4b17aaa995f0e5db534d85692b4903abce21f67"
+dependencies = [
+ "rustls",
+ "tokio",
+]
+
+[[package]]
 name = "tokio-stream"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3435,6 +3456,7 @@ dependencies = [
  "socket2 0.6.3",
  "sync_wrapper",
  "tokio",
+ "tokio-rustls",
  "tokio-stream",
  "tower",
  "tower-layer",
@@ -3736,6 +3758,7 @@ version = "1.23.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf80a72845275afea99e7f2b434723d3bc7e38470fcd1c7ed39a599c73319a53"
 dependencies = [
+ "getrandom 0.4.2",
  "js-sys",
  "serde_core",
  "wasm-bindgen",

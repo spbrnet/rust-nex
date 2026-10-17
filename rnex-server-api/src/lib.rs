@@ -8,3 +8,7 @@ pub mod gatherings {
 pub mod auth {
     tonic::include_proto!("auth");
 }
+#[cfg(feature = "splatoon")]
+pub mod splatfest_results {
+    tonic::include_proto!("splatfest_results");
+}

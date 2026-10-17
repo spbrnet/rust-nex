@@ -24,6 +24,8 @@ use rnex_util::{
     PID,
     station_url::{StationUrl, UrlOptions},
 };
+#[cfg(feature = "splatoon")]
+use std::collections::HashSet;
 use tokio::sync::Mutex;
 use tracing::info;
 
@@ -180,6 +182,8 @@ impl MatchmakeExtension for MatchmakeUser {
         .await;
 
         let mut joining_players = vec![self.this.clone()];
+        #[cfg(feature = "splatoon")]
+        let mut expected_result_roster = None;
 
         let users = self.matchmake_manager.users.read().await;
 
@@ -194,6 +198,22 @@ impl MatchmakeExtension for MatchmakeUser {
                 .any(|p| p.base.pid == self.base.pid)
             {
                 return Err(ErrorCode::RendezVous_PermissionDenied);
+            }
+            #[cfg(feature = "splatoon")]
+            {
+                let parent_roster: HashSet<PID> = old_gathering
+                    .get_active_players()
+                    .map(|player| player.base.pid)
+                    .collect();
+                if create_session_param.gid_for_participation_check != 0
+                    && parent_roster.len() == 8
+                    && create_session_param
+                        .additional_participants
+                        .iter()
+                        .all(|pid| parent_roster.contains(pid))
+                {
+                    expected_result_roster = Some(parent_roster);
+                }
             }
             let players = old_gathering
                 .connected_players
@@ -217,6 +237,12 @@ impl MatchmakeExtension for MatchmakeUser {
             .add_players(&joining_players, create_session_param.join_message)
             .await?;
 
+        #[cfg(feature = "splatoon")]
+        let actual_child_roster: HashSet<PID> = new_session
+            .get_active_players()
+            .map(|player| player.base.pid)
+            .collect();
+
         let session = new_session.session.clone();
 
         let mut sessions = self.matchmake_manager.sessions.write().await;
@@ -225,6 +251,23 @@ impl MatchmakeExtension for MatchmakeUser {
         }
         sessions.insert(gid, Arc::new(Mutex::new(new_session)));
         drop(sessions);
+
+        #[cfg(feature = "splatoon")]
+        if let Some(expected_result_roster) = expected_result_roster {
+            if let Err(error) = self
+                .matchmake_manager
+                .results
+                .observe_child_created(
+                    gid,
+                    session.gamemode,
+                    expected_result_roster,
+                    actual_child_roster,
+                )
+                .await
+            {
+                tracing::error!(?error, "could not record splatoon child gathering");
+            }
+        }
 
         Ok(session)
     }
@@ -287,6 +330,22 @@ impl MatchmakeExtension for MatchmakeUser {
             .await?;
 
         let mm_session = session.session.clone();
+        #[cfg(feature = "splatoon")]
+        let actual_child_roster: HashSet<PID> = session
+            .get_active_players()
+            .map(|player| player.base.pid)
+            .collect();
+        drop(session);
+
+        #[cfg(feature = "splatoon")]
+        if let Err(error) = self
+            .matchmake_manager
+            .results
+            .observe_child_join(join_session_param.gid, actual_child_roster)
+            .await
+        {
+            tracing::error!(?error, "could not confirm splatoon child gathering");
+        }
 
         Ok(mm_session)
     }
@@ -296,6 +355,8 @@ impl MatchmakeExtension for MatchmakeUser {
         param: AutoMatchmakeParam,
     ) -> Result<MatchmakeSession, ErrorCode> {
         let mut joining_players = vec![self.this.clone()];
+        #[cfg(feature = "splatoon")]
+        let mut joining_parent_verified = false;
 
         let users = self.matchmake_manager.users.read().await;
 
@@ -310,6 +371,18 @@ impl MatchmakeExtension for MatchmakeUser {
                 .any(|p| p.base.pid == self.base.pid)
             {
                 return Err(ErrorCode::RendezVous_PermissionDenied);
+            }
+            #[cfg(feature = "splatoon")]
+            {
+                let parent_pids: HashSet<PID> = old_gathering
+                    .get_active_players()
+                    .map(|player| player.base.pid)
+                    .collect();
+                joining_parent_verified = param.gid_for_participation_check != 0
+                    && param
+                        .additional_participants
+                        .iter()
+                        .all(|pid| parent_pids.contains(pid));
             }
             let players = old_gathering
                 .connected_players
@@ -327,6 +400,12 @@ impl MatchmakeExtension for MatchmakeUser {
         }
 
         drop(users);
+        #[cfg(feature = "splatoon")]
+        let joining_roster: HashSet<PID> = joining_players
+            .iter()
+            .filter_map(WeakPassthroughInitModule::upgrade)
+            .map(|player| player.base.pid)
+            .collect();
 
         let sessions = self
             .matchmake_manager
@@ -335,11 +414,39 @@ impl MatchmakeExtension for MatchmakeUser {
 
         if let Some(session) = sessions.get(0) {
             let mut session = session.lock().await;
+            #[cfg(feature = "splatoon")]
+            let existing_roster: HashSet<PID> = session
+                .get_active_players()
+                .map(|player| player.base.pid)
+                .collect();
             session
                 .add_players(&joining_players, param.join_message)
                 .await?;
-
-            return Ok(session.session.clone());
+            #[cfg(feature = "splatoon")]
+            let final_roster: HashSet<PID> = session
+                .get_active_players()
+                .map(|player| player.base.pid)
+                .collect();
+            let matched = session.session.clone();
+            drop(session);
+            #[cfg(feature = "splatoon")]
+            if joining_parent_verified {
+                if let Err(error) = self
+                    .matchmake_manager
+                    .results
+                    .record_automatic_match(
+                        matched.gathering.self_gid,
+                        matched.gamemode,
+                        existing_roster,
+                        joining_roster,
+                        final_roster,
+                    )
+                    .await
+                {
+                    tracing::error!(?error, "could not record splatfest match");
+                }
+            }
+            return Ok(matched);
         }
 
         drop(sessions);
@@ -516,8 +623,25 @@ impl MatchmakeExtension for MatchmakeUser {
             return Err(ErrorCode::RendezVous_PermissionDenied);
         }
         sess.add_players(&[self.this.clone()], message).await?;
+        let session_key = sess.session.session_key.clone();
+        #[cfg(feature = "splatoon")]
+        let actual_child_roster: HashSet<PID> = sess
+            .get_active_players()
+            .map(|player| player.base.pid)
+            .collect();
+        drop(sess);
 
-        Ok(sess.session.session_key.clone())
+        #[cfg(feature = "splatoon")]
+        if let Err(error) = self
+            .matchmake_manager
+            .results
+            .observe_child_join(gid, actual_child_roster)
+            .await
+        {
+            tracing::error!(?error, "could not confirm splatoon child gathering");
+        }
+
+        Ok(session_key)
     }
 
     async fn auto_matchmake_with_search_criteria_postpone(

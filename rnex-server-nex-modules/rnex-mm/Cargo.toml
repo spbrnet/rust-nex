@@ -17,6 +17,9 @@ cfg-if = "1.0.4"
 bytemuck = "1.25.1"
 serde = { version = "1.0.228", features = ["derive"] }
 ureq = "3.3.0"
+sqlx = { version = "0.9.0", features = ["postgres", "runtime-tokio", "uuid"], optional = true }
+uuid = { version = "1.18.1", features = ["v4"], optional = true }
+anyhow = { version = "1.0.103", optional = true }
 
 [features]
 rmc_struct_header = []
@@ -33,7 +36,7 @@ v3-8-15 = ["v3-5-0"]
 v3-10-22 = ["v3-8-15"]
 v4-3-11 = ["v3-8-15"]
 nx = ["big_pid"]
-splatoon = ["v3-5-0"]
+splatoon = ["v3-5-0", "dep:sqlx", "dep:uuid", "dep:anyhow"]
 datastore = ["database-support"]
 database-support = []
 
