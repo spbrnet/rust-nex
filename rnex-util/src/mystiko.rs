@@ -79,7 +79,7 @@ pub async fn validate_nex_token(token: &str) -> Result<NexTokenAccount, AccountE
             .header("X-Mystiko-Internal-Token", &internal_token)
             .send_json(&body)
             .map_err(|error| match error {
-                ureq::Error::StatusCode(401) => AccountError::InvalidToken,
+                ureq::Error::StatusCode(401 | 403) => AccountError::InvalidToken,
                 other => AccountError::Request(other.to_string()),
             })?;
         response

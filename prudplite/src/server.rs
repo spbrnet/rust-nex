@@ -688,7 +688,20 @@ async fn run_connection(
                     match outcome {
                         HandleOutcome::Request(request) => {
                             if let Some(backend) = entry.backend.as_mut() {
+                                info!(
+                                    peer = %client,
+                                    port = key.destination_port,
+                                    request_bytes = request.len(),
+                                    "PRUDP Lite forwarding RMC request"
+                                );
                                 backend.send_buffer(&request).await?;
+                            } else {
+                                warn!(
+                                    peer = %client,
+                                    port = key.destination_port,
+                                    request_bytes = request.len(),
+                                    "PRUDP Lite RMC request has no backend"
+                                );
                             }
                         }
                         HandleOutcome::Disconnect => {
@@ -704,6 +717,12 @@ async fn run_connection(
                         if let Err(err) = entry.connect_backend(key, destination, client, responses.clone()).await {
                             warn!(%client, %err, port = key.destination_port, "Lite backend connection failed");
                             sessions.remove(&key);
+                        } else {
+                            info!(
+                                peer = %client,
+                                port = key.destination_port,
+                                "PRUDP Lite backend connected"
+                            );
                         }
                     }
                 }
@@ -713,7 +732,15 @@ async fn run_connection(
                     continue;
                 };
                 match response {
-                    Ok(data) => entry.session.queue_data(&data)?,
+                    Ok(data) => {
+                        info!(
+                            peer = %client,
+                            port = key.destination_port,
+                            response_bytes = data.len(),
+                            "PRUDP Lite forwarding RMC response"
+                        );
+                        entry.session.queue_data(&data)?;
+                    }
                     Err(err) => {
                         debug!(%client, %err, port = key.destination_port, "Lite backend closed");
                         entry.backend = None;

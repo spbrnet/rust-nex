@@ -26,11 +26,10 @@ use rnex_rmc::{
     },
 };
 use rnex_server::PassthroughInitModule;
-use std::str::FromStr;
+#[cfg(not(feature = "prudplite"))]
+use std::{env, net::SocketAddrV4, str::FromStr};
 use std::{
-    env,
     hash::{DefaultHasher, Hasher},
-    net::SocketAddrV4,
     sync::LazyLock,
 };
 use tokio::sync::RwLock;
@@ -76,6 +75,7 @@ pub fn generate_ticket(
     }
 }
 
+#[cfg(not(feature = "prudplite"))]
 fn try_get_env<T: FromStr>(name: &'static str) -> Result<T, ErrorCode> {
     env::var(name)
         .ok()
@@ -91,7 +91,7 @@ pub fn generate_ticket_with_string_user_key(
 
     #[cfg(feature = "prudplite")]
     {
-        let source_key: [u8; 32] = rand::random();
+        let source_key: [u8; 16] = rand::random();
         let key_string = hex::encode(source_key);
         let ticket = issue_ticket(
             source_act as u64,
@@ -122,33 +122,19 @@ pub fn generate_ticket_with_string_user_key(
     }
 }
 
+#[cfg(not(feature = "prudplite"))]
 fn station_url_from_sock_addr(sock_addr: SocketAddrV4) -> String {
-    #[cfg(feature = "prudplite")]
-    {
-        return format!(
-            "prudp:/address={};port={};CID=1;PID=2;sid=1;stream=10;type=2",
-            sock_addr.ip(),
-            sock_addr.port()
-        );
-    }
-    #[cfg(not(feature = "prudplite"))]
-    {
-        format!(
-            "prudps:/PID=2;sid=1;stream=10;type=2;address={};port={};CID=1",
-            sock_addr.ip(),
-            sock_addr.port()
-        )
-    }
+    format!(
+        "prudps:/PID=2;sid=1;stream=10;type=2;address={};port={};CID=1",
+        sock_addr.ip(),
+        sock_addr.port()
+    )
 }
 
 fn secure_station_url() -> Result<String, ErrorCode> {
     #[cfg(feature = "prudplite")]
     {
-        // if let Ok(url) = std::env::var("RNEX_SECURE_STATION_URL") {
-        //     return Ok(url);
-        // }
-        let addr = try_get_env::<SocketAddrV4>("RNEX_LITE_PUBLIC_ENDPOINT")?;
-        Ok(station_url_from_sock_addr(addr))
+        Ok("prudps:/address=0.0.0.1;port=1;PID=2;CID=1;type=2;sid=2;stream=10".to_owned())
     }
     #[cfg(not(feature = "prudplite"))]
     {
@@ -375,6 +361,13 @@ impl Auth for AuthHandler {
                     date_time: DateTime::now(),
                     special_protocols: Vec::new(),
                 };
+
+                info!(
+                    pid,
+                    station_url = %connection_data.station_url,
+                    ticket_bytes = ticket.len(),
+                    "NEX LoginEx accepted"
+                );
 
                 let ret = (
                     result,

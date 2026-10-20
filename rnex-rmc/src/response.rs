@@ -8,7 +8,7 @@ use bytemuck::bytes_of;
 use rnex_util::SendingBufferConnection;
 use std::io;
 use std::io::{Read, Seek, Write};
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 use rnex_util::byte::{IS_BIG_ENDIAN, ReadExtensions};
 
 #[derive(Debug, Clone)]
@@ -149,6 +149,22 @@ pub async fn send_result(
     method_id: u32,
     call_id: u32,
 ) {
+    match &result {
+        Ok(data) => info!(
+            protocol_id,
+            method_id,
+            call_id,
+            response = %crate::trace_payload(data),
+            "RMC outgoing response"
+        ),
+        Err(error_code) => info!(
+            protocol_id,
+            method_id,
+            call_id,
+            error = ?error_code,
+            "RMC outgoing error response"
+        ),
+    }
     let response_result = match result {
         Ok(v) => RMCResponseResult::Success {
             call_id,

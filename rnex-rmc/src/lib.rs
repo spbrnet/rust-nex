@@ -7,7 +7,14 @@ pub mod qresult;
 pub mod response;
 pub mod rmc_struct;
 pub mod station_url;
-use std::{collections::HashMap, fmt::Debug, io::Cursor, ops::Deref, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    io::Cursor,
+    ops::Deref,
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
 
 pub use rand;
 pub use rnex_rmc_macros::*;
@@ -47,6 +54,15 @@ use crate::{
     serialization::RmcSerialize,
 };
 
+pub(crate) fn trace_payload(data: &[u8]) -> String {
+    static FULL_PAYLOAD: OnceLock<bool> = OnceLock::new();
+    if *FULL_PAYLOAD.get_or_init(|| std::env::var("RNEX_RMC_LOG_PAYLOAD").as_deref() == Ok("1")) {
+        hex::encode(data)
+    } else {
+        format!("{} bytes", data.len())
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum RemoteCallError {
     #[error("Call to remote timed out whilst waiting on response.")]
@@ -83,6 +99,13 @@ impl RmcConnection {
         &self,
         message: &RMCMessage,
     ) -> Result<(), RemoteCallError> {
+        info!(
+            protocol_id = message.protocol_id,
+            method_id = message.method_id,
+            call_id = message.call_id,
+            request = %trace_payload(&message.rest_of_data),
+            "RMC outgoing request"
+        );
         let message_data = message.to_data();
 
         self.0.send(message_data).await.ok_or(ConnectionBroke)?;
@@ -351,7 +374,28 @@ async fn handle_incoming<T: RmcCallable + Send + Sync + Debug + 'static>(
             return;
         };
 
-        info!("got rmc response");
+        match &response.response_result {
+            RMCResponseResult::Success {
+                call_id,
+                method_id,
+                data,
+            } => info!(
+                protocol_id = response.protocol_id,
+                method_id,
+                call_id,
+                response = %trace_payload(data),
+                "RMC incoming response"
+            ),
+            RMCResponseResult::Error {
+                call_id,
+                error_code,
+            } => info!(
+                protocol_id = response.protocol_id,
+                call_id,
+                error = ?error_code,
+                "RMC incoming error response"
+            ),
+        }
 
         let mut locked = incoming.lock().await;
         let response_bytes = |response: &RMCResponse| match &response.response_result {
@@ -382,6 +426,14 @@ async fn handle_incoming<T: RmcCallable + Send + Sync + Debug + 'static>(
             call_id,
             rest_of_data,
         } = message;
+
+        info!(
+            protocol_id,
+            method_id,
+            call_id,
+            request = %trace_payload(&rest_of_data),
+            "RMC incoming request"
+        );
 
         async {
             if !remote
