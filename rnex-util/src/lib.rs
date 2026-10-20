@@ -17,7 +17,7 @@ use tokio::io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::sync::watch;
 use tokio::task;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 #[cfg(feature = "nx")]
 pub type PID = i64;
@@ -123,10 +123,10 @@ impl SplittableBufferConnection {
                 loop {
                     let result = tokio::select! {
                         _ = read_shutdown.changed() => break,
-                        result = tokio::time::timeout(std::time::Duration::from_secs(30), reader.read_buffer()) => result,
+                        result = reader.read_buffer() => result,
                     };
                     match result {
-                        Ok(Ok(data)) => {
+                        Ok(data) => {
                             if !matches!(
                                 tokio::time::timeout(
                                     std::time::Duration::from_secs(10),
@@ -139,7 +139,11 @@ impl SplittableBufferConnection {
                                 break;
                             }
                         }
-                        e => {
+                        Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
+                            debug!("backend connection closed");
+                            break;
+                        }
+                        Err(e) => {
                             error!("error receiving data from backend: {e:?}");
                             break;
                         }
