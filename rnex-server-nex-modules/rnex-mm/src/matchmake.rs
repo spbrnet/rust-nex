@@ -54,6 +54,20 @@ impl MatchmakeManager {
         self.rv_cid_counter.fetch_add(1, Ordering::Relaxed)
     }
 
+    pub async fn playing_session_for(&self, pid: PID) -> Option<MatchmakeSession> {
+        let sessions: Vec<_> = self.sessions.read().await.values().cloned().collect();
+        for session in sessions {
+            let session = session.lock().await;
+            if session
+                .get_active_players()
+                .any(|player| player.base.pid == pid)
+            {
+                return Some(session.session.clone());
+            }
+        }
+        None
+    }
+
     pub async fn get_session(
         &self,
         gid: u32,

@@ -4,10 +4,8 @@ use std::{
     str::FromStr,
 };
 
-use thiserror::Error;
-use tracing::error;
-
 use crate::PID;
+use thiserror::Error;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Type {
@@ -37,7 +35,7 @@ pub enum UrlOptions {
     RVConnectionID(u32),
     Platform(u8),
     PMP(u8),
-    PID(u32),
+    Other(String, String),
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -54,9 +52,8 @@ impl StationUrl {
             if option == "" {
                 continue;
             }
-            let mut option_parts = option.split('=');
-            let option_name = option_parts.next()?.to_ascii_lowercase();
-            let option_value = option_parts.next()?;
+            let (option_name_raw, option_value) = option.split_once('=')?;
+            let option_name = option_name_raw.to_ascii_lowercase();
 
             use UrlOptions::*;
 
@@ -75,11 +72,10 @@ impl StationUrl {
                 "cid" => options_out.push(ConnectionID(option_value.parse().ok()?)),
                 "pl" => options_out.push(Platform(option_value.parse().ok()?)),
                 "pmp" => options_out.push(PMP(option_value.parse().ok()?)),
-                "pid" => options_out.push(PID(option_value.parse().ok()?)),
-                "PID" => options_out.push(PID(option_value.parse().ok()?)),
+                "pid" => options_out.push(PrincipalID(option_value.parse().ok()?)),
                 "probeinit" => options_out.push(ProbeInit(option_value.parse().ok()?)),
                 _ => {
-                    error!("unimplemented option type, skipping: {}", option_name);
+                    options_out.push(Other(option_name_raw.to_owned(), option_value.to_owned()));
                 }
             }
         }
@@ -145,8 +141,8 @@ impl Display for StationUrl {
                 RVConnectionID(v) => write!(f, "RVCID={}", v)?,
                 Platform(v) => write!(f, "pl={}", v)?,
                 PMP(v) => write!(f, "pmp={}", v)?,
-                PID(v) => write!(f, "PID={}", v)?,
                 ProbeInit(v) => write!(f, "probeinit={}", v)?,
+                Other(name, value) => write!(f, "{}={}", name, value)?,
             }
             write!(f, ";")?;
         }

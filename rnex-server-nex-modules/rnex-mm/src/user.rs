@@ -9,17 +9,23 @@ use rnex_mm_protos::{
     matchmake::{
         AutoMatchmakeParam, CreateMatchmakeSessionParam, Gathering, JoinMatchmakeSessionParam,
         Matchmake, MatchmakeSession, MatchmakeSessionSearchCriteria, ParticipantDetails,
+        PlayingSession, SimplePlayingSession,
     },
     matchmake_ext::MatchmakeExt,
     matchmake_extension::MatchmakeExtension,
-    nat_traversal::{NatTraversal, RemoteNatTraversalConsole},
+    nat_traversal::NatTraversal,
     notifications::{
         NotificationEvent, RemoteNotification,
         notification_types::{END_GATHERING, REQUEST_JOIN_GATHERING},
     },
 };
-use rnex_rmc::{any::Any, response::ErrorCode, rmc_struct};
+use rnex_rmc::{
+    HasRmcConnection, any::Any, message::RMCMessage, response::ErrorCode, rmc_struct,
+    serialization::RmcSerialize,
+};
 use rnex_server::{PassthroughInitModule, WeakPassthroughInitModule};
+#[cfg(feature = "nx")]
+use rnex_util::station_url::nat_types::PUBLIC;
 use rnex_util::{
     PID,
     station_url::{StationUrl, UrlOptions},
@@ -27,7 +33,7 @@ use rnex_util::{
 #[cfg(feature = "splatoon1")]
 use std::collections::HashSet;
 use tokio::sync::Mutex;
-use tracing::info;
+use tracing::{info, warn};
 
 /*cfg_if! {
     if #[cfg(feature = "datastore")] {
@@ -149,8 +155,52 @@ impl MatchmakeExtension for MatchmakeUser {
         Ok(list)
     }
 
-    async fn get_playing_session(&self, _pids: Vec<u32>) -> Result<Vec<()>, ErrorCode> {
-        Ok(Vec::new())
+    async fn get_playing_session(&self, pids: Vec<PID>) -> Result<Vec<PlayingSession>, ErrorCode> {
+        let mut found = Vec::new();
+        for pid in pids {
+            if let Some(session) = self.matchmake_manager.playing_session_for(pid).await {
+                found.push(PlayingSession {
+                    pid,
+                    gathering: Any::new(&session).map_err(|_| ErrorCode::Core_InvalidArgument)?,
+                });
+            }
+        }
+        info!(
+            caller_pid = self.base.pid,
+            count = found.len(),
+            "playing sessions found"
+        );
+        Ok(found)
+    }
+
+    async fn get_simple_playing_session(
+        &self,
+        mut pids: Vec<PID>,
+        include_login_user: bool,
+    ) -> Result<Vec<SimplePlayingSession>, ErrorCode> {
+        if include_login_user && !pids.contains(&self.base.pid) {
+            pids.push(self.base.pid);
+        }
+        let mut found = Vec::new();
+        for pid in pids {
+            if pid == self.base.pid && !include_login_user {
+                continue;
+            }
+            if let Some(session) = self.matchmake_manager.playing_session_for(pid).await {
+                found.push(SimplePlayingSession {
+                    pid,
+                    gid: session.gathering.self_gid,
+                    game_mode: session.gamemode,
+                    attribute: session.attributes.first().copied().unwrap_or_default(),
+                });
+            }
+        }
+        info!(
+            caller_pid = self.base.pid,
+            count = found.len(),
+            "simple playing sessions found"
+        );
+        Ok(found)
     }
 
     #[cfg(feature = "v3-5-0")]
@@ -896,24 +946,55 @@ impl NatTraversal for MatchmakeUser {
 
     async fn report_nat_traversal_result(
         &self,
-        _cid: u32,
-        _result: bool,
-        _rtt: u32,
+        cid: u32,
+        result: bool,
+        rtt: u32,
     ) -> Result<(), ErrorCode> {
+        info!(
+            pid = self.base.pid,
+            cid, result, rtt, "NAT traversal result"
+        );
         Ok(())
     }
 
     #[cfg(feature = "nx")]
     async fn report_nat_traversal_result_detail(
         &self,
-        _cid: u32,
-        _result: bool,
-        _detail: i32,
-        _rtt: u32,
+        cid: u32,
+        result: bool,
+        detail: i32,
+        rtt: u32,
     ) -> Result<(), ErrorCode> {
+        info!(
+            pid = self.base.pid,
+            cid, result, detail, rtt, "NAT traversal detail"
+        );
         Ok(())
     }
 
+    #[cfg(feature = "nx")]
+    async fn request_probe_initiation(
+        &self,
+        target_list: Vec<StationUrl>,
+    ) -> Result<(), ErrorCode> {
+        let station_to_probe: String = {
+            let stations = self.base.station_url.read().await;
+            let station = stations
+                .iter()
+                .find(|station| {
+                    station.options.iter().any(|option| {
+                        matches!(option, UrlOptions::NatType(value) if value & PUBLIC != 0)
+                    })
+                })
+                .or_else(|| stations.first())
+                .ok_or(ErrorCode::Core_InvalidArgument)?;
+            station.into()
+        };
+        self.request_probe_initialization_ext(target_list, station_to_probe)
+            .await
+    }
+
+    #[cfg(not(feature = "nx"))]
     async fn request_probe_initiation(&self, _station_to_probe: String) -> Result<(), ErrorCode> {
         Ok(())
     }
@@ -947,37 +1028,75 @@ impl NatTraversal for MatchmakeUser {
         target_list: Vec<StationUrl>,
         station_to_probe: String,
     ) -> Result<(), ErrorCode> {
-        let users = self.matchmake_manager.users.read().await;
-
-        info!(
-            "requesting station probe for {:?} to {:?}",
-            target_list, station_to_probe
-        );
-
+        info!(caller_pid = self.base.pid, targets = target_list.len(), station = %station_to_probe, "NAT probe requested");
         for url in target_list {
-            let Some(UrlOptions::RVConnectionID(v)) = url
-                .options
-                .into_iter()
-                .find(|o| matches!(o, &UrlOptions::RVConnectionID(_)))
-            else {
+            let rvcid = url.options.iter().find_map(|option| match option {
+                UrlOptions::RVConnectionID(value) => Some(*value),
+                _ => None,
+            });
+            let target_pid = url.options.iter().find_map(|option| match option {
+                UrlOptions::PrincipalID(value) => Some(*value),
+                _ => None,
+            });
+            let by_cid = if let Some(cid) = rvcid {
+                self.matchmake_manager
+                    .users
+                    .read()
+                    .await
+                    .get(&cid)
+                    .and_then(|user| user.upgrade())
+            } else {
+                None
+            };
+            let user = if by_cid
+                .as_ref()
+                .is_some_and(|user| target_pid.is_none_or(|pid| user.base.pid == pid))
+            {
+                by_cid
+            } else if let Some(pid) = target_pid {
+                self.matchmake_manager
+                    .users_by_pid
+                    .read()
+                    .await
+                    .get(&pid)
+                    .and_then(|user| user.upgrade())
+            } else {
+                None
+            };
+            let Some(user) = user else {
+                warn!(caller_pid = self.base.pid, ?rvcid, ?target_pid, target = ?url, "NAT probe target is not connected");
                 continue;
             };
-
-            let Some(v) = users.get(&v) else {
-                continue;
+            let payload = station_to_probe
+                .to_data()
+                .map_err(|_| ErrorCode::Core_InvalidArgument)?;
+            #[cfg(feature = "nx")]
+            let call_id = 0xffff_0000 | u32::from(rnex_rmc::rand::random::<u16>());
+            #[cfg(not(feature = "nx"))]
+            let call_id = rnex_rmc::rand::random();
+            let request = RMCMessage {
+                protocol_id: 3,
+                method_id: 2,
+                call_id,
+                rest_of_data: payload,
             };
-
-            let Some(user) = v.upgrade() else {
+            if let Err(error) = user
+                .remote
+                .get_connection()
+                .make_raw_call_no_response(&request)
+                .await
+            {
+                warn!(caller_pid = self.base.pid, target_pid = user.base.pid, ?rvcid, call_id, %error, "NAT InitiateProbe delivery failed");
                 continue;
-            };
-
-            user.remote
-                .request_probe_initiation(station_to_probe.clone())
-                .await;
+            }
+            info!(
+                caller_pid = self.base.pid,
+                target_pid = user.base.pid,
+                ?rvcid,
+                call_id,
+                "NAT InitiateProbe queued for host"
+            );
         }
-
-        info!("finished probing");
-
         Ok(())
     }
 }

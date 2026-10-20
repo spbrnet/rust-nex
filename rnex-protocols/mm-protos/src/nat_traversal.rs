@@ -1,17 +1,13 @@
-use rnex_rmc::{
-    method_id,
-    response::ErrorCode,
-    rmc_proto,
-    util::station_url::StationUrl,
-};
 #[cfg(feature = "nx")]
 use rnex_rmc::util::date_time::DateTime;
+use rnex_rmc::{method_id, response::ErrorCode, rmc_proto, util::station_url::StationUrl};
 
 #[rmc_proto(3)]
 pub trait NatTraversal {
     #[cfg(feature = "nx")]
     #[method_id(1)]
-    async fn request_probe_initiation(&self, station_to_probe: String) -> Result<(), ErrorCode>;
+    async fn request_probe_initiation(&self, target_list: Vec<StationUrl>)
+    -> Result<(), ErrorCode>;
 
     #[cfg(not(feature = "nx"))]
     #[method_id(2)]

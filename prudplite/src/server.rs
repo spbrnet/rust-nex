@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -285,6 +285,10 @@ enum HandleOutcome {
     Disconnect,
 }
 
+fn is_nat_initiate_probe(data: &[u8]) -> bool {
+    data.len() >= 13 && data[4] == 0x83 && u32::from_le_bytes(data[9..13].try_into().unwrap()) == 2
+}
+
 struct SessionEntry {
     session: Session,
     backend: Option<OwnedWriteHalf>,
@@ -359,6 +363,7 @@ struct Session {
     next_sequence: u16,
     received: VecDeque<u16>,
     pending: BTreeMap<u16, Vec<u8>>,
+    nat_probe_sequences: HashSet<u16>,
     outgoing: VecDeque<Packet>,
     fragments: Vec<u8>,
 }
@@ -385,6 +390,7 @@ impl Session {
             next_sequence: 1,
             received: VecDeque::with_capacity(128),
             pending: BTreeMap::new(),
+            nat_probe_sequences: HashSet::new(),
             outgoing: VecDeque::new(),
             fragments: Vec::new(),
         }
@@ -507,9 +513,22 @@ impl Session {
                 let count = packet.payload[1] as usize;
                 let base = u16::from_le_bytes([packet.payload[2], packet.payload[3]]);
                 self.pending.retain(|id, _| *id > base);
+                let acknowledged: Vec<_> = self
+                    .nat_probe_sequences
+                    .iter()
+                    .copied()
+                    .filter(|id| *id <= base)
+                    .collect();
+                for id in acknowledged {
+                    self.nat_probe_sequences.remove(&id);
+                    info!(peer = %self.peer, sequence_id = id, "NAT InitiateProbe acknowledged by client");
+                }
                 for entry in packet.payload[4..].chunks_exact(2).take(count) {
-                    self.pending
-                        .remove(&u16::from_le_bytes([entry[0], entry[1]]));
+                    let id = u16::from_le_bytes([entry[0], entry[1]]);
+                    self.pending.remove(&id);
+                    if self.nat_probe_sequences.remove(&id) {
+                        info!(peer = %self.peer, sequence_id = id, "NAT InitiateProbe acknowledged by client");
+                    }
                 }
             }
             return Ok(HandleOutcome::None);
@@ -517,6 +536,9 @@ impl Session {
         if packet.flags & ACK != 0 {
             if packet.kind == DATA {
                 self.pending.remove(&packet.sequence_id);
+                if self.nat_probe_sequences.remove(&packet.sequence_id) {
+                    info!(peer = %self.peer, sequence_id = packet.sequence_id, "NAT InitiateProbe acknowledged by client");
+                }
             }
             return Ok(HandleOutcome::None);
         }
@@ -733,6 +755,9 @@ async fn run_connection(
                 };
                 match response {
                     Ok(data) => {
+                        if is_nat_initiate_probe(&data) {
+                            info!(peer = %client, port = key.destination_port, response_bytes = data.len(), "PRUDP Lite received NAT InitiateProbe from backend");
+                        }
                         info!(
                             peer = %client,
                             port = key.destination_port,
@@ -755,7 +780,13 @@ async fn run_connection(
                 let mut closed = Vec::new();
                 for (key, entry) in &mut sessions {
                     if let Some(packet) = entry.session.outgoing.pop_front() {
+                        let probe = is_nat_initiate_probe(&packet.payload);
+                        let sequence_id = packet.sequence_id;
                         entry.session.send_packet(&mut writer, packet, true).await?;
+                        if probe {
+                            entry.session.nat_probe_sequences.insert(sequence_id);
+                            info!(peer = %client, port = key.destination_port, sequence_id, "PRUDP Lite sent NAT InitiateProbe to client");
+                        }
                     }
                     if entry.backend_closed && entry.session.outgoing.is_empty() {
                         closed.push(*key);

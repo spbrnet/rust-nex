@@ -239,6 +239,22 @@ pub struct ParticipantDetails {
     pub participants: u16,
 }
 
+#[derive(RmcSerialize, Debug, Clone)]
+#[rmc_struct(0)]
+pub struct PlayingSession {
+    pub pid: PID,
+    pub gathering: Any<Gathering>,
+}
+
+#[derive(RmcSerialize, Debug, Clone)]
+#[rmc_struct(0)]
+pub struct SimplePlayingSession {
+    pub pid: PID,
+    pub gid: u32,
+    pub game_mode: u32,
+    pub attribute: u32,
+}
+
 cfg_if! {
     if #[cfg(feature = "v4-3-11")] {
         #[derive(RmcSerialize, Debug, Clone)]
