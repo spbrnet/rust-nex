@@ -1,6 +1,7 @@
 use cfg_if::cfg_if;
-#[cfg(all(not(any(feature="v3-8-13"))))]
-#[cfg(not(feature="v3-4-7"))]
+#[cfg(feature = "v4-3-11")]
+use rnex_base_protos::ResultsRange;
+#[cfg(not(any(feature = "v4-3-11", feature = "v3-8-13", feature = "v3-4-7")))]
 use rnex_rmc::string_set::StringSet;
 use rnex_rmc::{
     RmcSerialize,
@@ -35,7 +36,32 @@ pub struct MatchmakeParam {
 }
 
 cfg_if! {
-    if #[cfg(feature = "v3-5-0")]{
+    if #[cfg(feature = "v4-3-11")] {
+        use rnex_util::date_time::DateTime;
+        #[derive(RmcSerialize, Debug, Clone, Default, PartialEq)]
+        #[rmc_struct(0)]
+        pub struct MatchmakeSession {
+            #[extends]
+            pub gathering: Gathering,
+
+            pub gamemode: u32,
+            pub attributes: Vec<u32>,
+            pub open_participation: bool,
+            pub matchmake_system_type: u32,
+            pub application_buffer: Vec<u8>,
+            pub participation_count: u32,
+            pub progress_score: u8,
+            pub session_key: Vec<u8>,
+            pub option0: u32,
+            pub matchmake_param: MatchmakeParam,
+            pub datetime: DateTime,
+            pub user_password: String,
+            pub refer_gid: u32,
+            pub user_password_enabled: bool,
+            pub system_password_enabled: bool,
+            pub codeword: String,
+        }
+    } else if #[cfg(feature = "v3-5-0")]{
         use rnex_util::date_time::DateTime;
         #[derive(RmcSerialize, Debug, Clone, Default, PartialEq)]
         #[rmc_struct(3)]
@@ -97,7 +123,28 @@ cfg_if! {
 }
 
 cfg_if! {
-    if #[cfg(feature = "v3-8-13")] {
+    if #[cfg(feature = "v4-3-11")] {
+        #[derive(RmcSerialize, Debug, Clone)]
+        #[rmc_struct(0)]
+        pub struct MatchmakeSessionSearchCriteria {
+            pub attribs: Vec<String>,
+            pub game_mode: String,
+            pub minimum_participants: String,
+            pub maximum_participants: String,
+            pub matchmake_system_type: String,
+            pub vacant_only: bool,
+            pub exclude_locked: bool,
+            pub exclude_non_host_pid: bool,
+            pub selection_method: u32,
+            pub vacant_participants: u16,
+            pub matchmake_param: MatchmakeParam,
+            pub exclude_user_password_set: bool,
+            pub exclude_system_password_set: bool,
+            pub refer_gid: u32,
+            pub codeword: String,
+            pub range: ResultsRange,
+        }
+    } else if #[cfg(feature = "v3-8-13")] {
         #[derive(RmcSerialize, Debug, Clone)]
         #[rmc_struct(3)]
         pub struct MatchmakeSessionSearchCriteria {
@@ -193,7 +240,23 @@ pub struct ParticipantDetails {
 }
 
 cfg_if! {
-    if #[cfg(feature = "v3-10-22")] {
+    if #[cfg(feature = "v4-3-11")] {
+        #[derive(RmcSerialize, Debug, Clone)]
+        #[rmc_struct(0)]
+        pub struct JoinMatchmakeSessionParam {
+            pub gid: u32,
+            pub additional_participants: Vec<PID>,
+            pub gid_for_participation_check: u32,
+            pub join_matchmake_session_open: u32,
+            pub join_matchmake_session_behavior: u8,
+            pub user_password: String,
+            pub system_password: String,
+            pub join_message: String,
+            pub participation_count: u16,
+            pub extra_participant: u16,
+            pub block_list_param: MatchmakeBlockListParam,
+        }
+    } else if #[cfg(feature = "v3-10-22")] {
         #[derive(RmcSerialize, Debug, Clone)]
         #[rmc_struct(1)]
         pub struct JoinMatchmakeSessionParam {
@@ -243,7 +306,10 @@ pub trait Matchmake {
     #[method_id(2)]
     async fn unregister_gathering(&self, gid: u32) -> Result<bool, ErrorCode>;
     #[method_id(15)]
-    async fn get_detailed_participants(&self, gid: u32) -> Result<Vec<ParticipantDetails>, ErrorCode>;
+    async fn get_detailed_participants(
+        &self,
+        gid: u32,
+    ) -> Result<Vec<ParticipantDetails>, ErrorCode>;
     #[method_id(21)]
     async fn find_by_single_id(&self, gid: u32) -> Result<(bool, Any<Gathering>), ErrorCode>;
     #[method_id(40)]

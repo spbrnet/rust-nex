@@ -175,10 +175,7 @@ impl RmcProtocolData {
 
             let deser_params =
                 fold_tokenable(parameters.iter().map(|(param_name, param_type, attribs)| {
-                    let error_msg = LitStr::new(
-                        &format!("an error occurred whilst deserializing {}", param_name),
-                        Span::call_site(),
-                    );
+                    let param_label = LitStr::new(&param_name.to_string(), Span::call_site());
                     let return_from_deser_error = if self.has_returns {
                         quote! {
                             return Err(::rnex_rmc::response::ErrorCode::Core_InvalidArgument);
@@ -191,12 +188,21 @@ impl RmcProtocolData {
                     let attribs = fold_tokenable(attribs.iter());
                     quote! {
                         #attribs
-                        let Ok(#param_name) =
+                        let #param_name = match
                             <#param_type as ::rnex_rmc::serialization::RmcSerialize>::deserialize(
-                            &mut cursor
-                        ) else{
-                            ::rnex_rmc::tracing::error!(#error_msg);
-                            #return_from_deser_error
+                                &mut cursor
+                            ) {
+                            Ok(value) => value,
+                            Err(error) => {
+                                ::rnex_rmc::tracing::error!(
+                                    parameter = #param_label,
+                                    offset = cursor.position(),
+                                    request_bytes = data.len(),
+                                    ?error,
+                                    "RMC request parameter deserialization failed"
+                                );
+                                #return_from_deser_error
+                            }
                         };
                     }
                 }));
