@@ -1,0 +1,18 @@
+FROM debian:trixie-slim AS base
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libssl3t64 \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base AS proxy-lite
+COPY dist/proxy_lite /proxy_lite
+EXPOSE 443/tcp
+ENTRYPOINT ["/proxy_lite"]
+
+FROM base AS backend-auth
+COPY dist/rnex-server-backend-auth /rnex-server-backend-auth
+ENTRYPOINT ["/rnex-server-backend-auth"]
+
+FROM base AS backend-secure
+COPY dist/rnex-server-backend-secure /rnex-server-backend-secure
+ENTRYPOINT ["/rnex-server-backend-secure"]

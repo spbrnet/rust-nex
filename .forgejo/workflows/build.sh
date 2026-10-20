@@ -4,6 +4,7 @@ set -e
 export EDITION=$1
 source /etc/environment 2>/dev/null || true
 : "${RNEX_CONTAINER_PLATFORM:=docker}"
+source ./buildscripts/common.sh
 
 export SHORT_SHA=${GITHUB_SHA::6}
 export CI_COMMIT_SHORT_SHA=${CI_COMMIT_SHORT_SHA:-$SHORT_SHA}
@@ -11,19 +12,29 @@ export CI_COMMIT_SHORT_SHA=${CI_COMMIT_SHORT_SHA:-$SHORT_SHA}
 echo "building $EDITION"
 export TARGET_DIR="target/release"
 
-./test-edition.sh
 ./build-edition.sh
 
 mkdir -p dist/
-cp $TARGET_DIR/proxy_insecure dist/
-cp $TARGET_DIR/proxy_secure dist/
-cp $TARGET_DIR/rnex-server-backend-auth dist/
-cp $TARGET_DIR/rnex-server-backend-secure dist/
+cp "$TARGET_DIR/rnex-server-backend-auth" dist/
+cp "$TARGET_DIR/rnex-server-backend-secure" dist/
 
-TARGETS=("proxy-secure" "proxy-insecure" "backend-auth" "backend-secure")
+if [[ ",$EDITION_FEATURES," == *,nx,* ]]; then
+    cp "$TARGET_DIR/proxy_lite" dist/
+    TARGETS=("proxy-lite" "backend-auth" "backend-secure")
+    DOCKERFILE=Dockerfile.nx
+elif [[ ",$EDITION_FEATURES," == *,prudpv1,* || ",$EDITION_FEATURES," == *,prudpv0,* || ",$EDITION_FEATURES," == *,friends,* ]]; then
+    cp "$TARGET_DIR/proxy_insecure" dist/
+    cp "$TARGET_DIR/proxy_secure" dist/
+    TARGETS=("proxy-secure" "proxy-insecure" "backend-auth" "backend-secure")
+    DOCKERFILE=Dockerfile
+else
+    TARGETS=("backend-auth" "backend-secure")
+    DOCKERFILE=Dockerfile
+fi
 
 for TARGET in "${TARGETS[@]}"; do
     $RNEX_CONTAINER_PLATFORM build \
+        -f "$DOCKERFILE" \
         --target="$TARGET" \
         -t "$CI_REGISTRY_IMAGE/$EDITION/$TARGET:$CI_COMMIT_SHORT_SHA" .
     

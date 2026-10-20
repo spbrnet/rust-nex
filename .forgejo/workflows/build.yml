@@ -22,10 +22,11 @@ jobs:
           - edition: puyopuyo
             db_secret: DATABASE_SMM
           - edition: minecraft-wiiu
-          - edition: splatoon-testfire
+          - edition: splatoon1-testfire
           - edition: fast-racing-neo
           - edition: wii-u-chat
-          - edition: splatoon
+          - edition: splatoon1
+          - edition: splatoon2
           - edition: friends
             db_secret: DATABASE_FRIENDS
           - edition: super-mario-maker
