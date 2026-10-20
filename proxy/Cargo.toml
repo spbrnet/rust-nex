@@ -10,6 +10,7 @@ workspace = true
 tokio = { version =  "1.47.0", features = ["full"] }
 prudpv0 = { path = "../prudpv0", optional = true }
 prudpv1-proxy = { path = "../prudpv1-proxy", optional = true }
+prudplite = { path = "../prudplite", optional = true }
 proxy-common = { path = "../proxy-common" }
 cfg-if = "1.0.4"
 rnex-prudp = { path = "../rnex-prudp" }
@@ -17,17 +18,27 @@ rnex-server = { path = "../rnex-server" }
 tracing = "0.1.44"
 
 [features]
-prudpv0 = ["dep:prudpv0"]
-prudpv1 = ["dep:prudpv1-proxy"]
-prudplite = []
+prudpv0 = ["dep:prudpv0", "legacy-proxy"]
+prudpv1 = ["dep:prudpv1-proxy", "prudpv1-proxy/prudpv1", "legacy-proxy"]
+prudplite = ["nx", "dep:prudplite", "prudplite/nx"]
+nx = ["rnex-prudp/nx", "rnex-server/nx"]
+legacy-proxy = []
 friends = ["prudpv0", "prudpv0/friends"]
-splatoon = ["prudpv1"]
+splatoon1 = ["prudpv1"]
+splatoon2 = ["nx", "prudplite"]
 
 
 [[bin]]
 name = "proxy_insecure"
 path = "src/insecure.rs"
+required-features = ["legacy-proxy"]
 
 [[bin]]
 name = "proxy_secure"
 path = "src/secure.rs"
+required-features = ["legacy-proxy"]
+
+[[bin]]
+name = "proxy_lite"
+path = "src/lite.rs"
+required-features = ["nx", "prudplite"]

@@ -68,13 +68,40 @@ pub trait Auth {
     #[method_id(4)]
     async fn get_pid(&self, username: String) -> Result<u32, ErrorCode>;
 
-    /// representation of the `LoginWithContext` method(for details see the
+    /// representation of the `GetName` method(for details see the
     /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))
     #[method_id(5)]
     async fn get_name(&self, pid: PID) -> Result<String, ErrorCode>;
 
-    // `LoginWithContext` is left out here because we don't need it right now and versioning still
-    // needs to be figured out
+    /// representation of the `LoginWithContext` method(for details see the
+    /// [kinnay wiki entry](https://github.com/kinnay/NintendoClients/wiki/Authentication-Protocol))
+    #[cfg(feature = "nx")]
+    #[method_id(6)]
+    async fn login_with_context(
+        &self,
+        request: ValidateAndRequestTicketParam,
+    ) -> Result<ValidateAndRequestTicketResult, ErrorCode>;
+}
+
+#[cfg(feature = "nx")]
+#[derive(RmcSerialize)]
+#[rmc_struct(1)]
+pub struct ValidateAndRequestTicketParam {
+    pub platform_type: u32,
+    pub username: String,
+    pub extra_data: Any,
+}
+
+#[cfg(feature = "nx")]
+#[derive(RmcSerialize)]
+#[rmc_struct(1)]
+pub struct ValidateAndRequestTicketResult {
+    pub source_pid: PID,
+    pub ticket: Vec<u8>,
+    pub service_node_url: String,
+    pub current_utc_time: DateTime,
+    pub return_message: String,
+    pub source_key: String,
 }
 
 #[derive(RmcSerialize)]

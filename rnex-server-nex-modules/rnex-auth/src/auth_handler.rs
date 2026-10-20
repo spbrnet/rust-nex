@@ -1,9 +1,18 @@
 use cfg_if::cfg_if;
+#[cfg(feature = "nx")]
+use rnex_rmc::util::mystiko::{AccountError, get_nex_login_data, validate_nex_token};
+#[cfg(not(feature = "nx"))]
+use rnex_rmc::util::nnas::{NnasError as AccountError, get_nex_login_data, validate_nex_token};
+#[cfg(feature = "nx")]
+use rnex_auth_protos::auth::{ValidateAndRequestTicketParam, ValidateAndRequestTicketResult};
 use rnex_auth_protos::{
     LocalAuthProtocol,
     auth::{Auth, AuthenticationInfo, ConnectionData, ConnectionDataOld},
 };
+#[cfg(not(feature = "prudplite"))]
 use rnex_prudp::kerberos::{Ticket, TicketInternalData};
+#[cfg(feature = "prudplite")]
+use rnex_prudp::lite::{derive_key, issue_ticket};
 use rnex_rmc::{
     any::Any,
     qresult::QResult,
@@ -14,7 +23,6 @@ use rnex_rmc::{
         PID,
         account::Account,
         date_time::DateTime,
-        nnas::{NnasError, get_nex_login_data, validate_nex_token},
     },
 };
 use rnex_server::PassthroughInitModule;
@@ -41,17 +49,31 @@ pub fn generate_ticket(
     source_act_login_data: (PID, [u8; 16]),
     dest_act_login_data: (PID, [u8; 16]),
 ) -> Box<[u8]> {
-    let source_key = source_act_login_data.1;
-    let dest_key = dest_act_login_data.1;
-
-    let internal_data = TicketInternalData::new(source_act_login_data.0);
-
-    let encrypted_inner = internal_data.encrypt(dest_key);
-    Ticket {
-        pid: dest_act_login_data.0,
-        session_key: internal_data.session_key,
+    #[cfg(feature = "prudplite")]
+    {
+        return issue_ticket(
+            source_act_login_data.0 as u64,
+            dest_act_login_data.0 as u64,
+            &source_act_login_data.1,
+            &dest_act_login_data.1,
+        )
+        .expect("valid nx ticket")
+        .into_boxed_slice();
     }
-    .encrypt(source_key, &encrypted_inner)
+    #[cfg(not(feature = "prudplite"))]
+    {
+        let source_key = source_act_login_data.1;
+        let dest_key = dest_act_login_data.1;
+
+        let internal_data = TicketInternalData::new(source_act_login_data.0);
+
+        let encrypted_inner = internal_data.encrypt(dest_key);
+        Ticket {
+            pid: dest_act_login_data.0,
+            session_key: internal_data.session_key,
+        }
+        .encrypt(source_key, &encrypted_inner)
+    }
 }
 
 fn try_get_env<T: FromStr>(name: &'static str) -> Result<T, ErrorCode> {
@@ -65,33 +87,89 @@ pub fn generate_ticket_with_string_user_key(
     source_act: PID,
     dest_act_login_data: (PID, [u8; 16]),
 ) -> (String, Box<[u8]>) {
-    let source_key: [u8; 8] = rand::random();
-    let key_string = hex::encode(source_key);
-    let key_data: [u8; 16] = key_string.as_bytes().try_into().unwrap();
     let dest_key = dest_act_login_data.1;
 
-    let internal_data = TicketInternalData::new(source_act);
-
-    let encrypted_inner = internal_data.encrypt(dest_key);
-    let encrypted_session_ticket = Ticket {
-        pid: dest_act_login_data.0,
-        session_key: internal_data.session_key,
+    #[cfg(feature = "prudplite")]
+    {
+        let source_key: [u8; 32] = rand::random();
+        let key_string = hex::encode(source_key);
+        let ticket = issue_ticket(
+            source_act as u64,
+            dest_act_login_data.0 as u64,
+            &source_key,
+            &dest_key,
+        )
+        .expect("valid nx ticket")
+        .into_boxed_slice();
+        return (key_string, ticket);
     }
-    .encrypt(key_data, &encrypted_inner);
 
-    (key_string, encrypted_session_ticket)
+    #[cfg(not(feature = "prudplite"))]
+    {
+        let source_key: [u8; 8] = rand::random();
+        let key_string = hex::encode(source_key);
+        let key_data: [u8; 16] = key_string.as_bytes().try_into().unwrap();
+        let internal_data = TicketInternalData::new(source_act);
+
+        let encrypted_inner = internal_data.encrypt(dest_key);
+        let encrypted_session_ticket = Ticket {
+            pid: dest_act_login_data.0,
+            session_key: internal_data.session_key,
+        }
+        .encrypt(key_data, &encrypted_inner);
+
+        (key_string, encrypted_session_ticket)
+    }
 }
 
 fn station_url_from_sock_addr(sock_addr: SocketAddrV4) -> String {
-    format!(
-        "prudps:/PID=2;sid=1;stream=10;type=2;address={};port={};CID=1",
-        sock_addr.ip(),
-        sock_addr.port()
-    )
+    #[cfg(feature = "prudplite")]
+    {
+        return format!(
+            "prudp:/address={};port={};CID=1;PID=2;sid=1;stream=10;type=2",
+            sock_addr.ip(),
+            sock_addr.port()
+        );
+    }
+    #[cfg(not(feature = "prudplite"))]
+    {
+        format!(
+            "prudps:/PID=2;sid=1;stream=10;type=2;address={};port={};CID=1",
+            sock_addr.ip(),
+            sock_addr.port()
+        )
+    }
+}
+
+fn secure_station_url() -> Result<String, ErrorCode> {
+    #[cfg(feature = "prudplite")]
+    {
+        // if let Ok(url) = std::env::var("RNEX_SECURE_STATION_URL") {
+        //     return Ok(url);
+        // }
+        let addr = try_get_env::<SocketAddrV4>("RNEX_LITE_PUBLIC_ENDPOINT")?;
+        Ok(station_url_from_sock_addr(addr))
+    }
+    #[cfg(not(feature = "prudplite"))]
+    {
+        let addr = try_get_env::<SocketAddrV4>("FORWARD_DESTINATION")?;
+        Ok(station_url_from_sock_addr(addr))
+    }
+}
+
+fn user_account(pid: PID, username: &str, password: &str) -> Account {
+    #[cfg(feature = "prudplite")]
+    {
+        Account::new_raw_key(pid, username, derive_key(password, pid as u64))
+    }
+    #[cfg(not(feature = "prudplite"))]
+    {
+        Account::new(pid, username, password)
+    }
 }
 
 static GUEST_ACCOUNT: LazyLock<Account> =
-    LazyLock::new(|| Account::new(100, "guest", "MMQea3n!fsik"));
+    LazyLock::new(|| user_account(100, "guest", "MMQea3n!fsik"));
 
 impl AuthHandler {
     async fn validate_account(&self, extra_data: &Any) -> Result<Account, ErrorCode> {
@@ -101,14 +179,20 @@ impl AuthHandler {
         let account = validate_nex_token(&authentication.auth_token)
             .await
             .map_err(|error| {
+                #[cfg(feature = "nx")]
                 match error {
-                    NnasError::InvalidToken => warn!("NNAS rejected a NEX token"),
+                    AccountError::InvalidToken => warn!("MystikoNX rejected a NEX token"),
+                    _ => warn!("MystikoNX token validation failed: {error}"),
+                }
+                #[cfg(not(feature = "nx"))]
+                match error {
+                    AccountError::InvalidToken => warn!("NNAS rejected a NEX token"),
                     _ => warn!("NNAS token validation failed: {error}"),
                 }
                 ErrorCode::RendezVous_NotAuthenticated
             })?;
         let pid = account.rnex_pid();
-        Ok(Account::new(pid, &account.username, &account.nex_password))
+        Ok(user_account(pid, &account.username, &account.nex_password))
     }
 
     async fn remember_account(&self, account: Account) {
@@ -155,7 +239,7 @@ impl AuthHandler {
             warn!("unable to obtain NEX login data for PID {pid}: {error}");
             ErrorCode::RendezVous_NotAuthenticated
         })?;
-        let account = Account::new(
+        let account = user_account(
             login_data.rnex_pid(),
             &login_data.username,
             &login_data.nex_password,
@@ -197,6 +281,28 @@ impl AuthHandler {
 }
 
 impl Auth for AuthHandler {
+    #[cfg(feature = "nx")]
+    async fn login_with_context(
+        &self,
+        request: ValidateAndRequestTicketParam,
+    ) -> Result<ValidateAndRequestTicketResult, ErrorCode> {
+        if is_maintenance() {
+            return Err(ErrorCode::RendezVous_GameServerMaintenance);
+        }
+        let account = self.validate_account(&request.extra_data).await?;
+        let pid = account.pid;
+        self.remember_account(account).await;
+        let (_, source_key, ticket) =
+            self.generate_ticket_from_name_string_user_key(&pid.to_string())?;
+        Ok(ValidateAndRequestTicketResult {
+            source_pid: pid,
+            ticket: ticket.into(),
+            service_node_url: secure_station_url()?,
+            current_utc_time: DateTime::now(),
+            return_message: self.am.build_name.to_string(),
+            source_key,
+        })
+    }
     async fn login(
         &self,
         name: String,
@@ -218,13 +324,8 @@ impl Auth for AuthHandler {
         //     return Err(ErrorCode::Core_Exception);
         // };
 
-        let addr = match try_get_env("FORWARD_DESTINATION") {
-            Ok(val) => val,
-            Err(e) => return Err(e),
-        };
-
         let connection_data = ConnectionDataOld {
-            station_url: station_url_from_sock_addr(addr),
+            station_url: secure_station_url()?,
             special_station_url: "".to_string(),
             special_protocols: Vec::new(),
         };
@@ -267,13 +368,8 @@ impl Auth for AuthHandler {
                 //     return Err(ErrorCode::Core_Exception);
                 // };
 
-                let addr = match try_get_env("FORWARD_DESTINATION") {
-                    Ok(val) => val,
-                    Err(e) => return Err(e),
-                };
-
                 let connection_data = ConnectionData {
-                    station_url: station_url_from_sock_addr(addr),
+                    station_url: secure_station_url()?,
                     special_station_url: "".to_string(),
                     //date_time: KerberosDateTime::new(1,1,1,1,1,1),
                     date_time: DateTime::now(),
@@ -342,13 +438,8 @@ impl Auth for AuthHandler {
                 //     return Err(ErrorCode::Core_Exception);
                 // };
 
-                let addr = match try_get_env("FORWARD_DESTINATION") {
-                    Ok(val) => val,
-                    Err(e) => return Err(e),
-                };
-
                 let connection_data = ConnectionData {
-                    station_url: station_url_from_sock_addr(addr),
+                    station_url: secure_station_url()?,
                     special_station_url: "".to_string(),
                     //date_time: KerberosDateTime::new(1,1,1,1,1,1),
                     date_time: DateTime::now(),

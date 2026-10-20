@@ -16,10 +16,10 @@ hex = "0.4.3"
 tracing = "0.1.44"
 
 [features]
-splatoon = []
+splatoon1 = []
 datastore = ["database-support"]
 database-support = []
-nx = []
+nx = ["rnex-util/nx"]
 third-notif-param = []
 v3-3-2 = []
 v3-4-0 = ["v3-3-2", "third-notif-param", "rmc_struct_header"]

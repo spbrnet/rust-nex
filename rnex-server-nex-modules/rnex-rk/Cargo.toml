@@ -17,8 +17,10 @@ v3-8-13 = ["v3-5-0"]
 v3-8-15 = ["v3-5-0"]
 v3-10-22 = ["v3-8-15"]
 v4-3-11 = ["v3-8-15"]
-nx = ["big_pid"]
-splatoon = ["v3-5-0", "dep:rnex-mm", "rnex-mm/splatoon", "dep:rnex-server-api", "dep:tonic", "dep:sqlx", "dep:subtle", "dep:anyhow", "dep:uuid", "dep:tokio-stream", "dep:tokio"]
+nx = ["big_pid", "rnex-rk-protos/nx", "rnex-rmc/nx", "rnex-server/nx", "rnex-util/nx"]
+prudplite = ["nx", "rmc_struct_header", "rnex-rmc/rmc_struct_header", "rnex-rk-protos/nx", "rnex-rk-protos/rmc_struct_header", "rnex-util/nx"]
+splatoon1 = ["v3-5-0", "rnex-rk-protos/splatoon1", "dep:rnex-mm", "rnex-mm/splatoon1", "dep:rnex-server-api", "dep:tonic", "dep:sqlx", "dep:subtle", "dep:anyhow", "dep:uuid", "dep:tokio-stream", "dep:tokio"]
+splatoon2 = ["prudplite", "rnex-rk-protos/splatoon2"]
 datastore = ["database-support", "v3-8-15"]
 database-support = []
 
@@ -30,7 +32,7 @@ rnex-server = { path = "../../rnex-server" }
 tracing = "0.1.44"
 tokio = { version = "1.52.3", features = ["rt", "net"], optional = true }
 rnex-mm = { path = "../rnex-mm", optional = true }
-rnex-server-api = { path = "../../rnex-server-api", features = ["splatoon"], optional = true }
+rnex-server-api = { path = "../../rnex-server-api", features = ["splatoon1"], optional = true }
 tonic = { version = "0.14.6", features = ["transport", "tls-ring"], optional = true }
 sqlx = { version = "0.9.0", features = ["postgres", "runtime-tokio", "uuid", "chrono"], optional = true }
 subtle = { version = "2.6.1", optional = true }

@@ -14,10 +14,12 @@ tracing = "0.1.44"
 cfg-if = "1.0.4"
 
 [features]
-splatoon = ["v3-5-0"]
+splatoon1 = ["v3-5-0"]
+splatoon2 = ["prudplite", "rnex-base-protos/splatoon2"]
 datastore = ["database-support", "v3-8-15"]
 database-support = []
-nx = []
+nx = ["rnex-base-protos/nx", "rnex-rmc/nx", "rnex-util/nx"]
+prudplite = ["nx", "rmc_struct_header", "rnex-rmc/rmc_struct_header", "rnex-base-protos/nx", "rnex-base-protos/rmc_struct_header", "rnex-util/nx"]
 third-notif-param = []
 v3-3-2 = []
 v3-4-0 = ["v3-3-2", "third-notif-param"]

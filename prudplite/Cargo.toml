@@ -1,0 +1,25 @@
+[package]
+name = "prudplite"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+base64 = { version = "0.22", optional = true }
+rnex-prudp = { path = "../rnex-prudp", optional = true }
+rnex-server = { path = "../rnex-server", optional = true }
+rnex-util = { path = "../rnex-util", optional = true }
+proxy-common = { path = "../proxy-common", optional = true }
+sha1 = { version = "0.10", optional = true }
+subtle = { version = "2.6", optional = true }
+tokio = { version = "1.52.3", features = ["full"], optional = true }
+tokio-rustls = { version = "0.26.5", default-features = false, features = ["ring"], optional = true }
+tracing = { version = "0.1.44", optional = true }
+
+[features]
+nx = ["dep:base64", "dep:rnex-prudp", "rnex-prudp/nx", "dep:rnex-server", "rnex-server/nx", "dep:rnex-util", "rnex-util/nx", "dep:proxy-common", "dep:sha1", "dep:subtle", "dep:tokio", "dep:tokio-rustls", "dep:tracing"]
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+rc4 = "0.2.0"

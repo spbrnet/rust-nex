@@ -12,6 +12,12 @@ pub mod user;
 #[derive(Default, Debug)]
 pub struct BaseManager {
     cid_counter: AtomicU32,
+    #[cfg(feature = "splatoon2")]
+    associated_ids: std::sync::Arc<
+        tokio::sync::RwLock<
+            std::collections::HashMap<rnex_util::PID, Vec<rnex_base_protos::util::UniqueIdInfo>>,
+        >,
+    >,
 }
 
 #[derive(Debug, Default)]
@@ -35,6 +41,8 @@ impl RnexManager for BaseManager {
             addr: init_data.addr,
             pid: init_data.pid,
             station_url: Default::default(),
+            #[cfg(feature = "splatoon2")]
+            associated_ids: this.associated_ids.clone(),
         }
     }
 }

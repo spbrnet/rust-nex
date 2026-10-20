@@ -12,6 +12,7 @@ rnex-util = {path = "../../rnex-util"}
 tracing = "0.1.44"
 
 [features]
+nx = ["rnex-rmc/nx", "rnex-util/nx"]
 third-notif-param = []
 v3-3-2 = []
 v3-4-7 = ["v3-3-2"]

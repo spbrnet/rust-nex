@@ -6,10 +6,10 @@ use std::{
 
 use crate::serialization::Result;
 
-#[cfg(feature = "rmc_struct_header")]
-pub const HEADER_SIZE: u32 = 0;
-#[cfg(not(feature = "rmc_struct_header"))]
+#[cfg(all(feature = "nx", feature = "rmc_struct_header"))]
 pub const HEADER_SIZE: u32 = 5;
+#[cfg(not(all(feature = "nx", feature = "rmc_struct_header")))]
+pub const HEADER_SIZE: u32 = 0;
 
 pub struct OnlyWriteVec<'a>(&'a mut Vec<u8>);
 

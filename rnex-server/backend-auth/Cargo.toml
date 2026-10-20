@@ -4,10 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-splatoon = ["v3-5-0"]
+splatoon1 = ["v3-5-0"]
+splatoon2 = ["prudplite", "rnex-auth/splatoon2"]
 datastore = ["database-support", "v3-8-15"]
 database-support = []
-nx = []
+nx = ["rnex-auth/nx", "rnex-server/nx"]
+prudplite = ["rnex-auth/prudplite"]
 third-notif-param = []
 v3-3-2 = []
 v3-4-0 = ["v3-3-2", "third-notif-param"]

@@ -24,7 +24,7 @@ use rnex_util::{
     PID,
     station_url::{StationUrl, UrlOptions},
 };
-#[cfg(feature = "splatoon")]
+#[cfg(feature = "splatoon1")]
 use std::collections::HashSet;
 use tokio::sync::Mutex;
 use tracing::info;
@@ -182,7 +182,7 @@ impl MatchmakeExtension for MatchmakeUser {
         .await;
 
         let mut joining_players = vec![self.this.clone()];
-        #[cfg(feature = "splatoon")]
+        #[cfg(feature = "splatoon1")]
         let mut expected_result_roster = None;
 
         let users = self.matchmake_manager.users.read().await;
@@ -199,7 +199,7 @@ impl MatchmakeExtension for MatchmakeUser {
             {
                 return Err(ErrorCode::RendezVous_PermissionDenied);
             }
-            #[cfg(feature = "splatoon")]
+            #[cfg(feature = "splatoon1")]
             {
                 let parent_roster: HashSet<PID> = old_gathering
                     .get_active_players()
@@ -237,7 +237,7 @@ impl MatchmakeExtension for MatchmakeUser {
             .add_players(&joining_players, create_session_param.join_message)
             .await?;
 
-        #[cfg(feature = "splatoon")]
+        #[cfg(feature = "splatoon1")]
         let actual_child_roster: HashSet<PID> = new_session
             .get_active_players()
             .map(|player| player.base.pid)
@@ -252,7 +252,7 @@ impl MatchmakeExtension for MatchmakeUser {
         sessions.insert(gid, Arc::new(Mutex::new(new_session)));
         drop(sessions);
 
-        #[cfg(feature = "splatoon")]
+        #[cfg(feature = "splatoon1")]
         if let Some(expected_result_roster) = expected_result_roster {
             if let Err(error) = self
                 .matchmake_manager
@@ -265,7 +265,7 @@ impl MatchmakeExtension for MatchmakeUser {
                 )
                 .await
             {
-                tracing::error!(?error, "could not record splatoon child gathering");
+                tracing::error!(?error, "could not record splatoon1 child gathering");
             }
         }
 
@@ -330,21 +330,21 @@ impl MatchmakeExtension for MatchmakeUser {
             .await?;
 
         let mm_session = session.session.clone();
-        #[cfg(feature = "splatoon")]
+        #[cfg(feature = "splatoon1")]
         let actual_child_roster: HashSet<PID> = session
             .get_active_players()
             .map(|player| player.base.pid)
             .collect();
         drop(session);
 
-        #[cfg(feature = "splatoon")]
+        #[cfg(feature = "splatoon1")]
         if let Err(error) = self
             .matchmake_manager
             .results
             .observe_child_join(join_session_param.gid, actual_child_roster)
             .await
         {
-            tracing::error!(?error, "could not confirm splatoon child gathering");
+            tracing::error!(?error, "could not confirm splatoon1 child gathering");
         }
 
         Ok(mm_session)
@@ -355,7 +355,7 @@ impl MatchmakeExtension for MatchmakeUser {
         param: AutoMatchmakeParam,
     ) -> Result<MatchmakeSession, ErrorCode> {
         let mut joining_players = vec![self.this.clone()];
-        #[cfg(feature = "splatoon")]
+        #[cfg(feature = "splatoon1")]
         let mut joining_parent_verified = false;
 
         let users = self.matchmake_manager.users.read().await;
@@ -372,7 +372,7 @@ impl MatchmakeExtension for MatchmakeUser {
             {
                 return Err(ErrorCode::RendezVous_PermissionDenied);
             }
-            #[cfg(feature = "splatoon")]
+            #[cfg(feature = "splatoon1")]
             {
                 let parent_pids: HashSet<PID> = old_gathering
                     .get_active_players()
@@ -400,7 +400,7 @@ impl MatchmakeExtension for MatchmakeUser {
         }
 
         drop(users);
-        #[cfg(feature = "splatoon")]
+        #[cfg(feature = "splatoon1")]
         let joining_roster: HashSet<PID> = joining_players
             .iter()
             .filter_map(WeakPassthroughInitModule::upgrade)
@@ -414,7 +414,7 @@ impl MatchmakeExtension for MatchmakeUser {
 
         if let Some(session) = sessions.get(0) {
             let mut session = session.lock().await;
-            #[cfg(feature = "splatoon")]
+            #[cfg(feature = "splatoon1")]
             let existing_roster: HashSet<PID> = session
                 .get_active_players()
                 .map(|player| player.base.pid)
@@ -422,14 +422,14 @@ impl MatchmakeExtension for MatchmakeUser {
             session
                 .add_players(&joining_players, param.join_message)
                 .await?;
-            #[cfg(feature = "splatoon")]
+            #[cfg(feature = "splatoon1")]
             let final_roster: HashSet<PID> = session
                 .get_active_players()
                 .map(|player| player.base.pid)
                 .collect();
             let matched = session.session.clone();
             drop(session);
-            #[cfg(feature = "splatoon")]
+            #[cfg(feature = "splatoon1")]
             if joining_parent_verified {
                 if let Err(error) = self
                     .matchmake_manager
@@ -624,21 +624,21 @@ impl MatchmakeExtension for MatchmakeUser {
         }
         sess.add_players(&[self.this.clone()], message).await?;
         let session_key = sess.session.session_key.clone();
-        #[cfg(feature = "splatoon")]
+        #[cfg(feature = "splatoon1")]
         let actual_child_roster: HashSet<PID> = sess
             .get_active_players()
             .map(|player| player.base.pid)
             .collect();
         drop(sess);
 
-        #[cfg(feature = "splatoon")]
+        #[cfg(feature = "splatoon1")]
         if let Err(error) = self
             .matchmake_manager
             .results
             .observe_child_join(gid, actual_child_roster)
             .await
         {
-            tracing::error!(?error, "could not confirm splatoon child gathering");
+            tracing::error!(?error, "could not confirm splatoon1 child gathering");
         }
 
         Ok(session_key)
@@ -903,9 +903,43 @@ impl NatTraversal for MatchmakeUser {
         Ok(())
     }
 
+    #[cfg(feature = "nx")]
+    async fn report_nat_traversal_result_detail(
+        &self,
+        _cid: u32,
+        _result: bool,
+        _detail: i32,
+        _rtt: u32,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
     async fn request_probe_initiation(&self, _station_to_probe: String) -> Result<(), ErrorCode> {
-        info!("NO!");
-        Err(ErrorCode::RendezVous_AccountExpired)
+        Ok(())
+    }
+
+    #[cfg(feature = "nx")]
+    async fn get_relay_signature_key(
+        &self,
+    ) -> Result<
+        (
+            i32,
+            rnex_rmc::util::date_time::DateTime,
+            String,
+            u16,
+            i32,
+            u32,
+        ),
+        ErrorCode,
+    > {
+        Ok((
+            0,
+            rnex_rmc::util::date_time::DateTime::now(),
+            String::new(),
+            0,
+            0,
+            0,
+        ))
     }
 
     async fn request_probe_initialization_ext(

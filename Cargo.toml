@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "prudpv1",
     "prudpv0",
+    "prudplite",
     "proxy",
     "proxy-common",
     "rnex-rmc",

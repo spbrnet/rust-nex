@@ -1,5 +1,7 @@
 pub mod encryption;
 pub mod kerberos;
+#[cfg(feature = "nx")]
+pub mod lite;
 pub mod socket_addr;
 pub mod ticket;
 pub mod types_flags;

@@ -9,7 +9,7 @@ tonic-prost = "*"
 tonic = "0.14.6"
 
 [features]
-splatoon = []
+splatoon1 = []
 
 [build-dependencies]
 tonic-prost-build = "0.14.6"

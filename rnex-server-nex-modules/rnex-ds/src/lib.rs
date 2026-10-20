@@ -13,6 +13,8 @@ pub(crate) mod s3presigner;
 pub struct DatastoreManager {
     db_pool: PgPool,
     s3_presigner: S3Presigner,
+    #[cfg(feature = "splatoon2")]
+    posts: std::sync::Mutex<Vec<datastore::StoredCoconutPost>>,
 }
 pub struct DatastoreModule;
 impl RnexManager for DatastoreManager {
@@ -57,6 +59,8 @@ impl RnexModule for DatastoreModule {
                     .to_string(),
                 env_var("RNEX_DATASTORE_S3_BUCKET")?,
             ),
+            #[cfg(feature = "splatoon2")]
+            posts: Default::default(),
         })
     }
 }

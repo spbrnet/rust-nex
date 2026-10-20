@@ -9,10 +9,10 @@ tracing = "0.1.44"
 rnex-rmc = { path = "../../rnex-rmc" }
 
 [features]
-splatoon = ["v3-5-0"]
+splatoon1 = ["v3-5-0"]
 datastore = ["database-support", "v3-8-15"]
 database-support = []
-nx = []
+nx = ["rnex-rmc/nx"]
 third-notif-param = []
 v3-3-2 = []
 v3-4-7 = ["v3-3-2"]
@@ -23,7 +23,7 @@ v3-8-15 = ["v3-5-0"]
 v3-10-22 = ["v3-8-15"]
 v4-3-11 = ["v3-8-15"]
 friends = []
-rmc_struct_header = []
+rmc_struct_header = ["rnex-rmc/rmc_struct_header"]
 big_pid = []
 
 [lints]

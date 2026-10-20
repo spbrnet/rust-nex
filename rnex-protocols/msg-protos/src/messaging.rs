@@ -1,4 +1,9 @@
-use rnex_rmc::{RmcSerialize, data::Data, qbuffer::QBuffer, util::date_time::DateTime};
+use rnex_rmc::{
+    RmcSerialize,
+    data::Data,
+    qbuffer::QBuffer,
+    util::{PID, date_time::DateTime},
+};
 
 #[derive(RmcSerialize, Debug, Clone)]
 #[rmc_struct(0)]
@@ -6,9 +11,12 @@ pub struct UserMessage {
     #[extends]
     pub data: Data,
     pub id: u32,
-    pub recipient_id: i32,
+    pub recipient_id: PID,
     pub recipient_type: u32,
     pub parent_id: u32,
+    #[cfg(feature = "nx")]
+    pub pid_sender: PID,
+    #[cfg(not(feature = "nx"))]
     pub pid_sender: u32,
     pub receptiontime: DateTime,
     pub life_time: u32,

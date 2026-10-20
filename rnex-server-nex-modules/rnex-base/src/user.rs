@@ -106,11 +106,19 @@ pub struct BaseUser {
     // pub(crate) bm: PassthroughInitModule<BaseManager>,
     pub addr: SocketAddr,
     pub station_url: RwLock<Vec<StationUrl>>,
+    #[cfg(feature = "splatoon2")]
+    pub associated_ids: std::sync::Arc<
+        RwLock<std::collections::HashMap<PID, Vec<rnex_base_protos::util::UniqueIdInfo>>>,
+    >,
     pub pid: PID,
     pub cid: u32,
 }
 
 impl Secure for BaseUser {
+    #[cfg(feature = "nx")]
+    async fn test_connectivity(&self) -> Result<(), ErrorCode> {
+        Ok(())
+    }
     async fn register(
         &self,
         station_urls: Vec<StationUrl>,
@@ -176,18 +184,164 @@ impl Secure for BaseUser {
 
         Ok(())
     }
-    
-    async fn send_report(&self, _id: u32, _data: QBuffer) -> Result<(),ErrorCode>  {
+
+    async fn send_report(&self, _id: u32, _data: QBuffer) -> Result<(), ErrorCode> {
         Ok(())
     }
 }
 
 impl Utility for BaseUser {
     async fn acquire_nex_unique_id(&self) -> Result<u64, ErrorCode> {
-        return Ok(rand::random());
+        // splatoon 2 just kinda... needs this? idk.
+        #[cfg(feature = "splatoon2")]
+        return Ok(1_000_000_000_000_000 + self.pid as u64);
+        #[cfg(not(feature = "splatoon2"))]
+        Ok(rand::random())
     }
 
-    async fn get_integer_settings(&self, _index: u32) -> Result<Vec<(u16, i32)>, ErrorCode> {
-        Ok(vec![(0, 1), (1, 2), (2, 0), (3, 4)])
+    #[cfg(feature = "nx")]
+    async fn acquire_nex_unique_id_with_password(
+        &self,
+    ) -> Result<rnex_base_protos::util::UniqueIdInfo, ErrorCode> {
+        #[cfg(feature = "splatoon2")]
+        return Ok(rnex_base_protos::util::UniqueIdInfo {
+            id: 1_000_000_000_000_000 + self.pid as u64,
+            password: rand::random(),
+        });
+        #[cfg(not(feature = "splatoon2"))]
+        Ok(rnex_base_protos::util::UniqueIdInfo {
+            id: self.pid as u64,
+            password: (self.pid as u64) ^ 0x4e45_585f_5057_4421,
+        })
+    }
+
+    #[cfg(all(feature = "nx", not(feature = "splatoon2")))]
+    async fn associate_nex_unique_id_with_my_principal_id(
+        &self,
+        _id: u64,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(all(feature = "nx", feature = "splatoon2"))]
+    async fn associate_nex_unique_id_with_my_principal_id(
+        &self,
+        info: rnex_base_protos::util::UniqueIdInfo,
+    ) -> Result<(), ErrorCode> {
+        self.associated_ids
+            .write()
+            .await
+            .insert(self.pid, vec![info]);
+        Ok(())
+    }
+
+    #[cfg(all(feature = "nx", feature = "splatoon2"))]
+    async fn associate_nex_unique_ids_with_my_principal_id(
+        &self,
+        infos: Vec<rnex_base_protos::util::UniqueIdInfo>,
+    ) -> Result<(), ErrorCode> {
+        self.associated_ids.write().await.insert(self.pid, infos);
+        Ok(())
+    }
+
+    #[cfg(feature = "nx")]
+    async fn get_associated_nex_unique_id_with_my_principal_id(
+        &self,
+    ) -> Result<rnex_base_protos::util::UniqueIdInfo, ErrorCode> {
+        #[cfg(feature = "splatoon2")]
+        return Ok(self
+            .associated_ids
+            .read()
+            .await
+            .get(&self.pid)
+            .and_then(|infos| infos.first())
+            .cloned()
+            .unwrap_or_default());
+        #[cfg(not(feature = "splatoon2"))]
+        self.acquire_nex_unique_id_with_password().await
+    }
+
+    #[cfg(all(feature = "nx", feature = "splatoon2"))]
+    async fn get_associated_nex_unique_ids_with_my_principal_id(
+        &self,
+    ) -> Result<Vec<rnex_base_protos::util::UniqueIdInfo>, ErrorCode> {
+        Ok(self
+            .associated_ids
+            .read()
+            .await
+            .get(&self.pid)
+            .cloned()
+            .unwrap_or_default())
+    }
+
+    #[cfg(all(feature = "nx", feature = "splatoon2"))]
+    async fn acquire_tag_id(&self, nex_unique_ids: Vec<u64>) -> Result<u64, ErrorCode> {
+        let mut ids = nex_unique_ids;
+        ids.sort_unstable();
+        let mut hash = 0xcbf29ce484222325_u64;
+        for id in ids {
+            for byte in id.to_le_bytes() {
+                hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
+            }
+        }
+        Ok(hash)
+    }
+
+    #[cfg(all(feature = "nx", feature = "splatoon2"))]
+    async fn update_current_user(
+        &self,
+        param: rnex_base_protos::util::UpdateCurrentUserParam,
+    ) -> Result<(), ErrorCode> {
+        self.associated_ids
+            .write()
+            .await
+            .insert(self.pid, vec![param.info]);
+        Ok(())
+    }
+
+    async fn get_integer_settings(&self, index: u32) -> Result<Vec<(u16, i32)>, ErrorCode> {
+        // this is... fucked. however i couldnt think of a better way.
+        #[cfg(feature = "prudplite")]
+        {
+            let index_name = format!("NEX_UTILITY_SETTINGS_COUNT_{index}");
+            let values_name = format!("NEX_UTILITY_SETTINGS_VALUES_{index}");
+            let specific = std::env::var(&index_name).ok();
+            let global = std::env::var("NEX_UTILITY_SETTINGS_COUNT").ok();
+            let count = specific
+                .as_deref()
+                .or(global.as_deref())
+                .and_then(|value| value.parse::<u16>().ok())
+                .filter(|count| *count <= 4096)
+                .unwrap_or(0);
+            let values = std::env::var(if specific.is_some() {
+                &values_name
+            } else {
+                "NEX_UTILITY_SETTINGS_VALUES"
+            })
+            .unwrap_or_default();
+            let mut result: Vec<_> = (0..count).map(|key| (key, 0)).collect();
+            for pair in values.split(',') {
+                if let Some((key, value)) = pair.split_once('=') {
+                    if let (Ok(key), Ok(value)) =
+                        (key.trim().parse::<u16>(), value.trim().parse::<i32>())
+                    {
+                        if let Some(entry) = result.get_mut(key as usize) {
+                            entry.1 = value;
+                        }
+                    }
+                }
+            }
+            Ok(result)
+        }
+        #[cfg(not(feature = "prudplite"))]
+        {
+            let _ = index;
+            Ok(vec![(0, 1), (1, 2), (2, 0), (3, 4)])
+        }
+    }
+
+    #[cfg(feature = "nx")]
+    async fn get_string_settings(&self, _index: u32) -> Result<Vec<(u16, String)>, ErrorCode> {
+        Ok(Vec::new())
     }
 }

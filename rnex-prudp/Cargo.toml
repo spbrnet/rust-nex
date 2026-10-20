@@ -13,12 +13,13 @@ rnex-util = { path = "../rnex-util" }
 bytemuck = { version = "1.25.0", features = ["derive"] }
 rand = "0.10.2"
 tracing = "0.1.44"
+subtle = "2.6"
 
 [features]
-splatoon = ["v3-5-0"]
+splatoon1 = ["v3-5-0"]
 datastore = ["database-support", "v3-8-15"]
 database-support = []
-nx = []
+nx = ["rnex-util/nx"]
 third-notif-param = []
 v3-3-2 = []
 v3-4-0 = ["v3-3-2", "third-notif-param"]

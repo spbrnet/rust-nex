@@ -40,7 +40,7 @@ pub struct MatchmakeManager {
     pub rv_cid_counter: AtomicU32,
     pub users: RwLock<HashMap<u32, WeakPassthroughInitModule<MatchmakeUser>>>,
     pub users_by_pid: RwLock<HashMap<PID, WeakPassthroughInitModule<MatchmakeUser>>>,
-    #[cfg(feature = "splatoon")]
+    #[cfg(feature = "splatoon1")]
     pub results: crate::results::ResultsStore,
 }
 
@@ -454,9 +454,9 @@ impl ExtendedMatchmakeSession {
         #[cfg(feature = "v3-4-7")]
         let is_open = true;
         #[warn(unused_variables)]
-        #[cfg(not(feature = "splatoon"))]
+        #[cfg(not(feature = "splatoon1"))]
         let is_open = self.session.open_participation;
-        #[cfg(feature = "splatoon")]
+        #[cfg(feature = "splatoon1")]
         let is_open = if self.session.gamemode == 12 {
             true
         } else {
@@ -537,7 +537,7 @@ impl ExtendedMatchmakeSession {
             return Ok(false);
         }
 
-        #[cfg(feature = "splatoon")]
+        #[cfg(feature = "splatoon1")]
         {
             if !search_criteria.attribs.get(0).is_some_and(|s| {
                 self.session

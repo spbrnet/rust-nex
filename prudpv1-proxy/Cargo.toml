@@ -16,4 +16,4 @@ tokio = { version = "1.52.3", features = ["rt"] }
 workspace = true
 
 [features]
-prudpv1 = []
+prudpv1 = ["prudpv1/prudpv1"]

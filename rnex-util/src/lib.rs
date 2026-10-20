@@ -4,6 +4,8 @@ pub mod account;
 pub mod byte;
 pub mod date_time;
 pub mod http;
+#[cfg(feature = "nx")]
+pub mod mystiko;
 pub mod nnas;
 pub mod result;
 pub mod station_url;

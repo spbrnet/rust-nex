@@ -1,5 +1,6 @@
 use rnex_rmc::{
-    RmcSerialize, any::Any, data::Data, method_id, qbuffer::QBuffer, qresult::QResult, response::ErrorCode, rmc_proto, util::station_url::StationUrl
+    RmcSerialize, any::Any, data::Data, method_id, qbuffer::QBuffer, qresult::QResult,
+    response::ErrorCode, rmc_proto, util::station_url::StationUrl,
 };
 
 #[derive(RmcSerialize)]
@@ -32,6 +33,9 @@ pub trait Secure {
         station_urls: Vec<StationUrl>,
         data: Any,
     ) -> Result<(QResult, u32, StationUrl), ErrorCode>;
+    #[cfg(feature = "nx")]
+    #[method_id(5)]
+    async fn test_connectivity(&self) -> Result<(), ErrorCode>;
     #[method_id(7)]
     async fn replace_url(&self, target: StationUrl, dest: StationUrl) -> Result<(), ErrorCode>;
     #[method_id(8)]

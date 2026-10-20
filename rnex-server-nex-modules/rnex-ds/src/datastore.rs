@@ -23,6 +23,13 @@ use sqlx::query;
 use std::convert;
 use tracing::{error, info, instrument, warn};
 
+#[cfg(feature = "splatoon2")]
+#[derive(Debug, Clone)]
+pub struct StoredCoconutPost {
+    meta: rnex_ds_protos::datastore::CoconutMeta,
+    url: String,
+}
+
 // todo: refactor this further to make some of the helper functions attached to the user and some to
 // the manager and also move the usages of pid into the helper functions attached to user
 
@@ -466,13 +473,14 @@ impl DatastoreUser {
 
     #[instrument]
     async fn get_user_course_object_ids(&self, owner_pid: PID) -> Result<Vec<i64>, ErrorCode> {
+        let database_pid = i32::try_from(owner_pid).map_err(|_| ErrorCode::Core_InvalidArgument)?;
         let rows = sqlx::query!(
             r#"
                 SELECT data_id
                 FROM datastore.objects
                 WHERE owner = $1 AND data_type > 2 AND data_type < 50
                 "#,
-            owner_pid
+            database_pid
         )
         .fetch_all(&self.dm.db_pool)
         .await
@@ -794,6 +802,232 @@ impl DatastoreUser {
     }
 }
 impl DataStore for DatastoreUser {
+    #[cfg(feature = "splatoon2")]
+    async fn coconut_register_meta(
+        &self,
+        meta: rnex_ds_protos::datastore::CoconutMeta,
+        url: String,
+    ) -> Result<(), ErrorCode> {
+        let mut posts = self
+            .dm
+            .posts
+            .lock()
+            .map_err(|_| ErrorCode::Core_Exception)?;
+        posts.retain(|post| post.meta.data_id != meta.data_id);
+        posts.insert(0, StoredCoconutPost { meta, url });
+        posts.truncate(30);
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn coconut_rate_post(&self, _data_id: u64) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn coconut_get_object_infos(
+        &self,
+        param: rnex_ds_protos::datastore::CoconutGetParam,
+    ) -> Result<(Vec<rnex_ds_protos::datastore::CoconutGetInfo>, Vec<QResult>), ErrorCode> {
+        let posts = self
+            .dm
+            .posts
+            .lock()
+            .map_err(|_| ErrorCode::Core_Exception)?;
+        let infos: Vec<_> = posts
+            .iter()
+            .filter(|post| {
+                !post.url.is_empty()
+                    && post.meta.region == param.region
+                    && (param.festival_id == u32::MAX || post.meta.festival_id == param.festival_id)
+            })
+            .map(|post| rnex_ds_protos::datastore::CoconutGetInfo {
+                info: DataStoreReqGetInfo {
+                    dataid: post.meta.data_id as i64,
+                    url: post.url.clone(),
+                    request_headers: Vec::new(),
+                    size: post.meta.binary_data.0.len() as u32,
+                    root_ca_cert: vec![0; 4],
+                },
+                meta: post.meta.clone(),
+            })
+            .collect();
+        let results = infos
+            .iter()
+            .map(|_| QResult::success(ErrorCode::Core_Unknown))
+            .collect();
+        Ok((infos, results))
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn coconut_report_violation(
+        &self,
+        _violation: rnex_ds_protos::datastore::CoconutViolation,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn get_ordered_gear(&self) -> Result<rnex_ds_protos::datastore::OrderedInfo, ErrorCode> {
+        Ok(rnex_ds_protos::datastore::OrderedInfo {
+            gear_kind: 0,
+            gear_id: 1000,
+            skill_id: 0,
+            price: 1000,
+        })
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn purchase_gear(
+        &self,
+        _info: rnex_ds_protos::datastore::OrderedInfo,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn coconut_register_meta_by_param(
+        &self,
+        meta: rnex_ds_protos::datastore::CoconutMeta,
+        _sns_name: String,
+        post_id: String,
+    ) -> Result<(), ErrorCode> {
+        let base = std::env::var("RNEX_SPLATOON2_POST_BASE_URL").unwrap_or_default();
+        let url = if base.is_empty() {
+            String::new()
+        } else {
+            format!("{}/{}", base.trim_end_matches('/'), post_id)
+        };
+        self.coconut_register_meta(meta, url).await
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_regular_match_result(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_gachi_match_result(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_league_match_result(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_fes_match_result(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_time_attack(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_fes_match_result_v2(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_x_match_result(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_regular_match_result_v2(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_gachi_match_result_v2(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_league_match_result_v2(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_fes_match_result_v3(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_x_match_result_v2(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn prepare_post_play_log(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<ReqPostInfo, ErrorCode> {
+        Err(ErrorCode::Core_Exception)
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn prepare_get_play_log(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<DataStoreReqGetInfo, ErrorCode> {
+        Err(ErrorCode::Core_Exception)
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_fes_match_result_v4(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    #[cfg(feature = "splatoon2")]
+    async fn upload_coop_result(
+        &self,
+        _payload: rnex_ds_protos::datastore::Splatoon2Payload,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
     async fn get_meta(&self, metaparam: GetMetaParam) -> Result<GetMetaInfo, ErrorCode> {
         let mut meta_info = if metaparam.dataid != 0 {
             self.get_object_info_by_data_id(metaparam.dataid, metaparam.access_password)
@@ -942,6 +1176,7 @@ impl DataStore for DatastoreUser {
         Ok(())
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn rate_custom_ranking(
         &self,
         rankingparam: Vec<RateCustomRankingParam>,
@@ -981,6 +1216,7 @@ impl DataStore for DatastoreUser {
         Ok(())
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn get_application_config(&self, appid: u32) -> Result<Vec<i32>, ErrorCode> {
         const MAX_COURSE_UPLOADS: i32 = 100;
 
@@ -1055,6 +1291,7 @@ impl DataStore for DatastoreUser {
         Ok(config)
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn get_custom_ranking_by_data_id(
         &self,
         custom_ranking_param: DataStoreGetCustomRankingByDataIDParam,
@@ -1095,6 +1332,7 @@ impl DataStore for DatastoreUser {
         Ok((ranking_results, q_results))
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn get_buffer_queue(
         &self,
         bufferparam: BufferQueueParam,
@@ -1144,6 +1382,7 @@ impl DataStore for DatastoreUser {
         })
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn followings_latest_course_search_object(
         &self,
         course_search_param: DataStoreSearchParam,
@@ -1187,6 +1426,7 @@ impl DataStore for DatastoreUser {
         Ok(all_results)
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn get_application_config_string(
         &self,
         application_id: u32,
@@ -1256,6 +1496,7 @@ impl DataStore for DatastoreUser {
         Ok((metas, results))
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn prepare_attach_file(&self, param: AttachFileParam) -> Result<ReqPostInfo, ErrorCode> {
         let recipient_ids: Vec<i32> = param
             .post_param
@@ -1352,6 +1593,7 @@ impl DataStore for DatastoreUser {
         })
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn complete_attach_file(
         &self,
         complete_attach_param: CompletePostParam,
@@ -1484,6 +1726,7 @@ impl DataStore for DatastoreUser {
         Ok(())
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn recommended_course_search_object(
         &self,
         _course_search_param: DataStoreSearchParam,
@@ -1602,6 +1845,7 @@ impl DataStore for DatastoreUser {
         Ok(courses)
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn upload_course_record(
         &self,
         upload_course_record_param: DataStoreUploadCourseRecordParam,
@@ -1649,6 +1893,7 @@ impl DataStore for DatastoreUser {
         Ok(())
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn get_course_record(
         &self,
         get_course_record_param: DataStoreGetCourseRecordParam,
@@ -1684,6 +1929,7 @@ impl DataStore for DatastoreUser {
         })
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn add_to_buffer_queues(
         &self,
         bufferparam: Vec<BufferQueueParam>,
@@ -1736,6 +1982,7 @@ impl DataStore for DatastoreUser {
         Ok(list)
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn check_rate_custom_ranking_counter(
         &self,
         application_id: u32,
@@ -1747,6 +1994,7 @@ impl DataStore for DatastoreUser {
         }
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn report_course(
         &self,
         report_course_param: DataStoreReportCourseParam,
@@ -1830,6 +2078,7 @@ impl DataStore for DatastoreUser {
         Ok(())
     }
 
+    #[cfg(not(feature = "splatoon2"))]
     async fn get_custom_ranking(
         &self,
         param: DataStoreGetCustomRankingParam,
@@ -1906,6 +2155,7 @@ impl DataStore for DatastoreUser {
     }
 
     // todo: respect the search parameters and extra data
+    #[cfg(not(feature = "splatoon2"))]
     async fn ctr_pickup_course_search_object(
         &self,
         _course_search_param: DataStoreSearchParam,

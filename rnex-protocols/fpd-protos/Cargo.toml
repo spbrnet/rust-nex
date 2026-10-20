@@ -9,10 +9,10 @@ rnex-rmc = { path = "../../rnex-rmc" }
 tracing = "0.1.44"
 
 [features]
-splatoon = ["v3-5-0"]
+splatoon1 = ["v3-5-0"]
 datastore = ["database-support", "v3-8-15"]
 database-support = []
-nx = []
+nx = ["rnex-rmc/nx"]
 third-notif-param = []
 friends = []
 v3-3-2 = []

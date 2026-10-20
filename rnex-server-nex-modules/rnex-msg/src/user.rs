@@ -18,7 +18,14 @@ pub struct MessagingUser {
 impl MessageDelivery for MessagingUser {
     async fn deliver_message(&self, mut message: Any<UserMessage>) -> Result<(), ErrorCode> {
         let mut msg = message.get()?;
-        msg.pid_sender = u32::try_from(self.pid).map_err(|_| ErrorCode::Core_InvalidArgument)?;
+        #[cfg(feature = "nx")]
+        {
+            msg.pid_sender = self.pid;
+        }
+        #[cfg(not(feature = "nx"))]
+        {
+            msg.pid_sender = u32::try_from(self.pid).map_err(|_| ErrorCode::Core_InvalidArgument)?;
+        }
 
         let _users = match msg.recipient_type {
             1 => {

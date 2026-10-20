@@ -8,6 +8,80 @@ use rnex_rmc::{
     util::{PID, date_time::DateTime},
 };
 
+#[cfg(feature = "splatoon2")]
+#[derive(Clone, Debug)]
+pub struct Splatoon2Payload(pub Vec<u8>);
+
+#[cfg(feature = "splatoon2")]
+impl rnex_rmc::serialization::RmcSerialize for Splatoon2Payload {
+    fn serialize(
+        &self,
+        writer: &mut (impl std::io::Write + ?Sized),
+    ) -> rnex_rmc::serialization::Result<()> {
+        writer.write_all(&self.0)?;
+        Ok(())
+    }
+
+    fn deserialize(
+        reader: &mut (impl std::io::Read + ?Sized),
+    ) -> rnex_rmc::serialization::Result<Self> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes)?;
+        Ok(Self(bytes))
+    }
+}
+
+#[cfg(feature = "splatoon2")]
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct CoconutViolation {
+    pub data_id: u64,
+    pub category_code: String,
+    pub reason: String,
+}
+
+#[cfg(feature = "splatoon2")]
+#[derive(RmcSerialize, Clone, Debug)]
+#[rmc_struct(0)]
+pub struct CoconutMeta {
+    pub data_id: u64,
+    pub tweet_id: u64,
+    pub region: u8,
+    pub post_type: u8,
+    pub theme_id: u8,
+    pub festival_id: u32,
+    pub language: String,
+    pub binary_data: QBuffer,
+}
+
+#[cfg(feature = "splatoon2")]
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct CoconutGetInfo {
+    pub info: DataStoreReqGetInfo,
+    pub meta: CoconutMeta,
+}
+
+#[cfg(feature = "splatoon2")]
+#[derive(RmcSerialize, Clone)]
+#[rmc_struct(0)]
+pub struct CoconutGetParam {
+    pub unique_ids: Vec<u64>,
+    pub get_type: u8,
+    pub region: u8,
+    pub festival_id: u32,
+}
+
+#[cfg(feature = "splatoon2")]
+#[derive(RmcSerialize, Clone, Debug)]
+#[rmc_struct(0)]
+pub struct OrderedInfo {
+    pub gear_kind: i32,
+    pub gear_id: i32,
+    pub skill_id: i32,
+    pub price: i32,
+}
+
 #[derive(RmcSerialize, Clone, Debug, Default)]
 #[rmc_struct(0)]
 pub struct PersistenceTarget {
@@ -339,6 +413,99 @@ pub struct DataStoreGetCustomRankingParam {
 
 #[rmc_proto(115)]
 pub trait DataStore {
+    #[method_id(47)]
+    #[cfg(feature = "splatoon2")]
+    async fn coconut_register_meta(&self, meta: CoconutMeta, url: String) -> Result<(), ErrorCode>;
+    #[method_id(48)]
+    #[cfg(feature = "splatoon2")]
+    async fn coconut_rate_post(&self, data_id: u64) -> Result<(), ErrorCode>;
+    #[method_id(49)]
+    #[cfg(feature = "splatoon2")]
+    async fn coconut_get_object_infos(
+        &self,
+        param: CoconutGetParam,
+    ) -> Result<(Vec<CoconutGetInfo>, Vec<QResult>), ErrorCode>;
+    #[method_id(50)]
+    #[cfg(feature = "splatoon2")]
+    async fn coconut_report_violation(&self, violation: CoconutViolation) -> Result<(), ErrorCode>;
+    #[method_id(55)]
+    #[cfg(feature = "splatoon2")]
+    async fn get_ordered_gear(&self) -> Result<OrderedInfo, ErrorCode>;
+    #[method_id(56)]
+    #[cfg(feature = "splatoon2")]
+    async fn purchase_gear(&self, info: OrderedInfo) -> Result<(), ErrorCode>;
+    #[method_id(58)]
+    #[cfg(feature = "splatoon2")]
+    async fn coconut_register_meta_by_param(
+        &self,
+        meta: CoconutMeta,
+        sns_name: String,
+        post_id: String,
+    ) -> Result<(), ErrorCode>;
+    #[method_id(51)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_regular_match_result(&self, payload: Splatoon2Payload)
+    -> Result<(), ErrorCode>;
+    #[method_id(52)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_gachi_match_result(&self, payload: Splatoon2Payload) -> Result<(), ErrorCode>;
+    #[method_id(53)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_league_match_result(&self, payload: Splatoon2Payload) -> Result<(), ErrorCode>;
+    #[method_id(54)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_fes_match_result(&self, payload: Splatoon2Payload) -> Result<(), ErrorCode>;
+    #[method_id(57)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_time_attack(&self, payload: Splatoon2Payload) -> Result<(), ErrorCode>;
+    #[method_id(59)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_fes_match_result_v2(&self, payload: Splatoon2Payload) -> Result<(), ErrorCode>;
+    #[method_id(60)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_x_match_result(&self, payload: Splatoon2Payload) -> Result<(), ErrorCode>;
+    #[method_id(61)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_regular_match_result_v2(
+        &self,
+        payload: Splatoon2Payload,
+    ) -> Result<(), ErrorCode>;
+    #[method_id(62)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_gachi_match_result_v2(
+        &self,
+        payload: Splatoon2Payload,
+    ) -> Result<(), ErrorCode>;
+    #[method_id(63)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_league_match_result_v2(
+        &self,
+        payload: Splatoon2Payload,
+    ) -> Result<(), ErrorCode>;
+    #[method_id(64)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_fes_match_result_v3(&self, payload: Splatoon2Payload) -> Result<(), ErrorCode>;
+    #[method_id(65)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_x_match_result_v2(&self, payload: Splatoon2Payload) -> Result<(), ErrorCode>;
+    #[method_id(66)]
+    #[cfg(feature = "splatoon2")]
+    async fn prepare_post_play_log(
+        &self,
+        payload: Splatoon2Payload,
+    ) -> Result<ReqPostInfo, ErrorCode>;
+    #[method_id(67)]
+    #[cfg(feature = "splatoon2")]
+    async fn prepare_get_play_log(
+        &self,
+        payload: Splatoon2Payload,
+    ) -> Result<DataStoreReqGetInfo, ErrorCode>;
+    #[method_id(68)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_fes_match_result_v4(&self, payload: Splatoon2Payload) -> Result<(), ErrorCode>;
+    #[method_id(69)]
+    #[cfg(feature = "splatoon2")]
+    async fn upload_coop_result(&self, payload: Splatoon2Payload) -> Result<(), ErrorCode>;
     #[method_id(4)]
     async fn delete_object(&self, param: DataStoreDeleteParam) -> Result<(), ErrorCode>;
     #[method_id(8)]
@@ -362,46 +529,55 @@ pub trait DataStore {
         params: Vec<GetMetaParam>,
     ) -> Result<(Vec<GetMetaInfo>, Vec<QResult>), ErrorCode>;
     #[method_id(48)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn rate_custom_ranking(
         &self,
         rankingparam: Vec<RateCustomRankingParam>,
     ) -> Result<(), ErrorCode>;
     #[method_id(61)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn get_application_config(&self, appid: u32) -> Result<Vec<i32>, ErrorCode>;
     #[method_id(49)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn get_custom_ranking(
         &self,
         param: DataStoreGetCustomRankingParam,
     ) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode>;
     #[method_id(50)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn get_custom_ranking_by_data_id(
         &self,
         custom_ranking_param: DataStoreGetCustomRankingByDataIDParam,
     ) -> Result<(Vec<DataStoreCustomRankingResult>, Vec<QResult>), ErrorCode>;
     #[method_id(53)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn add_to_buffer_queues(
         &self,
         bufferparam: Vec<BufferQueueParam>,
         buffers: Vec<QBuffer>,
     ) -> Result<Vec<QResult>, ErrorCode>;
     #[method_id(54)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn get_buffer_queue(
         &self,
         bufferparam: BufferQueueParam,
     ) -> Result<Vec<QBuffer>, ErrorCode>;
     #[method_id(65)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn followings_latest_course_search_object(
         &self,
         course_search_param: DataStoreSearchParam,
         extra_data: Vec<String>,
     ) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode>;
     #[method_id(66)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn recommended_course_search_object(
         &self,
         course_search_param: DataStoreSearchParam,
         extra_data: Vec<String>,
     ) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode>;
     #[method_id(74)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn get_application_config_string(
         &self,
         application_id: u32,
@@ -422,37 +598,44 @@ pub trait DataStore {
         dataids: Vec<i64>,
     ) -> Result<Vec<DataStoreFileServerObjectInfo>, ErrorCode>;
     #[method_id(57)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn complete_attach_file(
         &self,
         complete_attach_param: CompletePostParam,
     ) -> Result<String, ErrorCode>;
     #[method_id(59)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn prepare_attach_file(
         &self,
         attach_file_param: AttachFileParam,
     ) -> Result<ReqPostInfo, ErrorCode>;
     #[method_id(71)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn upload_course_record(
         &self,
         upload_course_record_param: DataStoreUploadCourseRecordParam,
     ) -> Result<(), ErrorCode>;
     #[method_id(72)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn get_course_record(
         &self,
         get_course_record_param: DataStoreGetCourseRecordParam,
     ) -> Result<DataStoreGetCourseRecordResult, ErrorCode>;
     #[method_id(79)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn check_rate_custom_ranking_counter(
         &self,
         application_id: u32,
     ) -> Result<bool, ErrorCode>;
     #[method_id(82)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn ctr_pickup_course_search_object(
         &self,
         course_search_param: DataStoreSearchParam,
         extra_data: Vec<String>,
     ) -> Result<Vec<DataStoreCustomRankingResult>, ErrorCode>;
     #[method_id(87)]
+    #[cfg(not(feature = "splatoon2"))]
     async fn report_course(
         &self,
         report_course_param: DataStoreReportCourseParam,

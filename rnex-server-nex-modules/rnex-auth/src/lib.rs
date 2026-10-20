@@ -1,6 +1,8 @@
 #[allow(async_fn_in_trait)]
 pub mod auth_handler;
 
+#[cfg(feature = "prudplite")]
+use rnex_prudp::lite::derive_key;
 use rnex_rmc::util::account::Account;
 use rnex_server::{ConnectionInitData, RnexManager, RnexModule, WeakPassthroughInitModule};
 use tracing::info;
@@ -61,12 +63,24 @@ impl RnexModule for AuthModule {
         _: &rnex_server::ModuleHolder,
     ) -> Result<Self::Manager, Self::InitError> {
         Ok(AuthManager {
-            build_name: option_env!("AUTH_REPORT_VERSION").unwrap_or("no version specified"),
-            destination_server_acct: Account::from_password_env(
-                2,
-                "Quazal Rendez-Vous",
-                "RNEX_SERVER_PASSWORD",
-            )?,
+            build_name: option_env!("AUTH_REPORT_VERSION").unwrap_or(
+                if cfg!(feature = "prudplite") {
+                    "RNEX-Mystiko"
+                } else {
+                    "no version specified"
+                },
+            ),
+            destination_server_acct: {
+                #[cfg(feature = "prudplite")]
+                {
+                    let password = std::env::var("RNEX_SERVER_PASSWORD")?;
+                    Account::new_raw_key(2, "Quazal Rendez-Vous", derive_key(&password, 2))
+                }
+                #[cfg(not(feature = "prudplite"))]
+                {
+                    Account::from_password_env(2, "Quazal Rendez-Vous", "RNEX_SERVER_PASSWORD")?
+                }
+            },
         })
     }
 }
