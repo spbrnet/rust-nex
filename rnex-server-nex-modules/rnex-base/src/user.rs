@@ -4,6 +4,7 @@ use rnex_base_protos::{LocalBaseProtocol, secure::Secure, util::Utility};
 use rnex_rmc::{any::Any, qbuffer::QBuffer, qresult::QResult, response::ErrorCode, rmc_struct};
 use rnex_util::{
     PID,
+    diagnostics,
     station_url::{StationUrl, UrlOptions, nat_types::PUBLIC},
 };
 use tokio::sync::RwLock;
@@ -125,11 +126,13 @@ impl Secure for BaseUser {
     ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
         let cid = self.cid;
         info!("station URLs in register: {:?}", station_urls);
+        diagnostics::record("station_register_in", format_args!("pid={} cid={} address={} urls={station_urls:?}", self.pid, self.cid, self.addr));
 
         /*
          */
 
         let stations = get_station_urls(&station_urls, self.addr, self.pid, cid).await?;
+        diagnostics::record("station_register_out", format_args!("pid={} cid={cid} urls={stations:?}", self.pid));
 
         let first = stations.first().unwrap().clone();
 

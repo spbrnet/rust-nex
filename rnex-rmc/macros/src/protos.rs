@@ -154,6 +154,7 @@ impl RmcProtocolData {
         } = self;
         let generate_raw_method = |method: &ProtoMethodData| -> TokenStream {
             let ProtoMethodData {
+                id: method_id,
                 name,
                 parameters,
                 attributes,
@@ -163,6 +164,7 @@ impl RmcProtocolData {
             let attribs = fold_tokenable(attributes.iter());
 
             let raw_name = Ident::new(&format!("raw_{}", name), name.span());
+            let protocol_id = id;
 
             let optional_return = if self.has_returns {
                 quote! {
@@ -204,6 +206,15 @@ impl RmcProtocolData {
                                 #return_from_deser_error
                             }
                         };
+                        if ::rnex_rmc::util::diagnostics::enabled() {
+                            let mut diagnostic_bytes = Vec::new();
+                            let _ = ::rnex_rmc::serialization::RmcSerialize::serialize(&#param_name, &mut diagnostic_bytes);
+                            ::rnex_rmc::util::diagnostics::record_bytes(
+                                "rmc_decoded_argument",
+                                format_args!("connection={connection_id} protocol={} method={} parameter={} type={}", #protocol_id, #method_id, #param_label, ::std::any::type_name::<#param_type>()),
+                                &diagnostic_bytes,
+                            );
+                        }
                     }
                 }));
 
@@ -220,6 +231,11 @@ impl RmcProtocolData {
                     let retval = retval?;
                     let mut vec = Vec::new();
                     ::rnex_rmc::serialization::RmcSerialize::serialize(&retval, &mut vec).ok();
+                    ::rnex_rmc::util::diagnostics::record_bytes(
+                        "rmc_decoded_result",
+                        format_args!("connection={connection_id} protocol={} method={} type={}", #protocol_id, #method_id, ::std::any::type_name_of_val(&retval)),
+                        &vec,
+                    );
                     Ok(vec)
                 }
             } else {
@@ -230,7 +246,7 @@ impl RmcProtocolData {
                 #[inline(always)]
                 #attribs
                 #[::rnex_rmc::tracing::instrument(skip_all)]
-                async fn #raw_name (&self, data: &[u8]) #optional_return{
+                async fn #raw_name (&self, data: &[u8], connection_id: u64) #optional_return{
                     let mut cursor = ::std::io::Cursor::new(data);
                     #deser_params
                     let retval = self.#name(#call_params).await;
@@ -254,7 +270,7 @@ impl RmcProtocolData {
 
                 quote! {
                     #attribs
-                    #id => self.#raw_name(data).await,
+                    #id => self.#raw_name(data, remote_response_connection.diagnostic_id()).await,
                 }
             }));
 

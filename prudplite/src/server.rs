@@ -11,6 +11,7 @@ use proxy_common::RNEX_ACCESS_KEY;
 use rnex_server::ConnectionInitData;
 use rnex_server::rmc::serialization::RmcSerialize;
 use rnex_util::{UnitPacketRead, UnitPacketWrite};
+use rnex_util::diagnostics;
 use sha1::{Digest, Sha1};
 use subtle::ConstantTimeEq;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -84,6 +85,7 @@ pub async fn start() -> io::Result<()> {
     let acceptor = TlsAcceptor::from(Arc::new(tls));
     let listener = TcpListener::bind(bind).await?;
     info!(address = %bind, "PRUDP Lite listening");
+    diagnostics::record("lite_listening", format_args!("address={bind}"));
     loop {
         let (stream, peer) = match listener.accept().await {
             Ok(pair) => pair,
@@ -105,6 +107,7 @@ pub async fn start() -> io::Result<()> {
             .await;
             if let Err(err) = result {
                 debug!(%peer, %err, "PRUDP Lite connection closed");
+                diagnostics::record("lite_closed", format_args!("peer={peer} error={err:?}"));
             }
         });
     }
@@ -322,6 +325,7 @@ impl SessionEntry {
         }
         .to_data()
         .map_err(io::Error::other)?;
+        diagnostics::record_bytes("backend_metadata_out", format_args!("peer={peer} port={}", key.destination_port), &metadata);
         stream.send_buffer(&metadata).await?;
         let (mut reader, writer) = stream.into_split();
         self.backend = Some(writer);
@@ -420,6 +424,7 @@ impl Session {
         reliable: bool,
     ) -> io::Result<()> {
         let encoded = packet.encode().map_err(io::Error::other)?;
+        diagnostics::record_bytes("lite_packet_out", format_args!("peer={} packet={packet:?} reliable={reliable}", self.peer), &encoded);
         if reliable && self.pending.len() >= 512 {
             return Err(io::Error::new(
                 io::ErrorKind::OutOfMemory,
@@ -629,6 +634,7 @@ async fn run_connection(
     let client = timeout(Duration::from_secs(5), upgrade(&mut socket, peer))
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "WebSocket handshake timed out"))??;
+    diagnostics::record("lite_connected", format_args!("peer={peer} client={client}"));
     let (mut reader, mut writer) = tokio::io::split(socket);
     let mut sessions: HashMap<SessionKey, SessionEntry> = HashMap::new();
     let (responses, mut incoming) = mpsc::channel(64);
@@ -649,6 +655,7 @@ async fn run_connection(
             }
             frame = read_frame(&mut reader) => {
                 let (opcode, fin, data) = frame?;
+                diagnostics::record_bytes("websocket_in", format_args!("peer={client} opcode={opcode} fin={fin}"), &data);
                 last_seen = Instant::now();
                 match opcode {
                     8 => {
@@ -682,6 +689,7 @@ async fn run_connection(
                 let (packets, consumed) = decode_packets(&bytes).map_err(io::Error::other)?;
                 bytes.drain(..consumed);
                 for packet in packets {
+                    diagnostics::record("lite_packet_in", format_args!("peer={client} packet={packet:?}"));
                     let key = SessionKey::from(&packet);
                     let destination = match key.destination_port {
                         1 => backends.auth,
@@ -709,6 +717,7 @@ async fn run_connection(
                     let outcome = entry.session.handle(packet, &mut writer).await?;
                     match outcome {
                         HandleOutcome::Request(request) => {
+                            diagnostics::record_bytes("backend_rmc_out", format_args!("peer={client} port={}", key.destination_port), &request);
                             if let Some(backend) = entry.backend.as_mut() {
                                 info!(
                                     peer = %client,
@@ -755,6 +764,7 @@ async fn run_connection(
                 };
                 match response {
                     Ok(data) => {
+                        diagnostics::record_bytes("backend_rmc_in", format_args!("peer={client} port={}", key.destination_port), &data);
                         if is_nat_initiate_probe(&data) {
                             info!(peer = %client, port = key.destination_port, response_bytes = data.len(), "PRUDP Lite received NAT InitiateProbe from backend");
                         }
@@ -767,6 +777,7 @@ async fn run_connection(
                         entry.session.queue_data(&data)?;
                     }
                     Err(err) => {
+                        diagnostics::record("backend_closed", format_args!("peer={client} port={} error={err:?}", key.destination_port));
                         debug!(%client, %err, port = key.destination_port, "Lite backend closed");
                         entry.backend = None;
                         entry.backend_closed = true;
@@ -799,6 +810,7 @@ async fn run_connection(
             _ = retransmit.tick() => {
                 for entry in sessions.values() {
                     for data in entry.session.pending.values() {
+                        diagnostics::record_bytes("lite_packet_retransmit", format_args!("peer={client}"), data);
                         write_frame(&mut writer, 2, data).await?;
                     }
                 }

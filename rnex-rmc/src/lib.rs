@@ -107,6 +107,11 @@ impl RmcConnection {
             "RMC outgoing request"
         );
         let message_data = message.to_data();
+        rnex_util::diagnostics::record_bytes(
+            "rmc_outgoing_request",
+            format_args!("connection={} protocol={} method={} call={}", self.0.diagnostic_id(), message.protocol_id, message.method_id, message.call_id),
+            &message_data,
+        );
 
         self.0.send(message_data).await.ok_or(ConnectionBroke)?;
 
@@ -353,6 +358,7 @@ async fn handle_incoming<T: RmcCallable + Send + Sync + Debug + 'static>(
     incoming: Arc<Mutex<HashMap<u32, RMCResponse>>>,
     data: Vec<u8>,
 ) {
+    rnex_util::diagnostics::record_bytes("rmc_incoming", format_args!("connection={}", sending_conn.diagnostic_id()), &data);
     let Some(proto_id) = data.get(4) else {
         error!("received too small rmc message.");
         error!("ending rmc gateway.");

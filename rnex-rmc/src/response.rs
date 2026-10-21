@@ -149,6 +149,12 @@ pub async fn send_result(
     method_id: u32,
     call_id: u32,
 ) {
+    if let Err(error) = &result {
+        rnex_util::diagnostics::record(
+            "rmc_decoded_error",
+            format_args!("connection={} protocol={protocol_id} method={method_id} call={call_id} error={error:?}", connection.diagnostic_id()),
+        );
+    }
     match &result {
         Ok(data) => info!(
             protocol_id,
@@ -189,7 +195,9 @@ pub async fn send_result(
 }
 
 pub async fn send_response(connection: &SendingBufferConnection, rmcresponse: RMCResponse) {
-    connection.send(rmcresponse.to_data()).await;
+    let data = rmcresponse.to_data();
+    rnex_util::diagnostics::record_bytes("rmc_outgoing_response", format_args!("connection={}", connection.diagnostic_id()), &data);
+    connection.send(data).await;
 }
 
 //taken from kinnays error list directly

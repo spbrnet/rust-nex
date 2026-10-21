@@ -334,7 +334,16 @@ macro_rules! launch_rnex_module_server {
                             return;
                         };
 
+                        $crate::util::diagnostics::record(
+                            "backend_connected",
+                            format_args!("proxy_peer={peer} client_address={} pid={}", conn_data.addr, conn_data.pid),
+                        );
+
                         let stream = <$crate::util::SplittableBufferConnection as From<_>>::from(stream);
+                        $crate::util::diagnostics::record(
+                            "backend_connection_id",
+                            format_args!("connection={} client_address={} pid={}", stream.diagnostic_id(), conn_data.addr, conn_data.pid),
+                        );
                         $crate::connection_registry()
                             .register(conn_data.pid, stream.duplicate_sender())
                             .await;

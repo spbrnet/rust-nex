@@ -3,6 +3,7 @@ pub use tracing;
 pub mod account;
 pub mod byte;
 pub mod date_time;
+pub mod diagnostics;
 pub mod http;
 #[cfg(feature = "nx")]
 pub mod mystiko;
@@ -12,6 +13,7 @@ pub mod station_url;
 
 use std::ops::Deref;
 use std::sync::{Arc, Weak};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::vec;
 use tokio::io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc::{Receiver, Sender, channel};
@@ -80,7 +82,9 @@ pub trait UnitPacketWrite: AsyncWrite + Unpin {
 impl<T: AsyncWrite + Unpin + ?Sized> UnitPacketWrite for T {}
 
 #[derive(Clone, Debug)]
-pub struct SendingBufferConnection(Sender<Vec<u8>>, watch::Sender<bool>);
+pub struct SendingBufferConnection(Sender<Vec<u8>>, watch::Sender<bool>, u64);
+
+static NEXT_DIAGNOSTIC_CONNECTION: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug)]
 pub struct SplittableBufferConnection(SendingBufferConnection, Receiver<Vec<u8>>);
@@ -184,11 +188,22 @@ impl SplittableBufferConnection {
             });
         }
 
-        Self(SendingBufferConnection(outside_send, notify), outside_recv)
+        Self(
+            SendingBufferConnection(
+                outside_send,
+                notify,
+                NEXT_DIAGNOSTIC_CONNECTION.fetch_add(1, Ordering::Relaxed),
+            ),
+            outside_recv,
+        )
     }
 }
 
 impl SendingBufferConnection {
+    pub fn diagnostic_id(&self) -> u64 {
+        self.2
+    }
+
     pub async fn send(&self, buffer: Vec<u8>) -> Option<()> {
         self.0.send(buffer).await.ok()
     }
