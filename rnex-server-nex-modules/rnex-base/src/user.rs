@@ -3,8 +3,7 @@ use std::net::SocketAddr;
 use rnex_base_protos::{LocalBaseProtocol, secure::Secure, util::Utility};
 use rnex_rmc::{any::Any, qbuffer::QBuffer, qresult::QResult, response::ErrorCode, rmc_struct};
 use rnex_util::{
-    PID,
-    diagnostics,
+    PID, diagnostics,
     station_url::{StationUrl, UrlOptions, nat_types::PUBLIC},
 };
 use tokio::sync::RwLock;
@@ -69,14 +68,34 @@ pub async fn get_station_urls(
                     | UrlOptions::NatFiltering(_)
                     | UrlOptions::NatMapping(_)
                     | UrlOptions::NatType(_)
-            )
+            ) && (!cfg!(feature = "nx") || !matches!(v, UrlOptions::Platform(_)))
         });
 
         public_station.options.push(UrlOptions::Address(addr.ip()));
-        public_station.options.push(UrlOptions::Port(addr.port()));
+        public_station
+            .options
+            .push(UrlOptions::Port(if cfg!(feature = "nx") {
+                20000
+            } else {
+                addr.port()
+            }));
         public_station.options.push(UrlOptions::NatFiltering(0));
         public_station.options.push(UrlOptions::NatMapping(0));
-        public_station.options.push(UrlOptions::NatType(3));
+        public_station
+            .options
+            .push(UrlOptions::NatType(if cfg!(feature = "nx") {
+                11
+            } else {
+                3
+            }));
+        if cfg!(feature = "nx")
+            && !public_station
+                .options
+                .iter()
+                .any(|v| matches!(v, UrlOptions::TransportType(_)))
+        {
+            public_station.options.push(UrlOptions::TransportType(2));
+        }
 
         public_station
     };
@@ -95,7 +114,9 @@ pub async fn get_station_urls(
 
         station.options.push(UrlOptions::PrincipalID(pid));
         station.options.push(UrlOptions::RVConnectionID(cid));
-        station.options.push(UrlOptions::ConnectionID(cid));
+        if !cfg!(feature = "nx") {
+            station.options.push(UrlOptions::ConnectionID(cid));
+        }
     }
 
     Ok(vec![public_station])
@@ -126,15 +147,34 @@ impl Secure for BaseUser {
     ) -> Result<(QResult, u32, StationUrl), ErrorCode> {
         let cid = self.cid;
         info!("station URLs in register: {:?}", station_urls);
-        diagnostics::record("station_register_in", format_args!("pid={} cid={} address={} urls={station_urls:?}", self.pid, self.cid, self.addr));
+        diagnostics::record(
+            "station_register_in",
+            format_args!(
+                "pid={} cid={} address={} urls={station_urls:?}",
+                self.pid, self.cid, self.addr
+            ),
+        );
 
         /*
          */
 
         let stations = get_station_urls(&station_urls, self.addr, self.pid, cid).await?;
-        diagnostics::record("station_register_out", format_args!("pid={} cid={cid} urls={stations:?}", self.pid));
+        diagnostics::record(
+            "station_register_out",
+            format_args!("pid={} cid={cid} urls={stations:?}", self.pid),
+        );
 
-        let first = stations.first().unwrap().clone();
+        let mut first = stations.first().unwrap().clone();
+        if cfg!(feature = "nx") {
+            first.options.retain(|v| {
+                !matches!(
+                    v,
+                    UrlOptions::PrincipalID(_)
+                        | UrlOptions::RVConnectionID(_)
+                        | UrlOptions::ConnectionID(_)
+                )
+            });
+        }
 
         let mut lock = self.station_url.write().await;
 
@@ -142,6 +182,10 @@ impl Secure for BaseUser {
 
         drop(lock);
 
+        diagnostics::record(
+            "station_register_response",
+            format_args!("pid={} cid={} url={first:?}", self.pid, self.cid),
+        );
         Ok((QResult::success(ErrorCode::Core_Unknown), self.cid, first))
     }
 
@@ -157,6 +201,56 @@ impl Secure for BaseUser {
         let mut lock = self.station_url.write().await;
         info!("target URL: {:?}", target_url);
         info!("dest URL: {:?}", dest);
+
+        if cfg!(feature = "nx") {
+            if !dest
+                .options
+                .iter()
+                .any(|option| matches!(option, UrlOptions::PrincipalID(pid) if *pid == self.pid))
+            {
+                return Err(ErrorCode::Core_InvalidArgument);
+            }
+            let port = dest
+                .options
+                .iter()
+                .find_map(|option| match option {
+                    UrlOptions::Port(port) => Some(*port),
+                    _ => None,
+                })
+                .ok_or(ErrorCode::Core_InvalidArgument)?;
+            let mut public = dest.clone();
+            public.options.retain(|option| {
+                !matches!(
+                    option,
+                    UrlOptions::Address(_)
+                        | UrlOptions::Port(_)
+                        | UrlOptions::NatFiltering(_)
+                        | UrlOptions::NatMapping(_)
+                        | UrlOptions::NatType(_)
+                        | UrlOptions::Platform(_)
+                        | UrlOptions::PrincipalID(_)
+                        | UrlOptions::RVConnectionID(_)
+                        | UrlOptions::ConnectionID(_)
+                        | UrlOptions::TransportType(_)
+                )
+            });
+            public.options.extend([
+                UrlOptions::Address(self.addr.ip()),
+                UrlOptions::Port(port),
+                UrlOptions::PrincipalID(self.pid),
+                UrlOptions::RVConnectionID(self.cid),
+                UrlOptions::TransportType(2),
+                UrlOptions::NatFiltering(0),
+                UrlOptions::NatMapping(0),
+                UrlOptions::NatType(11),
+            ]);
+            *lock = vec![dest, public];
+            diagnostics::record(
+                "station_replace_out",
+                format_args!("pid={} cid={} urls={lock:?}", self.pid, self.cid),
+            );
+            return Ok(());
+        }
 
         let Some(target_addr) = target_url
             .options

@@ -9,7 +9,7 @@ use crate::user::BaseUser;
 
 pub mod user;
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct BaseManager {
     cid_counter: AtomicU32,
     #[cfg(feature = "splatoon2")]
@@ -18,6 +18,16 @@ pub struct BaseManager {
             std::collections::HashMap<rnex_util::PID, Vec<rnex_base_protos::util::UniqueIdInfo>>,
         >,
     >,
+}
+
+impl Default for BaseManager {
+    fn default() -> Self {
+        Self {
+            cid_counter: AtomicU32::new(if cfg!(feature = "nx") { 5000 } else { 0 }),
+            #[cfg(feature = "splatoon2")]
+            associated_ids: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, Default)]

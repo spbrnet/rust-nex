@@ -36,8 +36,8 @@ pub enum UrlOptions {
     UPNP(u8),
     RVConnectionID(u32),
     Platform(u8),
+    TransportType(u8),
     PMP(u8),
-    PID(u32),
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -69,14 +69,12 @@ impl StationUrl {
                 "upnp" => options_out.push(UPNP(option_value.parse().ok()?)),
                 "type" => options_out.push(NatType(option_value.parse().ok()?)),
                 "stream" => options_out.push(StreamType(option_value.parse().ok()?)),
-                "RVCID" => options_out.push(RVConnectionID(option_value.parse().ok()?)),
                 "rvcid" => options_out.push(RVConnectionID(option_value.parse().ok()?)),
-                "CID" => options_out.push(ConnectionID(option_value.parse().ok()?)),
                 "cid" => options_out.push(ConnectionID(option_value.parse().ok()?)),
                 "pl" => options_out.push(Platform(option_value.parse().ok()?)),
+                "tpt" => options_out.push(TransportType(option_value.parse().ok()?)),
                 "pmp" => options_out.push(PMP(option_value.parse().ok()?)),
-                "pid" => options_out.push(PID(option_value.parse().ok()?)),
-                "PID" => options_out.push(PID(option_value.parse().ok()?)),
+                "pid" => options_out.push(PrincipalID(option_value.parse().ok()?)),
                 "probeinit" => options_out.push(ProbeInit(option_value.parse().ok()?)),
                 _ => {
                     error!("unimplemented option type, skipping: {}", option_name);
@@ -144,8 +142,8 @@ impl Display for StationUrl {
                 UPNP(v) => write!(f, "upnp={}", v)?,
                 RVConnectionID(v) => write!(f, "RVCID={}", v)?,
                 Platform(v) => write!(f, "pl={}", v)?,
+                TransportType(v) => write!(f, "Tpt={}", v)?,
                 PMP(v) => write!(f, "pmp={}", v)?,
-                PID(v) => write!(f, "PID={}", v)?,
                 ProbeInit(v) => write!(f, "probeinit={}", v)?,
             }
             write!(f, ";")?;
