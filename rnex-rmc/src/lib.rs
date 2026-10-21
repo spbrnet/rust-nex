@@ -109,7 +109,13 @@ impl RmcConnection {
         let message_data = message.to_data();
         rnex_util::diagnostics::record_bytes(
             "rmc_outgoing_request",
-            format_args!("connection={} protocol={} method={} call={}", self.0.diagnostic_id(), message.protocol_id, message.method_id, message.call_id),
+            format_args!(
+                "connection={} protocol={} method={} call={}",
+                self.0.diagnostic_id(),
+                message.protocol_id,
+                message.method_id,
+                message.call_id
+            ),
             &message_data,
         );
 
@@ -358,8 +364,20 @@ async fn handle_incoming<T: RmcCallable + Send + Sync + Debug + 'static>(
     incoming: Arc<Mutex<HashMap<u32, RMCResponse>>>,
     data: Vec<u8>,
 ) {
-    rnex_util::diagnostics::record_bytes("rmc_incoming", format_args!("connection={}", sending_conn.diagnostic_id()), &data);
+    rnex_util::diagnostics::record_bytes(
+        "rmc_incoming",
+        format_args!("connection={}", sending_conn.diagnostic_id()),
+        &data,
+    );
     let Some(proto_id) = data.get(4) else {
+        rnex_util::diagnostics::record(
+            "rmc_parse_error",
+            format_args!(
+                "connection={} error=message_too_short bytes={}",
+                sending_conn.diagnostic_id(),
+                data.len()
+            ),
+        );
         error!("received too small rmc message.");
         error!("ending rmc gateway.");
         sending_conn.disconnect().await;
@@ -374,11 +392,25 @@ async fn handle_incoming<T: RmcCallable + Send + Sync + Debug + 'static>(
 
     if (proto_id & 0x80) == 0 {
         let Some(response) = RMCResponse::new(&mut Cursor::new(data)).display_err_or_some() else {
+            rnex_util::diagnostics::record(
+                "rmc_parse_error",
+                format_args!(
+                    "connection={} error=invalid_response",
+                    sending_conn.diagnostic_id()
+                ),
+            );
             error!("invalid rmc response.");
             error!("ending rmc gateway.");
             sending_conn.disconnect().await;
             return;
         };
+        rnex_util::diagnostics::record(
+            "rmc_decoded_response",
+            format_args!(
+                "connection={} response={response:?}",
+                sending_conn.diagnostic_id()
+            ),
+        );
 
         match &response.response_result {
             RMCResponseResult::Success {
@@ -420,6 +452,13 @@ async fn handle_incoming<T: RmcCallable + Send + Sync + Debug + 'static>(
         notify.notify_waiters();
     } else {
         let Some(message) = RMCMessage::new(&mut Cursor::new(data)).display_err_or_some() else {
+            rnex_util::diagnostics::record(
+                "rmc_parse_error",
+                format_args!(
+                    "connection={} error=invalid_request",
+                    sending_conn.diagnostic_id()
+                ),
+            );
             error!("invalid rmc message.");
             error!("ending rmc gateway.");
             sending_conn.disconnect().await;
@@ -432,6 +471,14 @@ async fn handle_incoming<T: RmcCallable + Send + Sync + Debug + 'static>(
             call_id,
             rest_of_data,
         } = message;
+        rnex_util::diagnostics::record(
+            "rmc_decoded_request",
+            format_args!(
+                "connection={} protocol={protocol_id} method={method_id} call={call_id} payload_bytes={}",
+                sending_conn.diagnostic_id(),
+                rest_of_data.len()
+            ),
+        );
 
         info!(
             protocol_id,

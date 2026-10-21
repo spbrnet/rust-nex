@@ -165,6 +165,7 @@ impl RmcProtocolData {
 
             let raw_name = Ident::new(&format!("raw_{}", name), name.span());
             let protocol_id = id;
+            let trace_struct = matches!(id.base10_parse::<u16>(), Ok(3 | 11 | 21 | 109));
 
             let optional_return = if self.has_returns {
                 quote! {
@@ -188,6 +189,16 @@ impl RmcProtocolData {
                         }
                     };
                     let attribs = fold_tokenable(attribs.iter());
+                    let structured_record = if trace_struct {
+                        quote! {
+                            ::rnex_rmc::util::diagnostics::record(
+                                "rmc_decoded_argument_struct",
+                                format_args!("connection={connection_id} protocol={} method={} parameter={} type={} value={:?}", #protocol_id, #method_id, #param_label, ::std::any::type_name::<#param_type>(), &#param_name),
+                            );
+                        }
+                    } else {
+                        quote! {}
+                    };
                     quote! {
                         #attribs
                         let #param_name = match
@@ -196,6 +207,10 @@ impl RmcProtocolData {
                             ) {
                             Ok(value) => value,
                             Err(error) => {
+                                ::rnex_rmc::util::diagnostics::record(
+                                    "rmc_argument_decode_error",
+                                    format_args!("connection={connection_id} protocol={} method={} parameter={} offset={} request_bytes={} error={error:?}", #protocol_id, #method_id, #param_label, cursor.position(), data.len()),
+                                );
                                 ::rnex_rmc::tracing::error!(
                                     parameter = #param_label,
                                     offset = cursor.position(),
@@ -207,6 +222,7 @@ impl RmcProtocolData {
                             }
                         };
                         if ::rnex_rmc::util::diagnostics::enabled() {
+                            #structured_record
                             let mut diagnostic_bytes = Vec::new();
                             let _ = ::rnex_rmc::serialization::RmcSerialize::serialize(&#param_name, &mut diagnostic_bytes);
                             ::rnex_rmc::util::diagnostics::record_bytes(
@@ -226,9 +242,22 @@ impl RmcProtocolData {
                 }
             }));
 
+            let structured_result = if trace_struct {
+                quote! {
+                    ::rnex_rmc::util::diagnostics::record(
+                        "rmc_decoded_result_struct",
+                        format_args!("connection={connection_id} protocol={} method={} type={} value={retval:?}", #protocol_id, #method_id, ::std::any::type_name_of_val(&retval)),
+                    );
+                }
+            } else {
+                quote! {}
+            };
             let optional_method_return = if *has_returns {
                 quote! {
                     let retval = retval?;
+                    if ::rnex_rmc::util::diagnostics::enabled() {
+                        #structured_result
+                    }
                     let mut vec = Vec::new();
                     ::rnex_rmc::serialization::RmcSerialize::serialize(&retval, &mut vec).ok();
                     ::rnex_rmc::util::diagnostics::record_bytes(

@@ -10,8 +10,8 @@ use base64::engine::general_purpose::STANDARD;
 use proxy_common::RNEX_ACCESS_KEY;
 use rnex_server::ConnectionInitData;
 use rnex_server::rmc::serialization::RmcSerialize;
-use rnex_util::{UnitPacketRead, UnitPacketWrite};
 use rnex_util::diagnostics;
+use rnex_util::{UnitPacketRead, UnitPacketWrite};
 use sha1::{Digest, Sha1};
 use subtle::ConstantTimeEq;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -325,7 +325,11 @@ impl SessionEntry {
         }
         .to_data()
         .map_err(io::Error::other)?;
-        diagnostics::record_bytes("backend_metadata_out", format_args!("peer={peer} port={}", key.destination_port), &metadata);
+        diagnostics::record_bytes(
+            "backend_metadata_out",
+            format_args!("peer={peer} port={}", key.destination_port),
+            &metadata,
+        );
         stream.send_buffer(&metadata).await?;
         let (mut reader, writer) = stream.into_split();
         self.backend = Some(writer);
@@ -424,7 +428,11 @@ impl Session {
         reliable: bool,
     ) -> io::Result<()> {
         let encoded = packet.encode().map_err(io::Error::other)?;
-        diagnostics::record_bytes("lite_packet_out", format_args!("peer={} packet={packet:?} reliable={reliable}", self.peer), &encoded);
+        diagnostics::record_bytes(
+            "lite_packet_out",
+            format_args!("peer={} packet={packet:?} reliable={reliable}", self.peer),
+            &encoded,
+        );
         if reliable && self.pending.len() >= 512 {
             return Err(io::Error::new(
                 io::ErrorKind::OutOfMemory,
@@ -634,7 +642,10 @@ async fn run_connection(
     let client = timeout(Duration::from_secs(5), upgrade(&mut socket, peer))
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "WebSocket handshake timed out"))??;
-    diagnostics::record("lite_connected", format_args!("peer={peer} client={client}"));
+    diagnostics::record(
+        "lite_connected",
+        format_args!("peer={peer} client={client}"),
+    );
     let (mut reader, mut writer) = tokio::io::split(socket);
     let mut sessions: HashMap<SessionKey, SessionEntry> = HashMap::new();
     let (responses, mut incoming) = mpsc::channel(64);
@@ -686,7 +697,13 @@ async fn run_connection(
                 if bytes.len() > MAX_WS_MESSAGE {
                     return Err(io::Error::new(io::ErrorKind::InvalidData, "PRUDP Lite stream too large"));
                 }
-                let (packets, consumed) = decode_packets(&bytes).map_err(io::Error::other)?;
+                let (packets, consumed) = match decode_packets(&bytes) {
+                    Ok(decoded) => decoded,
+                    Err(error) => {
+                        diagnostics::record_bytes("lite_decode_error", format_args!("peer={client} error={error:?}"), &bytes);
+                        return Err(io::Error::other(error));
+                    }
+                };
                 bytes.drain(..consumed);
                 for packet in packets {
                     diagnostics::record("lite_packet_in", format_args!("peer={client} packet={packet:?}"));
@@ -712,9 +729,11 @@ async fn run_connection(
                         }
                     }
                     let Some(entry) = sessions.get_mut(&key) else {
+                        diagnostics::record("lite_session_missing", format_args!("peer={client} port={} source_port={} destination_port={}", key.destination_port, key.source_port, key.destination_port));
                         continue;
                     };
                     let outcome = entry.session.handle(packet, &mut writer).await?;
+                    diagnostics::record("lite_session_state", format_args!("peer={client} port={} pid={:?} syn_seen={} pending={:?} outgoing={} fragments={} backend_connected={} backend_closed={}", key.destination_port, entry.session.pid, entry.session.syn_seen, entry.session.pending.keys().collect::<Vec<_>>(), entry.session.outgoing.len(), entry.session.fragments.len(), entry.backend.is_some(), entry.backend_closed));
                     match outcome {
                         HandleOutcome::Request(request) => {
                             diagnostics::record_bytes("backend_rmc_out", format_args!("peer={client} port={}", key.destination_port), &request);
