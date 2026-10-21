@@ -2093,7 +2093,7 @@ dependencies = [
 name = "prudplite"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "proxy-common",
  "rc4",
  "rnex-prudp",
