@@ -1031,45 +1031,42 @@ impl NatTraversal for MatchmakeUser {
     ) -> Result<(), ErrorCode> {
         info!(caller_pid = self.base.pid, targets = target_list.len(), station = %station_to_probe, "NAT probe requested");
         diagnostics::record("nat_probe_request", format_args!("caller_pid={} targets={target_list:?} station_to_probe={station_to_probe:?}", self.base.pid));
-        for url in target_list {
-            let rvcid = url.options.iter().find_map(|option| match option {
-                UrlOptions::RVConnectionID(value) => Some(*value),
-                _ => None,
-            });
-            let target_pid = url.options.iter().find_map(|option| match option {
-                UrlOptions::PrincipalID(value) => Some(*value),
-                _ => None,
-            });
-            let by_cid = if let Some(cid) = rvcid {
-                self.matchmake_manager
-                    .users
-                    .read()
-                    .await
-                    .get(&cid)
-                    .and_then(|user| user.upgrade())
-            } else {
-                None
-            };
-            let user = if by_cid
-                .as_ref()
-                .is_some_and(|user| target_pid.is_none_or(|pid| user.base.pid == pid))
-            {
-                by_cid
-            } else if let Some(pid) = target_pid {
-                self.matchmake_manager
-                    .users_by_pid
-                    .read()
-                    .await
-                    .get(&pid)
-                    .and_then(|user| user.upgrade())
-            } else {
-                None
-            };
-            let Some(user) = user else {
-                warn!(caller_pid = self.base.pid, ?rvcid, ?target_pid, target = ?url, "NAT probe target is not connected");
-                diagnostics::record("nat_probe_target_missing", format_args!("caller_pid={} rvcid={rvcid:?} target_pid={target_pid:?} target={url:?}", self.base.pid));
-                continue;
-            };
+        let targets = {
+            let users = self.matchmake_manager.users.read().await;
+            let mut targets = Vec::with_capacity(target_list.len());
+
+            for url in &target_list {
+                let rvcid = url.options.iter().find_map(|option| match option {
+                    UrlOptions::RVConnectionID(value) => Some(*value),
+                    _ => None,
+                });
+                let target_pid = url.options.iter().find_map(|option| match option {
+                    UrlOptions::PrincipalID(value) => Some(*value),
+                    _ => None,
+                });
+                let user = rvcid
+                    .and_then(|cid| users.get(&cid))
+                    .and_then(|user| user.upgrade());
+
+                let Some((rvcid, user)) = rvcid.zip(user).filter(|(cid, user)| {
+                    target_pid == Some(user.base.pid)
+                        && url.options.iter().all(|option| match option {
+                            UrlOptions::RVConnectionID(value) => value == cid,
+                            UrlOptions::PrincipalID(value) => *value == user.base.pid,
+                            _ => true,
+                        })
+                }) else {
+                    warn!(caller_pid = self.base.pid, ?rvcid, ?target_pid, "NAT probe target identity mismatch");
+                    return Err(ErrorCode::RendezVous_InvalidPassword);
+                };
+
+                targets.push((rvcid, user));
+            }
+
+            targets
+        };
+
+        for (rvcid, user) in targets {
             let payload = station_to_probe
                 .to_data()
                 .map_err(|_| ErrorCode::Core_InvalidArgument)?;
@@ -1089,15 +1086,15 @@ impl NatTraversal for MatchmakeUser {
                 .make_raw_call_no_response(&request)
                 .await
             {
-                warn!(caller_pid = self.base.pid, target_pid = user.base.pid, ?rvcid, call_id, %error, "NAT InitiateProbe delivery failed");
-                diagnostics::record("nat_probe_delivery_failed", format_args!("caller_pid={} target_pid={} rvcid={rvcid:?} call_id={call_id} error={error:?}", self.base.pid, user.base.pid));
+                warn!(caller_pid = self.base.pid, target_pid = user.base.pid, rvcid, call_id, %error, "NAT InitiateProbe delivery failed");
+                diagnostics::record("nat_probe_delivery_failed", format_args!("caller_pid={} target_pid={} rvcid={rvcid} call_id={call_id} error={error:?}", self.base.pid, user.base.pid));
                 continue;
             }
-            diagnostics::record("nat_probe_delivered", format_args!("caller_pid={} target_pid={} rvcid={rvcid:?} call_id={call_id} station_to_probe={station_to_probe:?}", self.base.pid, user.base.pid));
+            diagnostics::record("nat_probe_delivered", format_args!("caller_pid={} target_pid={} rvcid={rvcid} call_id={call_id} station_to_probe={station_to_probe:?}", self.base.pid, user.base.pid));
             info!(
                 caller_pid = self.base.pid,
                 target_pid = user.base.pid,
-                ?rvcid,
+                rvcid,
                 call_id,
                 "NAT InitiateProbe queued for host"
             );

@@ -10,7 +10,7 @@ use sqlx::{PgPool, Row};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-const REQUIRED_AGREEING_REPORTS: i64 = 5;
+const REQUIRED_AGREEING_REPORTS: i64 = 4;
 
 #[derive(Debug, Clone)]
 pub struct ResultsStore {
